@@ -1,0 +1,268 @@
+# Audio sources, licenses, sound packs and the synthesis approach
+
+## Summary
+
+Two sound paths exist, and the UI always says which one an instrument is using:
+
+1. **Original synthesis (the default).** Every built-in sound is generated at
+   runtime by the original Web Audio code in `src/audio/synth.ts` and mixed by
+   `src/audio/graph.ts`. No game audio is included. These remain **approximations**,
+   labelled as such in the catalog, Settings and docs.
+2. **Optional sound packs from your own game.** You can record notes from your *own*
+   copy of the game, load the WAV/MP3/OGG files in Settings, let the app slice a
+   played scale at onsets and detect each note, correct the mapping, and play those
+   recordings. Packs are stored only in this browser (IndexedDB) and are never
+   uploaded. A recorded note that is played at its recorded pitch is exact; other
+   notes are pitch-shifted approximations.
+
+**Nothing proprietary ships in this repository.** No game files, no ripped audio,
+no hotlinks, no third-party repos and no soundfonts containing Sky audio. The app
+does not download audio at runtime. The only audio data that can exist is what the
+user creates locally from their own copy of the game.
+
+The product owner also builds personal packs from their own installed copy, kept
+outside this repository at `~/sky-game-sounds/`. Those pack files and the tool that
+makes them must never be committed, published or shared. Load them with
+**Settings → Import pack files**, selecting every file at once.
+
+Some instruments have no matching sample family in `SFX_Instrument`, so they stay on
+the synth: Violin, Triumph Violin, Moonlit Lute, Vessel Flute and Tuned Krill Horn.
+Several packs are best guesses by sound family, not name matches; each pack's notes
+field says whether it is a certain or guessed match.
+
+## How to get exact sound (step by step)
+
+Exact game timbre can only come from the game's own recordings. Use your own
+recording of your own game session:
+
+1. **Capture only your own gameplay.** Use OBS, QuickTime, your phone's screen
+   recorder or an audio interface. Do not download other people's recordings, game
+   files, data-mined assets or “Sky soundfonts”, and do not redistribute the result
+   as a sample library. Check thatgamecompany's terms and your platform's rules
+   before sharing anything.
+2. **Make the recording clean.** Reduce in-game music/ambience and other players or
+   go to a quiet area. Mute notifications. Record at 44.1 or 48 kHz; WAV is the
+   safest format (MP3/OGG also work where the browser can decode them).
+3. **Play one scale, one note at a time.** In the game, choose the instrument and
+   play a full scale from its lowest pad upward. Hold each note for roughly one to
+   two seconds and leave about 0.3–0.6 s of silence between notes. Keep the same key
+   and register; do not play chords.
+4. **Open Settings → Instrument sounds & sample packs.** Select the instrument,
+   choose **One recording of a played scale**, and load the file.
+5. **Check the auto-slices.** Adjust the onset threshold and minimum gap if a note
+   was split or merged. The pitch detector fills in each note; correct any octave or
+   semitone error with the −/+ buttons or the MIDI field. Preview each slice.
+6. **Save the pack.** It is written to IndexedDB in this browser only. Nothing is
+   sent anywhere. The catalog badge changes from “synth” to “recorded pack”.
+7. **Back it up.** Use **Export** to download a `.skypack.json` file containing your
+   own recordings, and **Import pack file** to restore it on another browser or
+   machine.
+8. **For exactness at every pad, record every pad.** The engine uses the nearest
+   recorded note and pitch-shifts it with a playback-rate change. A matching note
+   plays at rate 1 (exact); a shifted note is a practical approximation (large
+   shifts change formants and character). The mapping table in the panel shows
+   “exact recording” or the number of shifted semitones per pad.
+9. **Project files do not contain audio.** A `.skymusic.json` or share link only
+   contains notes and settings; a collaborator needs their own pack file.
+
+The app does not record the game for you (no screen capture, no automation, no
+memory reading). It only decodes and slices files you provide.
+
+## Sample pack format
+
+A pack is a local object with an instrument id and a list of samples. Each sample
+stores: original MIDI note (manually correctable), detected note and confidence,
+source offset/duration in the recording, playback gain, native sample rate and
+channel-major PCM. A `.skypack.json` backup stores the same metadata plus 16-bit
+PCM (base64) per channel; import validates the format, version, instrument, sample
+count and sizes. Limits: 128 samples/pack, 12 s/sample, 96 MB/file.
+
+Storage is the separate IndexedDB database `sky-music-studio-sounds` (store
+`packs`). If a browser exposes no IndexedDB at all, packs work for the session in a
+memory store and the UI warns that they will not survive a reload. If IndexedDB is
+present but blocked or full, saving reports an error instead of pretending to save.
+Audio is never written to localStorage, the repository or a server.
+
+## Live playback and export share one path
+
+`createNoteVoice` (`src/audio/synth.ts`) checks the active pack first. If a sample
+matches, `createSampleVoice` (`src/audio/sampleVoice.ts`) schedules an
+`AudioBufferSourceNode` with a playback-rate pitch shift. Otherwise the same
+function schedules the synth profile. The exact same `createNoteVoice` is used by:
+
+- the realtime `AudioContext` in `src/audio/engine.ts`, and
+- the `OfflineAudioContext` in `src/audio/render.ts` for WAV and MP3.
+
+So a project with samples renders those samples into the export; an instrument
+without a pack falls back to the synth in both places. Sound packs must be in the
+bank before scheduling, which `AudioEngine.init()` and `renderProject()` ensure.
+
+## Sound pack privacy and the project rule
+
+- Packs live only in this browser's IndexedDB; there is no upload endpoint.
+- Backup/import is a manual file the user controls.
+- The repository contains no recordings: packs are browser data and never enter the
+  filesystem or the build.
+- User recordings can be personal data or third-party content; the user is
+  responsible for rights, and the UI tells them not to redistribute others'
+  recordings.
+
+## The reworked default synthesis
+
+The owner's complaint was that the instruments did not sound like the game. The
+default synth was reworked around the qualities that read as “Sky”: a soft attack,
+a warm rounded body, a long airy release and a large cave-like reverb. It is
+**still original synthesis, not a recording**, and the app says so everywhere.
+
+Measured targets are checked by `tests/audio-targets.test.ts`; the test writes a
+real 44.1 kHz/16-bit stereo WAV for **every** profile (`all-<profile>.wav`) and a
+measured one for the headline instruments to `test-results/audio-wavs/`
+(gitignored), plus `measurements.json`. The generated test-tone pack phrase is
+`generated-pack-phrase.wav` in the same folder. Current results:
+
+| Instrument | Spectral centroid | Attack (to 50%) | Decay (to −30 dB) |
+|---|---|---|---|
+| Harp | ≈ 856 Hz | ≈ 9 ms | ≈ 3.15 s |
+| Piano | ≈ 927 Hz | ≈ 4 ms | ≈ 4.25 s |
+| Flute | ≈ 2446 Hz | ≈ 46 ms | ≈ 1.48 s (incl. hold + release) |
+| Horn | ≈ 793 Hz | ≈ 46 ms | ≈ 1.25 s (incl. hold + release) |
+| Bell | ≈ 1226 Hz | ≈ 2 ms | ≈ 6.10 s |
+| Handpan | ≈ 610 Hz | ≈ 8 ms | ≈ 4.09 s |
+| Drum (snare voice) | ≈ 5606 Hz | ≈ 3 ms | ≈ 0.14 s |
+
+Targets are ranges, not “the game's values”. They catch regressions such as a thin
+bright patch, an instant attack, a short pluck or a click. CPU cost also rose: a
+profile can use 2–3 detuned copies per partial plus a noise bed.
+
+What changed in the profiles:
+
+- **Harp / Piano / Grand / Bright Piano / Guitar / Ukulele / Pipa / Lute /
+  Kalimba / Contrabass:** longer natural decays, sub-octave body partials, lower
+  low-pass cutoffs, filter “bloom” at the start, a quiet tail after the decay and a
+  little stereo ensemble.
+- **Flute / Panflute / Ocarina / Horn / Bugle / Trumpet / Saxophone / Harmonica /
+  Violin / Cello / Voice:** longer attacks and releases, sustained air/breath noise,
+  lower cutoffs, vibrato and ensemble spread; wind hold limits were raised from
+  ~1.4 s to 4 s.
+- **Bell / Handpan / Xylophone:** inharmonic partial sets with stronger upper
+  partials, long decays and tails; the bell's main decay is ~7.5 s to −34 dB
+  (plus a 1.8 s tail) rather than ~3 s.
+- **Drum / Cymbals:** longer kick body and snare room, crash tail raised to 2.4 s,
+  quiet tail after the transient.
+- **Reverb:** the procedural impulse grew from 2.1 s to ~5.2 s with a 28 ms
+  pre-delay, damped diffuse tail, early reflections and stereo decorrelation. Bus
+  sends are lifted (with the same 0–100% user control) so the default mix sits in a
+  large space rather than a dry room. This is an original synthetic cave, not a
+  sampled Sky area. WAV/MP3 exports keep a 9.5 s tail by default so long bell/harp
+  decays and the reverb are not cut off.
+
+The Node tests measure a pure-JS numeric mirror (`src/audio/offlineRender.ts`) of
+the same profile data because Node has no Web Audio. The browser's live and export
+paths use the shared `createNoteVoice` Web Audio function. The Playwright test
+“records a user sound pack: slices, detects, persists, plays and exports” covers the
+real browser flow end to end: it generates a synthetic played-scale WAV (no game
+audio), loads it through More → Settings → Sounds, checks eight detected slices and
+MIDI notes, saves the pack, confirms the catalog badge, reloads and verifies the
+pack is still in IndexedDB, auditions it (a sample voice is created), and exports a
+WAV with nonzero audio (sample voices also run during the offline render).
+
+## Instrument → synthesis profile map
+
+All profiles are original. The table documents the intended character, not a claim
+of exact game timbre.
+
+| Catalog instruments | Profile family | Synthesis character |
+|---|---|---|
+| Harp, Fledgling Harp | `harp` | Soft triangle/sine partials, sub body, long warm decay, pluck air |
+| Piano, Fledgling Upright Piano | `piano` | Inharmonic partials, soft hammer noise, long decay, warm cutoff |
+| Grand Piano, Grand Piano (White) | `grand-piano` | Longer/darker partials, stronger low body |
+| Winter Piano | `bright-piano` | Brighter upper partials, shorter decay, one octave up |
+| Guitar, Rhythm Guitar | `guitar` | Triangle partials, soft pluck, medium decay |
+| Light Guitar, Electric Guitar, TGC Guitar | `electric-guitar` | Sustained detuned saw partials, soft saturation, mild vibrato |
+| Ukulele, Toy Ukulele | `ukulele` | Short warm pluck |
+| Pipa | `pipa` | Faster metallic pluck, upper partials |
+| Moonlit Lute | `lute` | Warmer, shorter pluck (research-pending variant) |
+| Kalimba | `kalimba` | Sine partials at 1/3/5/7, soft metallic tick |
+| Xylophone | `xylophone` | Inharmonic struck bars, short decay |
+| Violin, Triumph Violin | `violin` | Sustained bowed ensemble, breath, longer release |
+| Cello, Duets Cello | `cello` | Low sustained bowed ensemble, air |
+| Contrabass | `contrabass` | Dark low pluck with long tail |
+| Voice of AURORA | `voice` | Sustained formant-like choir ensemble; not an AURORA recording |
+| Horn | `horn` | Warm brass with breath, bloom and a long release |
+| Bugle | `bugle` | Brighter brass variant |
+| Trumpet | `trumpet` | Brighter brass with a softer bloom |
+| Flute, Vessel Flute | `flute` | Breathy sine with air bed and vibrato |
+| Panflute | `panflute` | Breathy hollow pipe |
+| Ocarina, Manta Ocarina | `ocarina` | Mellow sine pipe |
+| Saxophone | `saxophone` | Sustained reed-like saw, breath, vibrato |
+| Harmonica | `harmonica` | Sustained detuned square reeds, beating |
+| Small Bell, Large Bell | `bell` | Inharmonic metallic partials, very long decay |
+| Handpan, Triumph Handpan | `handpan` | Inharmonic metallic struck partials, long warm tail |
+| Drum, Prophecy Drum, Fortune Drum | `drum` | Membrane pitch drops + roomy noise transients (unpitched) |
+| Cymbals | `cymbal` | Filtered noise/metal crashes with a cave tail (unpitched) |
+
+Distinct variants can share a documented timbre family; the catalog says so.
+Register, detune and reverb-send differences provide variation.
+
+## Research sources (facts only, not assets)
+
+The instrument catalog, pad counts, sheet parts and sustain behavior were informed
+by public research. No content from these pages was copied into the app:
+
+- Official help center, “How do I use Music Sheets in Sky?”:
+  <https://thatgamecompany.helpshift.com/hc/en/17-sky-children-of-the-light/faq/1345-how-do-i-use-music-sheets-in-sky/>
+- Official patch notes index:
+  <https://thatgamecompany.helpshift.com/hc/en/17-sky-children-of-the-light/section/110-patch-notes/>
+- Japanese Sky community wiki, instrument table and mechanics:
+  <https://wikiwiki.jp/sky-jp/楽器一覧>
+  <https://wikiwiki.jp/sky-jp/楽器・楽譜など演奏関連>
+- Fandom Sky Wiki pages (blocked by Cloudflare in this environment; only search
+  snippets were used):
+  <https://sky-children-of-the-light.fandom.com/wiki/Instruments>
+  <https://sky-children-of-the-light.fandom.com/wiki/Music_Key>
+  <https://sky-children-of-the-light.fandom.com/wiki/Music_Sheets>
+- Sky Music Nightly changelog (instrument freshness / sustain changes):
+  <https://sky-music.specy.app/changelog>
+- `specy/genshin-music` public metadata/presets (AGPL-3.0 project; inspected only
+  for factual note counts, pad offsets, register octaves and sustain flags; no code
+  or assets copied):
+  <https://github.com/specy/genshin-music>
+- Sky Studio store listing (interoperability context only):
+  <https://play.google.com/store/apps/details?id=com.Maple.SkyStudio>
+
+See [`docs/sky-mechanics.md`](sky-mechanics.md) for the detailed source/confidence
+table and the exact consequences for this app.
+
+## Third-party software licenses
+
+The app uses these runtime libraries:
+
+| Package | Version | License | Use | URL |
+|---|---|---|---|---|
+| `react` / `react-dom` | 19.3.1 | MIT | UI | <https://github.com/facebook/react> |
+| `zustand` | 5.0.16 | MIT | state store | <https://github.com/pmndrs/zustand> |
+
+Development/test-only libraries (not shipped in the app bundle except test code):
+`@tonejs/midi` (MIT, MIDI reading and writing), `vite` (MIT), `typescript` (Apache-2.0),
+`eslint` (MIT),
+`typescript-eslint` (MIT). See `package.json` for the pinned versions.
+
+## Honest audio limitations
+
+- The default synth cannot match the game's recorded instruments note-for-note. It
+  is an approximation with per-family character and register.
+- A user pack is exact only at recorded pitches. Pitch-shifted notes are resampled
+  and lose formants/character, especially beyond ±2 semitones. A long held note may
+  outlast a short recording; the sample does not currently loop.
+- Onset detection is amplitude-based; slurred/legato notes or loud background music
+  can merge or split slices. Every detected note is manually correctable, and the
+  threshold/gap controls are exposed.
+- The reverb is a synthetic 5.2 s stereo impulse, not a captured Sky cave.
+- Percussion pad voicing, handpan/bell pad order and some octave registers are
+  community-reported or inferred; see [`known-gaps.md`](known-gaps.md).
+- No latency compensation beyond the measured `AudioContext.outputLatency` +
+  user offset is applied.
+- MP3 is lossy; WAV is the archival export. The MP3 ID3 comment is a generic
+  “Sky Music Studio export — unofficial fan software” string, not a per-project audit
+  of which instruments used user packs; listen to the file and check the instrument
+  badges if provenance matters. MIDI carries pitch/time but no timbre.

@@ -1,0 +1,92 @@
+import { useEffect, useRef, useState } from 'react';
+import { useAppStore } from '../state/store';
+import { useAudioStore } from '../state/clock';
+import { playback } from '../state/playback';
+import { AudioIcon, SparkIcon } from './Icons';
+import { MoreMenu } from './MoreMenu';
+import { HistoryButtons, SongFields, TransportControls } from './Transport';
+
+const SAVE_LABEL: Record<string, string> = {
+  saved: 'Saved locally',
+  saving: 'Saving…',
+  unsaved: 'Unsaved changes',
+  error: 'Storage error',
+};
+
+export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
+  const project = useAppStore((state) => state.project);
+  const saveState = useAppStore((state) => state.saveState);
+  const saveError = useAppStore((state) => state.saveError);
+  const setProjectTitle = useAppStore((state) => state.setTitle);
+  const audioStatus = useAudioStore((state) => state.status);
+  const [title, setTitle] = useState(project.title);
+  const [editingTitle, setEditingTitle] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!editingTitle) setTitle(project.title);
+  }, [project.title, project.id, editingTitle]);
+
+  const commitTitle = () => {
+    setEditingTitle(false);
+    if (title.trim() && title.trim() !== project.title) setProjectTitle(title.trim());
+    else setProjectTitle(project.title);
+  };
+
+  const audioLabel = audioStatus === 'ready' ? 'Sound on' : audioStatus === 'starting' ? 'Starting sound' : 'Turn on sound';
+
+  return (
+    <header className="studio-bar">
+      <TransportControls />
+
+      <div className="project-title-block">
+        <input
+          ref={inputRef}
+          className={`project-title ${editingTitle ? 'is-editing' : ''}`}
+          value={title}
+          aria-label="Project title"
+          data-testid="project-title"
+          onFocus={() => setEditingTitle(true)}
+          onChange={(event) => setTitle(event.target.value.slice(0, 120))}
+          onBlur={commitTitle}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              inputRef.current?.blur();
+            }
+            if (event.key === 'Escape') {
+              setTitle(project.title);
+              setEditingTitle(false);
+              inputRef.current?.blur();
+            }
+          }}
+        />
+        <span
+          className={`save-indicator save-${saveState}`}
+          title={saveError ?? SAVE_LABEL[saveState]}
+          aria-label={SAVE_LABEL[saveState]}
+          role="status"
+        >
+          <span className="save-dot" />
+        </span>
+      </div>
+
+      <SongFields />
+      <HistoryButtons />
+
+      <nav className="top-actions" aria-label="Project actions">
+        <button
+          type="button"
+          className={`btn top-icon audio-pill ${audioStatus}`}
+          onClick={() => void playback.enableAudio()}
+          aria-label={audioLabel}
+          title={audioLabel}
+          data-testid="audio-pill"
+        >
+          {audioStatus === 'ready' ? <AudioIcon size={18} /> : <SparkIcon size={17} />}
+        </button>
+        <MoreMenu onOpenCatalog={onOpenCatalog} />
+      </nav>
+    </header>
+  );
+}
