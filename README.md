@@ -1,171 +1,115 @@
 # Sky Music Studio
 
-An **unofficial fan-made** composer and arranger for
-*Sky: Children of the Light*. It runs entirely in the browser, stores projects
-locally, and treats Sky's performance grids as the musical instrument they are:
-strict, physical, diatonic pads — not a generic chromatic piano.
+Write, arrange and play music for the instruments in *Sky: Children of the Light*, right in your browser.
 
-> Sky: Children of the Light is a trademark of thatgamecompany. This project is
-> not affiliated with, endorsed by, or supported by thatgamecompany. It contains
-> no game audio, artwork, icons, music, or other proprietary assets. Built-in
-> sounds are original synthesized approximations. Optional sound packs made from
-> your own copy of the game stay in the browser and are never uploaded.
+Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ring out on their own while others can be held. Sky Music Studio is built around those rules, so what you compose stays on keys the instrument really has.
 
-![The one-screen studio](docs/screenshots/arrange.png)
+![Sky Music Studio editing a violin melody, with the 15-key panel on the right and the other instruments as lanes below](docs/screenshots/arrange.png)
 
-## What it does
+> **Unofficial fan project.** Sky: Children of the Light is a trademark of thatgamecompany. This project is not affiliated with or endorsed by thatgamecompany, and it includes no game audio, artwork or music. The built-in sounds are original synthesis, so they approximate the game rather than match it.
 
-- **One clear studio screen** — open a song, choose a track and instrument, click
-  the grid to add a note, and press Play. Snap, loop, click and zoom sit in a toolbar,
-  every track has its own mute and solo, and the keys panel plays the real 15-key
-  layout from the mouse or keyboard. An overview travels through long songs.
-- **Researched instrument catalog** — 44 playable entries, variants and special
-  cases, with evidence, confidence, status, pad count/layout, native sheet part,
-  sustain behavior and a distinct original synth profile. Special props and
-  sequencers (Jam Station, Dark Horn) are represented separately and are not
-  disguised as pitched instruments.
-- **Strict Sky mode** — 15 diatonic pads (2 octaves + tonic), instrument-specific
-  8-pad bell/handpan patterns, an unusual 8-pad pitched Tuned Krill Horn, and
-  4-pad percussion. Twelve major keys. Notes store a **physical pad index**;
-  pitch is derived from `(instrument, key, pad)`. There is no chromatic or
-  extra-octave mode anywhere.
-- **Multitrack arrangement** — up to 24 virtual performers, per-track instrument,
-  volume/mute/solo/color/reorder, a selected-track piano roll, drag/move/resize
-  (holds only), marquee and multi-select, copy/cut/paste/duplicate, undo/redo,
-  snapping, zoom, ruler, loop region, seek and audio-clock playhead.
-- **Original synthesized playback** — per-instrument voices, stereo mixer,
-  procedural reverb and limiter; audition any catalog sound and play the whole
-  arrangement with per-track mute, solo and volume.
-- **Optional local sound packs** — load your own WAV/MP3/OGG instrument recordings
-  (or one played scale), let the app slice and pitch-map them, correct the mapping,
-  and keep packs in the browser. Instruments without a pack use the synth.
-- **Reversible timing tools** — quantize selected notes with optional
-  **preserve-original-timing**, then recover the raw positions with “Restore timing”.
-  Metronome, count-in and latency calibration stay available.
-- **Save and load** — songs autosave to the library; export a versioned
-  `.skymusic.json` project file and import it back. **Type-1 multitrack MIDI** with
-  tempo, meter, key signature, track names, GM programs and channel-10 percussion
-  is also available.
-- **Local-first** — IndexedDB library (with a localStorage fallback), autosave,
-  project import/export, no accounts, no backend, no telemetry, no paid APIs.
+## Features
+
+**Compose**
+- Click to place notes, drag to move them, and box-select to edit many at once.
+- Copy, paste, duplicate, quantize and undo, with a shortcut for almost everything.
+- Play the on-screen keys, or use `Q`–`T`, `A`–`G` and `Z`–`B` on your keyboard.
+- Turn on step input to write what you play, or record over the song as it plays.
+- Hear each note as you place or move it.
+
+**Arrange**
+- Build a song from up to 24 tracks and 20,000 notes.
+- Choose from 44 catalogued instruments and variants.
+- Set mute, solo, volume and color for each track.
+- Loop any region, and play from wherever you place the cursor.
+- Zoom around the pointer, fit the whole song on screen, or jump around with the overview.
+
+**Stay true to the game**
+- Only keys the instrument has are available: 15, 8 or 4, with no extra octaves or chromatic notes.
+- Notes are stored as physical keys, and pitch comes from the instrument.
+- Only instruments that can sustain get held notes.
+
+**Keep your work**
+- Songs save automatically in your browser. There's no account or server.
+- Import MIDI files, which are arranged onto real game keys.
+- Export MIDI, audio and `.skymusic.json` project files. MIDI exported here imports back note for note.
+- Optionally load sound packs made from your own recordings. They stay in your browser.
 
 ## Quick start
 
-Requires Node.js 20.19+ (tested on Node 22) and npm.
+You need [Node.js](https://nodejs.org/) 20.19 or newer.
 
 ```bash
+git clone https://github.com/Th1nhNg0/sky-song.git
+cd sky-song
 npm install
-npm run dev            # http://127.0.0.1:5173
-npm run build          # type-check + production static build in dist/
-npm run preview        # preview the production build on port 4173
-npm test               # unit tests for the transport, editing, MIDI and grid
-npm run test:e2e       # real-browser workflows (first run: npx playwright install chromium)
+npm run dev
 ```
 
-Open the app and choose **Play the demo** or **Start a new song**. Press **Play**
-once to unlock browser audio. The demo is an original two-minute piece in C major at 82 BPM
-with a verse, chorus, bridge and final climax: Violin melody over Piano and Drum,
-with Flute, Cello and Harp.
+Open <http://127.0.0.1:5173> and choose **Play the demo** or **Start a new song**. Your browser unlocks sound the first time you press Play.
 
-### Turning a MIDI file into a project
+The editor is designed for desktop browsers, in windows 1024 px wide or larger.
 
-The app imports Type-1 MIDI directly (**Import MIDI** in the top bar). The same importer
-also runs headless, which is handy when you have a `.mid` and want a file:
+## Keyboard shortcuts
+
+| Key | Action |
+| --- | --- |
+| `Space` | Play or pause from the cursor |
+| `Shift` + `Space` | Stop |
+| `Q`–`T`, `A`–`G`, `Z`–`B` | Play the keys while the key panel is open |
+| `1` / `2` | Add note / Edit tool |
+| `K` | Show or hide the keys |
+| `I` | Step input |
+| `L` / `M` | Loop / metronome |
+| Arrow keys | Move selected notes, or the cursor |
+| `0` | Fit the whole song |
+| `Ctrl` + `Z` / `Ctrl` + `Shift` + `Z` | Undo / redo |
+| `Ctrl` + `C` / `V` / `D` | Copy / paste / duplicate |
+| `?` | Show every shortcut |
+
+With the mouse, `Alt`-drag copies notes, right-click deletes a note, and `Ctrl` + wheel zooms.
+
+## Convert a MIDI file from the command line
 
 ```bash
-npm run midi2sky -- path/to/song.mid          # writes song.skymusic.json next to it
-npm run midi2sky -- song.mid -o out.json -k Db -b 96 --title "My Song"
-node scripts/midi2sky.mjs -h                  # every option
+npm run midi2sky -- path/to/song.mid
 ```
 
-`scripts/midi2sky.mjs` bundles `scripts/midi-to-project.ts` (esbuild) and calls
-`src/music/midiImport.ts`, then runs the result through the app's own
-`parseProjectJson` validation — so the file it writes is one the app will accept.
-Expect it to fold notes onto the real Sky pads, keep up to 6 pitched parts plus a
-drum track, snap times to a 0.25-beat grid, and pick one whole-song transpose so
-the piece lands on the diatonic pads where it can. Pass `--key` to transpose
-playback afterward: pads are physical, so no note data changes. Use it with MIDI
-you wrote or own — the tool downloads nothing and contains no song data itself.
+This writes `song.skymusic.json` next to the MIDI file, ready to import. Run `node scripts/midi2sky.mjs -h` for all options. Please only use music you wrote or have the rights to.
 
-### Verification commands
+## Development
 
 ```bash
-npm run lint           # ESLint, zero errors/warnings
-npm run typecheck      # tsc --noEmit
-npm run build          # production bundle
+npm run dev        # start the dev server
+npm run verify     # lint, typecheck, unit tests and production build
+npm run test:e2e   # browser tests (first run: npx playwright install chromium)
 ```
 
+`npm run build` creates a static site in `dist/` that works on any static host, from a domain root or a subfolder. It needs no server, environment variables or API keys.
 
-## Architecture
+The app uses React, TypeScript, Zustand and the Web Audio API:
 
-```
-src/music/       keys, pad patterns, instrument manifest, pitch resolution,
-                 project schema, validation/migration, original demo songs
-src/audio/       original synth voices, mixer graph, look-ahead transport,
-                 MIDI writer
-src/components/  top bar, toolbar, timeline/piano roll, keys, overview,
-                 More menu, catalog, library, sounds, export, settings,
-                 help
-src/storage/     IndexedDB library, preferences
-src/state/       Zustand store, playback controller, playhead/audio stores
-src/export/      download helpers and export orchestration
-scripts/         headless tools (MIDI → .skymusic.json converter)
-docs/            research, decisions, known gaps, format, user guide, audio sources
-```
-
-**Playback:** the transport schedules notes on
-the `AudioContext` clock with a look-ahead window; React frames are only used to
-paint the playhead, never to drive audio.
-
-**Canonical note model:** notes are `{ id, pad, startBeat, durationBeats, velocity }`.
-Pad indices are 0-based internally (UI shows 1-based). MIDI pitch, frequency and
-note names are derived on demand from the project key and instrument mapping.
-
-## Research and honesty
-
-The full fact table, sources, confidence levels and implementation consequences are
-in [`docs/sky-mechanics.md`](docs/sky-mechanics.md). Key points:
-
-- The official tutorial confirms the 15-pad / two-octave music-sheet grid and the
-  box/star cue mechanic.
-- The Fandom wiki was blocked by Cloudflare from this environment; facts drawn from
-  it came from search snippets and were cross-checked against a Japanese community
-  wiki and open factual metadata. This limitation is documented rather than hidden.
-- Octave registers, percussion pad voicing, bell/handpan order and 4-pad layout
-  details are partly community-reported or inferred. Uncertain entries are marked
-  **community-reported**, **inferred**, or **research-pending** in the UI.
-- Built-in sounds are synthesis. Exact instrument audio only comes from sound packs
-  the user makes from their own copy of the game and loads locally.
-- This app does not import official in-game sheets, does not automate key presses,
-  and does not claim Sky Studio/Sky Music Nightly file compatibility.
-
-See [`docs/known-gaps.md`](docs/known-gaps.md) for the unvarnished list.
-
-## Privacy and storage
-
-- Projects are stored in the browser only (IndexedDB; localStorage fallback).
-- No accounts, multiplayer, analytics, advertising, paid APIs or telemetry.
-- Clearing site data deletes the local library. Export a `.skymusic.json` file for
-  permanent backups.
-- Audio is unlocked only after a user gesture.
-
-## Deployment
-
-`npm run build` produces a static site in `dist/` (Vite `base: './'`, so it works
-from a domain root or a subdirectory). Serve it with any static host. No server-side
-runtime, environment variables, or keys are required.
-
-## Licensing
-
-The original code and documentation in this repository are MIT-licensed (see
-[`LICENSE`](LICENSE)). Third-party libraries are acknowledged in [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md) and
-[`licenses/`](licenses). No third-party audio samples or game assets are used.
+| Folder | Contents |
+| --- | --- |
+| `src/music/` | Instruments, pitch, MIDI import, project format and validation |
+| `src/audio/` | Synth voices, mixer, playback scheduling and MIDI export |
+| `src/state/` | Editor state, playback control and keyboard shortcuts |
+| `src/components/` | The interface |
+| `src/storage/` | Song library and preferences |
+| `tests/` | Unit and browser tests |
+| `docs/` | Research, decisions and guides |
 
 ## Documentation
 
-- [Sky mechanics fact table](docs/sky-mechanics.md)
 - [User guide](docs/user-guide.md)
-- [Project format](docs/project-format.md)
-- [Architecture decisions](docs/decisions.md)
 - [Known gaps and limitations](docs/known-gaps.md)
+- [Sky mechanics research](docs/sky-mechanics.md)
+- [Project file format](docs/project-format.md)
+- [Architecture decisions](docs/decisions.md)
 - [Audio sources and licenses](docs/audio-sources.md)
+
+Some instrument details come from community sources. The app and [the research notes](docs/sky-mechanics.md) mark which facts are verified, community-reported or inferred.
+
+## License
+
+The code and documentation are released under the [MIT License](LICENSE). Third-party libraries are listed in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
