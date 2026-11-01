@@ -434,3 +434,14 @@ test('instrument lines can be removed directly and restored with undo', async ({
   expect(await store<number>(page, 's.project.tracks.length')).toBe(1);
   expect(errors).toEqual([]);
 });
+
+test('the app draws its own instrument icons and asks for nothing from a local folder', async ({ page }) => {
+  const requests: string[] = [];
+  page.on('request', (request) => requests.push(request.url()));
+  await boot(page);
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  await expect(page.locator('svg.instrument-icon').first()).toBeVisible();
+  expect(await page.locator('svg.instrument-icon[data-family="Percussion"] ellipse').count()).toBeGreaterThan(0);
+  expect(requests.filter((url) => url.includes('__local-packs'))).toEqual([]);
+  expect(requests.filter((url) => !url.startsWith('http://127.0.0.1:4188/') && !url.startsWith('blob:') && !url.startsWith('data:'))).toEqual([]);
+});

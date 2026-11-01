@@ -17,24 +17,6 @@ import { TracksPanel } from './components/TracksPanel';
 import { lastOpenedProjectId } from './storage/library';
 import { SparkIcon } from './components/Icons';
 
-/** Dev only: first-time import of the songs in the owner's local folder. */
-async function importLocalSongs(): Promise<boolean> {
-  const response = await fetch('/__local-packs/songs.json');
-  if (!response.ok) return false;
-  const songs = (await response.json()) as { file: string; title: string; version: number }[];
-  const fresh = songs.filter((song) => localStorage.getItem(`local-song:${song.file}`) !== String(song.version));
-  if (fresh.length === 0) return false;
-  const state = useAppStore.getState();
-  for (const song of fresh.reverse()) {
-    const file = await fetch(`/__local-packs/${song.file}`);
-    if (file.ok && (await state.importMidi(await file.arrayBuffer(), song.title))) {
-      localStorage.setItem(`local-song:${song.file}`, String(song.version));
-    }
-  }
-  state.finishOnboarding();
-  return true;
-}
-
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
 
@@ -87,7 +69,6 @@ export default function App() {
       // Opening browser storage can finish after the user starts a song. Keep
       // their new project instead of restoring a save or reopening Welcome.
       if (useAppStore.getState().project !== state.project) return;
-      if (import.meta.env.DEV && (await importLocalSongs())) return;
       const fresh = useAppStore.getState();
       const last = lastOpenedProjectId();
       if (last && fresh.library.some((entry) => entry.id === last)) {
