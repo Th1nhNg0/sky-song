@@ -12,6 +12,8 @@ const MIN_COUNT_IN_BEATS = 4;
 export interface SkyModNote {
   time: number;
   key: string;
+  /** How long to hold the key, in ms. Only on instruments that can sustain. */
+  duration?: number;
 }
 
 export interface SkyModTrack {
@@ -52,8 +54,11 @@ export function projectToSkyModSong(project: Project): SkyModSong {
         .sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad)
         .map((note) => {
           const time = countInMs + beatsToSeconds(note.startBeat, project.bpm) * 1000;
-          durationMs = Math.max(durationMs, time + beatsToSeconds(note.durationBeats, project.bpm) * 1000);
-          return { time: Math.round(time), key: `Key${note.pad}` };
+          const lengthMs = beatsToSeconds(note.durationBeats, project.bpm) * 1000;
+          durationMs = Math.max(durationMs, time + lengthMs);
+          const songNote: SkyModNote = { time: Math.round(time), key: `Key${note.pad}` };
+          if (instrument.supportsHold) songNote.duration = Math.round(lengthMs);
+          return songNote;
         });
       return { name: track.name, instrument: instrument.displayName, pads: instrument.keyCount, songNotes };
     });

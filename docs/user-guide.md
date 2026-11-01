@@ -127,7 +127,8 @@ MIDI.
 - **sky-mod song:** one `.skymod.json` for the separate sky-mod project, with every
   non-empty track on a shared count-in. Copy it to `sheets\mine` in the Sky game
   folder and open F5 → Music → My songs. Mute and solo are ignored. The export warns
-  when the song runs past the 120 s reported for one Shared Memory recording.
+  when the song runs past the 120 s reported for one Shared Memory recording. Notes
+  on instruments that can sustain keep their length, so sky-mod holds the key.
 - Every export is generated locally. No cloud service or key is involved.
 - MIDI contains notes, not timbres.
 

@@ -19,7 +19,7 @@ describe('sky-mod export', () => {
       { time: 2000, key: 'Key3' },
       { time: 2500, key: 'Key7' },
     ]);
-    expect(song.tracks[1].songNotes).toEqual([{ time: 2250, key: 'Key14' }]);
+    expect(song.tracks[1].songNotes).toEqual([{ time: 2250, key: 'Key14', duration: 1000 }]);
     expect(song.tracks[1].name).toBe('Cello');
     expect(song.durationMs).toBe(3250);
   });
