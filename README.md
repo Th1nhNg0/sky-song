@@ -32,7 +32,7 @@ Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ri
 **Keep your work**
 - Songs save automatically in your browser. There's no account or server.
 - Import MIDI files, which are arranged onto real game keys.
-- Export MIDI, audio and `.skymusic.json` project files. MIDI exported here imports back note for note.
+- Export MIDI and `.skymusic.json` project files. MIDI exported here imports back note for note.
 - Optionally load sound packs made from your own recordings. They stay in your browser.
 
 ## Quick start
