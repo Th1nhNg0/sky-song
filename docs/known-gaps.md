@@ -31,7 +31,7 @@ This is the unvarnished list, current as of the delivery build. Items marked
    (community-reported). Exact hold-duration limits and simultaneous-note limits in
    the game are undocumented; the app only applies its own 16-beat resize safety cap
    and does not claim a game limit.
-7. **New 2026 instruments are research-pending.** Moonlit Lute and Vessel Flute are
+7. **New 2026 instruments are research-pending.** Moonlit Lute's register is
    listed by the community but only partially verified; Tuned Krill Horn is
    community-reported. The plain “Krill Horn” is intentionally **not** selectable
    because its tuning/layout could not be verified; it is documented as a research
@@ -144,9 +144,9 @@ This is the unvarnished list, current as of the delivery build. Items marked
     pitch-shifted by changing playback rate; this is a resampling approximation and
     loses formants/character, especially beyond ±2 semitones. The pad mapping table
     says which pads are exact and how far each is shifted.
-42. **No sample looping for long holds.** A held note longer than the recording simply
-    ends; the app does not loop the sustain region yet. Record a longer held note if
-    this matters.
+42. **Long holds use a crossfaded loop.** A sustained recording that is still sounding
+    when it ends loops its last 1.5 seconds. The game's samples have no loop points to
+    copy, so a very long hold is an approximation of how the game sustains.
 43. **Onset slicing is amplitude-based.** Legato/slurred playing, reverb tails, loud
     background music or overlapping notes can merge or split slices. The threshold and
     minimum-gap controls plus per-slice MIDI correction recover most cases, but there

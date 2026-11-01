@@ -99,12 +99,81 @@ export function nearestSample(pack: SoundPack, midi: number): PackSample | null 
       bestDistance = distance;
     }
   }
-  return best;
+  return best && nextTake(pack, pack.samples.filter((sample) => sample.midi === best.midi));
 }
 
 /** Sample assigned to an unpitched pad. */
 export function sampleForPad(pack: SoundPack, padIndex: number): PackSample | null {
-  return pack.samples.find((sample) => sample.padIndex === padIndex && sample.midi === null) ?? null;
+  return nextTake(pack, pack.samples.filter((sample) => sample.padIndex === padIndex && sample.midi === null));
+}
+
+const takeCounts = new Map<string, number>();
+
+/** The game varies some hits, so a pad or note with several recordings rotates through them. */
+function nextTake(pack: SoundPack, takes: PackSample[]): PackSample | null {
+  if (takes.length < 2) return takes[0] ?? null;
+  const key = `${pack.id}:${takes[0].id}`;
+  const count = takeCounts.get(key) ?? 0;
+  takeCounts.set(key, count + 1);
+  return takes[count % takes.length];
+}
+
+export interface SustainLoop {
+  startFrame: number;
+  endFrame: number;
+  crossfadeFrames: number;
+}
+
+const LOOP_SECONDS = 1.5;
+const LOOP_CROSSFADE_SECONDS = 0.25;
+const LOOP_TAIL_FADE_SECONDS = 0.03;
+
+function rms(channel: Float32Array, from: number, to: number): number {
+  let energy = 0;
+  for (let i = from; i < to; i++) energy += channel[i] ** 2;
+  return Math.sqrt(energy / Math.max(1, to - from));
+}
+
+function loopFrames(channels: Float32Array[], sampleRate: number): SustainLoop | null {
+  const crossfadeFrames = Math.floor(LOOP_CROSSFADE_SECONDS * sampleRate);
+  const endFrame = (channels[0]?.length ?? 0) - Math.floor(LOOP_TAIL_FADE_SECONDS * sampleRate);
+  const startFrame = endFrame - Math.floor(LOOP_SECONDS * sampleRate);
+  return startFrame < sampleRate + crossfadeFrames ? null : { startFrame, endFrame, crossfadeFrames };
+}
+
+/** How loud the end of a recording is, compared with the second before its loop. */
+function tailLevel(sample: Pick<PackSample, 'channels' | 'sampleRate'>): number {
+  const loop = loopFrames(sample.channels, sample.sampleRate);
+  if (!loop) return 0;
+  const channel = sample.channels[0];
+  const body = rms(channel, loop.startFrame - sample.sampleRate, loop.startFrame);
+  return body > 0 ? rms(channel, loop.endFrame - loop.crossfadeFrames, loop.endFrame) / body : 0;
+}
+
+/**
+ * Whether a pack's notes are still sounding when their recordings end, so a held note
+ * can outlast them. Judged across the pack, because single notes swell and dip; packs
+ * that fade out on their own end as they do in the game.
+ */
+export function packSustains(samples: Pick<PackSample, 'channels' | 'sampleRate'>[]): boolean {
+  const levels = samples.map(tailLevel).sort((a, b) => a - b);
+  return (levels[Math.floor(levels.length / 2)] ?? 0) >= 0.5;
+}
+
+export function findSustainLoop(channels: Float32Array[], sampleRate: number): SustainLoop | null {
+  return loopFrames(channels, sampleRate);
+}
+
+/** Crossfades the end of the loop into the audio just before its start, so the seam is silent. */
+export function joinSustainLoop(channel: Float32Array, loop: SustainLoop): void {
+  const { startFrame, endFrame, crossfadeFrames } = loop;
+  for (let i = 0; i < crossfadeFrames; i++) {
+    const mix = i / crossfadeFrames;
+    const out = Math.cos((mix * Math.PI) / 2);
+    const into = Math.sin((mix * Math.PI) / 2);
+    channel[endFrame - crossfadeFrames + i] =
+      channel[endFrame - crossfadeFrames + i] * out + channel[startFrame - crossfadeFrames + i] * into;
+  }
 }
 
 /** Playback-rate ratio that shifts a recorded note to the requested MIDI note. */

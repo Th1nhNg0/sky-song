@@ -7,9 +7,15 @@
 
 import type { SampleSelection } from './sampleBank';
 import { SAMPLE_LEVEL } from './sampleRender';
+import { findSustainLoop, joinSustainLoop, packSustains, type SustainLoop } from './soundPack';
 import type { NoteVoiceSpec, SynthVoice } from './synth';
 
-const bufferCache = new WeakMap<BaseAudioContext, Map<string, AudioBuffer>>();
+const bufferCache = new WeakMap<BaseAudioContext, Map<string, CachedBuffer>>();
+
+interface CachedBuffer {
+  buffer: AudioBuffer;
+  loop: SustainLoop | null;
+}
 
 let sampleVoicesCreated = 0;
 
@@ -21,7 +27,8 @@ export function getSampleVoiceCount(): number {
 function getSampleBuffer(
   ctx: BaseAudioContext,
   selection: SampleSelection,
-): AudioBuffer {
+  sustains: boolean,
+): CachedBuffer {
   let perContext = bufferCache.get(ctx);
   if (!perContext) {
     perContext = new Map();
@@ -29,7 +36,7 @@ function getSampleBuffer(
   }
   const { pack, sample } = selection;
   const frames = sample.channels[0]?.length ?? 0;
-  const key = `${pack.id}:${pack.updatedAt}:${sample.id}:${sample.sampleRate}:${frames}`;
+  const key = `${pack.id}:${pack.updatedAt}:${sample.id}:${sample.sampleRate}:${frames}:${sustains}`;
   const cached = perContext.get(key);
   if (cached) return cached;
   const buffer = ctx.createBuffer(
@@ -40,8 +47,15 @@ function getSampleBuffer(
   for (let channel = 0; channel < sample.channels.length; channel++) {
     buffer.getChannelData(channel).set(sample.channels[channel]);
   }
-  perContext.set(key, buffer);
-  return buffer;
+  const loop = sustains && packSustains(pack.samples) ? findSustainLoop(sample.channels, sample.sampleRate) : null;
+  if (loop) {
+    for (let channel = 0; channel < sample.channels.length; channel++) {
+      joinSustainLoop(buffer.getChannelData(channel), loop);
+    }
+  }
+  const entry = { buffer, loop };
+  perContext.set(key, entry);
+  return entry;
 }
 
 /** Declared here (not imported) so the sample path has no runtime dependency on synth. */
@@ -62,15 +76,22 @@ export function createSampleVoice(
   const start = Math.max(options.start, ctx.currentTime + 0.002);
   const velocity = Math.max(0.02, Math.min(1, options.velocity));
   const source = ctx.createBufferSource();
-  source.buffer = getSampleBuffer(ctx, selection);
+  const { buffer, loop } = getSampleBuffer(ctx, selection, spec.instrument.supportsHold);
+  source.buffer = buffer;
+  if (loop) {
+    source.loop = true;
+    source.loopStart = loop.startFrame / sample.sampleRate;
+    source.loopEnd = loop.endFrame / sample.sampleRate;
+  }
   source.playbackRate.value = playbackRate;
 
   const gain = ctx.createGain();
   source.connect(gain);
   gain.connect(spec.destination);
 
-  const naturalDuration =
-    frames > 0 ? frames / (sample.sampleRate * Math.max(0.01, playbackRate)) : 0.001;
+  const naturalDuration = loop
+    ? Infinity
+    : frames > 0 ? frames / (sample.sampleRate * Math.max(0.01, playbackRate)) : 0.001;
   const level = Math.max(0.0002, sample.gain * velocity * SAMPLE_LEVEL);
   const attack = 0.001;
   const noteEnd = start + Math.max(0.05, spec.durationSeconds);

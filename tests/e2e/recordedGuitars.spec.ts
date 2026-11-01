@@ -41,7 +41,7 @@ for (const instrumentId of ['light-guitar', 'electric-guitar']) {
       return results;
     }, instrumentId);
     for (const result of measurements) {
-      expect(result.rms, `key ${result.keyIndex}, pad ${result.pad}`).toBeGreaterThan(0.02);
+      expect(result.rms, `key ${result.keyIndex}, pad ${result.pad}`).toBeGreaterThan(0.015);
       expect(result.peak).toBeLessThan(0.3);
     }
   });

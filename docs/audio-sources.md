@@ -15,10 +15,10 @@ Two sound paths exist, and the UI always says which one an instrument is using:
    uploaded. A recorded note that is played at its recorded pitch is exact; other
    notes are pitch-shifted approximations.
 
-**The project includes 39 versioned sound packs containing 516 samples** in
-`public/sound-packs/`. These user-supplied packs were
-recovered from the development browser's IndexedDB after the original
-`~/sky-game-sounds/` folder was lost.
+**The project includes 45 versioned sound packs containing 916 samples** in
+`public/sound-packs/`. Each pack is rendered through the
+installed game's own FMOD banks and `fmodstudio.dll`, one recording per key or pad, so
+it keeps the game's layered attacks, variant choice, envelopes and relative loudness.
 
 At dev-server startup and build time, Vite generates `manifest.json` from the
 `.skypack.json` files in that directory. Both dev and production preview import
@@ -33,15 +33,49 @@ or replace a pack, put its `.skypack.json` file in `public/sound-packs/` and res
 dev or rebuild. You can still use **Settings → Import pack files** for packs kept
 only in one browser.
 
-Some instruments have no matching sample family in `SFX_Instrument`, so they stay on
-the synth: Violin, Triumph Violin, Moonlit Lute, Vessel Flute and Tuned Krill Horn.
-Several packs are best guesses by sound family, not name matches; each pack's notes
-field says whether it is a certain or guessed match.
+Every instrument now plays game audio, and the packs follow the game's own data. Each
+prop's `SocialInstrument` type and `sub_type` in `OutfitDefs.json` select a sample
+family through the lookup in `Sky.exe`, and the shop names in `Localizable.strings`
+identify the variants:
 
-The Light Guitar and Electric Guitar packs have their quiet lead-ins trimmed
-(roughly 0.2–0.65 s per note), with a 5 ms fade at the new onset. Their recordings
-are normalized to a 0.9 peak in the PCM itself so the playback gain cap does not
-leave them too quiet. This makes short held notes audible before their release.
+| App instrument | Game prop | Samples |
+| --- | --- | --- |
+| Drum | `Prop_Drum` | `Percussion` |
+| Prophecy Drum | `AP08Dundun` | `Dundun` |
+| Triumph Drum | `AP08Dundun_02` | `GoldDundun` |
+| Handpan | `AP07HandPan` | `Handpan` |
+| Triumph Handpan | `AP07HandPan_02` | `GoldHandpan` |
+| Small Bell, Large Bell | `AP02Bell_01`, `AP02Bell_02` | `APBell1`, `APBell2` |
+| Winter Piano (Rhythm Snow Piano) | `APPiano_01` | `APPiano` |
+| Grand and Fledgling Upright Pianos | `AP23PianoAnims` | `GoldPiano` |
+| Light, Electric and TGC Guitars | `AP14Guitar_01`, `_02` | `LightGuitar` |
+| Rhythm Guitar | `AP04Guitar_02` | `Guitar` |
+| Moonlit Lute | `MoonlightLute` | `Pipa` |
+| Violin, Triumph Violin | `Violin` | `Violin` |
+| Transverse Flute, Vessel Flute | `AP29Piccolo` | `AP29Piccolo` |
+| Trumpet (Triumph Horn) | `AP10Bugle_02` | `GoldBugle` |
+
+The game has one ukulele sound, so Toy Ukulele shares `Ukulele`. `GoldGuitar` is in the
+sound bank, but no prop plays it. The game's text uses "Vessel Flute" for the Ocarina;
+the catalog entry with the 修繕者笛 alias is the Mender's Flute. Tuned Krill Horn has no
+game equivalent: its pack is the one `AP15DarkHorn` blast, strongest at F3, and the
+other pads pitch-shift it.
+
+The render sets `menuPitch` to each key's semitone above the instrument's low key, or
+to the pad number for drums, bells and handpans. All packs share one gain, so the
+game's balance between instruments is preserved. Every melodic recording was checked
+against its catalog note; Xylophone bars and bells are inharmonic, so their pitch
+labels are nominal. Bells, handpans, drums and cymbals vary from hit to hit in the game, so their packs keep
+up to six distinct takes per pad and the app rotates through them. Rendering each key
+repeatedly showed 23 other events play the same audio every time. Light Guitar has up
+to three takes on some keys, and its packs keep those too.
+Recordings that are still sounding at 6 seconds loop for as long as the note is held,
+with a crossfaded seam. The samples have no loop points of their own, and the Violin
+and AURORA renders show no fixed repeat, so there is no game loop length to copy. The bells were matched by the bounding boxes in the game's
+meshes: `AP02Bell_02` is the larger prop.
+
+The Light, Electric and TGC Guitar packs have their quiet lead-ins trimmed (up to
+0.19 s), with a 5 ms fade at the new onset, so short held notes are audible before their release.
 Pack version timestamps ensure cached browser copies update after deployment.
 
 ## How to get exact sound (step by step)

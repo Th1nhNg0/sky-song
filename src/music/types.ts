@@ -1,7 +1,7 @@
 /** Core music types for Sky Music Studio. */
 
 export const PROJECT_SCHEMA_VERSION = 1;
-export const CATALOG_VERSION = '2026.10.1';
+export const CATALOG_VERSION = '2026.11.1';
 
 export type SheetPart = 'melody' | 'sub' | 'bass' | 'percussion';
 export type Confidence = 'verified' | 'community-reported' | 'inferred';
