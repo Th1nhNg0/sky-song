@@ -94,6 +94,10 @@ and deploys with `npx wrangler deploy`. The build splits oversized sound packs
 into smaller assets to fit Cloudflare's file limit, preserving every sample.
 Local dev and production preview load the same complete packs.
 
+To publish an update, commit your changes and run `git push origin HEAD:main`.
+Cloudflare then builds and deploys `main` automatically. Other branches get
+separate preview deployments.
+
 The app uses React, TypeScript, Zustand and the Web Audio API:
 
 | Folder | Contents |
