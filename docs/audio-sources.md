@@ -38,6 +38,12 @@ the synth: Violin, Triumph Violin, Moonlit Lute, Vessel Flute and Tuned Krill Ho
 Several packs are best guesses by sound family, not name matches; each pack's notes
 field says whether it is a certain or guessed match.
 
+The Light Guitar and Electric Guitar packs have their quiet lead-ins trimmed
+(roughly 0.2–0.65 s per note), with a 5 ms fade at the new onset. Their recordings
+are normalized to a 0.9 peak in the PCM itself so the playback gain cap does not
+leave them too quiet. This makes short held notes audible before their release.
+Pack version timestamps ensure cached browser copies update after deployment.
+
 ## How to get exact sound (step by step)
 
 Exact game timbre can only come from the game's own recordings. Use your own

@@ -84,6 +84,9 @@ export default function App() {
     const state = useAppStore.getState();
     (async () => {
       await state.initialize();
+      // Opening browser storage can finish after the user starts a song. Keep
+      // their new project instead of restoring a save or reopening Welcome.
+      if (useAppStore.getState().project !== state.project) return;
       if (import.meta.env.DEV && (await importLocalSongs())) return;
       const fresh = useAppStore.getState();
       const last = lastOpenedProjectId();

@@ -404,3 +404,33 @@ test('8: wheel zoom holds the beat under the pointer, and playback follows the v
   expect(end).toBeGreaterThan(start + 400);
   expect(errors).toEqual([]);
 });
+
+test('instrument lines can be removed directly and restored with undo', async ({ page }) => {
+  const errors = await boot(page);
+  await page.evaluate(() => {
+    const state = window.__SKY_MUSIC_STUDIO__!.store.getState();
+    state.addNote(3, 0, 0.5);
+    state.addTrack('light-guitar');
+    state.addNote(2, 0, 1);
+    state.addTrack('cello');
+    state.addNote(1, 0, 2);
+  });
+  const names = await store<string[]>(page, 's.project.tracks.map((track) => track.name)');
+  const active = page.locator('.track-active-head');
+  await active.getByRole('button', { name: `Remove ${names[2]}`, exact: true }).click();
+  expect(await store<number>(page, 's.project.tracks.length')).toBe(2);
+  await page.keyboard.press('Control+z');
+  expect(await store<number[]>(page, 's.project.tracks.map((track) => track.notes.length)')).toEqual([1, 1, 1]);
+
+  const collapsed = page.locator('.track-lane').filter({ has: page.getByRole('button', { name: `Remove ${names[0]}`, exact: true }) });
+  await collapsed.getByRole('button', { name: `Remove ${names[0]}`, exact: true }).click();
+  expect(await store<number>(page, 's.project.tracks.length')).toBe(2);
+  await page.keyboard.press('Control+z');
+  expect(await store<number[]>(page, 's.project.tracks.map((track) => track.notes.length)')).toEqual([1, 1, 1]);
+
+  await page.getByRole('button', { name: `Remove ${names[2]}`, exact: true }).click();
+  await page.getByRole('button', { name: `Remove ${names[0]}`, exact: true }).click();
+  await expect(page.getByRole('button', { name: `Remove ${names[1]}`, exact: true })).toBeDisabled();
+  expect(await store<number>(page, 's.project.tracks.length')).toBe(1);
+  expect(errors).toEqual([]);
+});

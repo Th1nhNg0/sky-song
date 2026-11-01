@@ -41,8 +41,9 @@ MIDI.
   undo/redo, My songs, Import MIDI, Export and **⋯**.
 - **Toolbar:** Add note / Edit, Snap, Loop, Click, zoom, Mix and Keys.
 - **Tracks:** the open track shows its real keys, one row each. Its header holds the
-  instrument picker, mute, solo, volume and collapse. Every other track is a lane with
-  its own mute and solo; click a lane to open it.
+  instrument picker, mute, solo, remove, volume and collapse. Every other track is a lane with
+  its own mute, solo and trash button; click a lane to open it. The trash button removes
+  that instrument and its notes; Undo restores them. Keep at least one instrument.
 - **Keys:** the instrument's physical layout. Click the keys or press Q–T, A–G and Z–B
   to play. Turn on **Step input** to write what you play at the cursor. Press **K** to
   hide the panel.

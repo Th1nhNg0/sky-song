@@ -5,14 +5,18 @@ import type { Track } from '../music/types';
 import { useViewStore } from '../state/clock';
 import { useAppStore } from '../state/store';
 import { InstrumentIcon } from './InstrumentIcon';
+import { TrashIcon } from './Icons';
 
 export const LANE_HEIGHT = 46;
 const LANE_PADDING = 6;
 
-/** Mute and solo, shared by the collapsed lanes and the open track's header. */
+/** Track controls shared by collapsed lanes and the open track's header. */
 export function TrackMixButtons({ track }: { track: Track }) {
   const toggleMute = useAppStore((state) => state.toggleTrackMute);
   const toggleSolo = useAppStore((state) => state.toggleTrackSolo);
+  const removeTrack = useAppStore((state) => state.removeTrack);
+  const notify = useAppStore((state) => state.notify);
+  const canRemove = useAppStore((state) => state.project.tracks.length > 1);
   return (
     <span className="mix-toggles">
       <button
@@ -40,6 +44,20 @@ export function TrackMixButtons({ track }: { track: Track }) {
         title="Solo"
       >
         S
+      </button>
+      <button
+        type="button"
+        className="mix-toggle is-remove"
+        onClick={(event) => {
+          event.stopPropagation();
+          removeTrack(track.id);
+          notify(`Removed “${track.name}”. Undo restores the instrument and its notes.`, 'success');
+        }}
+        disabled={!canRemove}
+        aria-label={`Remove ${track.name}`}
+        title={canRemove ? 'Remove instrument — Undo restores it' : 'Keep at least one instrument'}
+      >
+        <TrashIcon size={12} />
       </button>
     </span>
   );

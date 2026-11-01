@@ -2632,6 +2632,14 @@ body {
   background: var(--solo);
   color: var(--on-note);
 }
+.mix-toggle.is-remove {
+  display: inline-grid;
+  place-items: center;
+}
+.mix-toggle.is-remove:hover:not(:disabled) {
+  color: var(--danger);
+  background: rgba(255, 110, 110, 0.12);
+}
 .track-lane {
   display: flex;
   border-bottom: 1px solid var(--line);
