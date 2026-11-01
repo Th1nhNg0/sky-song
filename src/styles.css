@@ -2108,7 +2108,14 @@ body {
 
 .instrument-icon {
   flex: 0 0 auto;
-  color: var(--track-color, var(--accent));
+  display: inline-block;
+  background: var(--track-color, var(--accent));
+  mask-size: contain;
+  mask-repeat: no-repeat;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  -webkit-mask-position: center;
 }
 
 /* ---------- Instrument picker ---------- */

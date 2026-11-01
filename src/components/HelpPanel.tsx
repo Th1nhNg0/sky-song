@@ -112,8 +112,8 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             catalog.
           </p>
           <p className="fine-print">
-            Sky: Children of the Light is a trademark of thatgamecompany. This is an unofficial fan project with no copied
-            artwork, music, or game audio.
+            Sky: Children of the Light is a trademark of thatgamecompany. This is an unofficial fan project. Instrument
+            pictures and sound packs come from the game and remain thatgamecompany’s work.
           </p>
         </section>
       </div>

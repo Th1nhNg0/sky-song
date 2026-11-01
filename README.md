@@ -6,7 +6,7 @@ Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ri
 
 ![Sky Music Studio editing a violin melody, with the 15-key panel on the right and the other instruments as lanes below](docs/screenshots/arrange.png)
 
-> **Unofficial fan project.** Sky: Children of the Light is a trademark of thatgamecompany. This project is not affiliated with or endorsed by thatgamecompany. It includes original synthesis and user-supplied game sound packs; see `THIRD_PARTY_NOTICES.md` for the distinction between the code and audio.
+> **Unofficial fan project.** Sky: Children of the Light is a trademark of thatgamecompany. This project is not affiliated with or endorsed by thatgamecompany. It includes original synthesis, user-supplied game sound packs and instrument pictures from the game; see `THIRD_PARTY_NOTICES.md` for the distinction between the code and audio.
 
 ## Features
 

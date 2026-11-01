@@ -5,6 +5,10 @@ The app bundles the following third-party software and user-supplied game sound
 packs in `public/sound-packs/`. The MIT license for this project's original code
 and documentation does not grant a license to those third-party audio recordings.
 
+The instrument pictures in `public/instrument-icons/` come from *Sky: Children of
+the Light* and remain the work of thatgamecompany. The MIT license does not cover
+them.
+
 ## Runtime dependencies (shipped in the web bundle)
 
 | Component | Version | License | Copyright / project | License text |
