@@ -457,8 +457,8 @@ export function SoundsPanel() {
         <div>
           <h3>Instrument sounds &amp; sample packs</h3>
           <p className="settings-note">
-            Exact game timbre can only come from the game’s own recordings. This tool never downloads, extracts or
-            bundles game audio: you record notes from your own copy, load them here, and they stay in this browser.
+            Use your own recordings or personal sound packs. Packs included with this local build load automatically;
+            recordings you import here are stored in this browser.
           </p>
         </div>
         <label className="field sounds-instrument-select">
@@ -783,8 +783,8 @@ export function SoundsPanel() {
           <li>A pack backup file (.skypack.json) contains your own audio; keep control of it before sharing.</li>
           <li>Project files do not contain pack audio — a collaborator needs their own copy.</li>
           <li>
-            This repository does not include, download or hotlink game files, ripped samples or third-party soundfonts
-            containing Sky audio. You are responsible for the rights to recordings you make and share.
+            Personal packs in this project are included in its local builds. Keep control of those files and the builds
+            that contain them; you are responsible for the rights to audio you share.
           </li>
         </ul>
       </div>

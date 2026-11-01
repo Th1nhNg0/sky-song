@@ -1,9 +1,9 @@
 /**
  * User-supplied sound packs.
  *
- * IMPORTANT: this project never bundles, downloads or fetches game audio. A sound
- * pack comes only from the user's own copy of the game, is stored in the browser
- * (IndexedDB) and is never uploaded. Pack files must stay out of this repository.
+ * Packs are supplied by the user, either imported in the browser or included in a
+ * build from the versioned public/sound-packs directory. Browser
+ * imports are stored in IndexedDB and never uploaded.
  *
  * Everything here is pure data handling so it can be unit-tested in Node.
  */

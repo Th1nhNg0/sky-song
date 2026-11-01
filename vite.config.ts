@@ -1,36 +1,38 @@
 import fs from 'node:fs';
-import os from 'node:os';
 import path from 'node:path';
-import { defineConfig, type Plugin } from 'vite';
+import { fileURLToPath } from 'node:url';
+import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { prepareCloudflareAssets } from './scripts/cloudflareAssets';
 
-const LOCAL_PACKS = path.join(os.homedir(), 'sky-game-sounds', 'packs');
-
-// Dev server only: serves the owner's local packs. Nothing here reaches a build.
-function localGamePacks(): Plugin {
-  return {
-    name: 'local-game-packs',
-    apply: 'serve',
-    configureServer(server) {
-      server.middlewares.use('/__local-packs', (req, res) => {
-        const file = path.join(LOCAL_PACKS, path.basename(req.url ?? ''));
-        if (!fs.existsSync(file)) {
-          res.statusCode = 404;
-          res.end();
-          return;
-        }
-        res.setHeader('Content-Type', file.endsWith('.png') ? 'image/png' : file.endsWith('.mid') ? 'audio/midi' : 'application/json');
-        fs.createReadStream(file).pipe(res);
-      });
-    },
-  };
+// Project packs are versioned alongside the app. Vite's public directory serves
+// the same files in dev and copies them into production builds and previews.
+function prepareProjectSoundPacks(): void {
+  const directory = fileURLToPath(new URL('./public/sound-packs/', import.meta.url));
+  fs.mkdirSync(directory, { recursive: true });
+  const manifest = fs.readdirSync(directory).filter((file) => file.endsWith('.skypack.json')).sort().map((file) => {
+    const pack = JSON.parse(fs.readFileSync(path.join(directory, file), 'utf8'));
+    if (pack.format !== 'skymusic-soundpack' || pack.version !== 1 || typeof pack.id !== 'string' || typeof pack.updatedAt !== 'string') {
+      throw new Error(`Invalid project sound pack: ${file}`);
+    }
+    return { id: pack.id as string, updatedAt: pack.updatedAt as string, file };
+  });
+  fs.writeFileSync(path.join(directory, 'manifest.json'), JSON.stringify(manifest));
 }
+
+prepareProjectSoundPacks();
 
 // Static-only app: no backend, no API keys. Relative base makes it deployable
 // to any static host or subdirectory (including GitHub Pages style hosting).
 export default defineConfig({
   base: './',
-  plugins: [react(), localGamePacks()],
+  plugins: [react(), {
+    name: 'cloudflare-sound-pack-assets',
+    apply: 'build',
+    writeBundle(options) {
+      prepareCloudflareAssets(path.join(options.dir!, 'sound-packs'));
+    },
+  }],
   server: {
     port: 5173,
     host: '127.0.0.1',

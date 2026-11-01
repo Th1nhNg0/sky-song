@@ -80,12 +80,12 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             <span><strong>Format</strong> .skymusic.json · schema v1</span>
             <span><strong>Catalog</strong> 2026.10.1</span>
             <span><strong>Storage</strong> local IndexedDB (fallback localStorage)</span>
-            <span><strong>Network</strong> none — no accounts, APIs or telemetry</span>
+            <span><strong>Network</strong> local app assets only — no accounts or telemetry</span>
           </div>
           <p className="fine-print">
-            Sky Music Studio is unofficial fan software. It is not affiliated with thatgamecompany, contains no proprietary
-            game assets, and does not automate gameplay. Built-in instrument sounds are original synthesis approximations
-            based on public descriptions; optional sample packs use only recordings you load locally. See{' '}
+            Sky Music Studio is unofficial fan software. It is not affiliated with thatgamecompany and does not automate
+            gameplay. Built-in instrument sounds are original synthesis approximations based on public descriptions;
+            optional personal packs can be loaded from this build or imported in this browser. See{' '}
             <code>docs/known-gaps.md</code> for the uncertain mechanics.
           </p>
         </section>

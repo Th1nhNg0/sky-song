@@ -4,7 +4,8 @@
  * Packs live only in this browser. The primary store is IndexedDB (large PCM data
  * does not fit reliably in localStorage). If IndexedDB is blocked, a session-only
  * in-memory store is used and the UI says the pack will not survive a reload. No
- * sample is ever uploaded, fetched or written to the repository.
+ * sample is uploaded. Personal packs shipped with a local build are fetched from
+ * that same app origin before they are cached here.
  */
 
 import type { SoundPack } from '../audio/soundPack';

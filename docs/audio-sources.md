@@ -15,15 +15,23 @@ Two sound paths exist, and the UI always says which one an instrument is using:
    uploaded. A recorded note that is played at its recorded pitch is exact; other
    notes are pitch-shifted approximations.
 
-**Nothing proprietary ships in this repository.** No game files, no ripped audio,
-no hotlinks, no third-party repos and no soundfonts containing Sky audio. The app
-does not download audio at runtime. The only audio data that can exist is what the
-user creates locally from their own copy of the game.
+**The project includes 39 versioned sound packs containing 516 samples** in
+`public/sound-packs/`. These user-supplied packs were
+recovered from the development browser's IndexedDB after the original
+`~/sky-game-sounds/` folder was lost.
 
-The product owner also builds personal packs from their own installed copy, kept
-outside this repository at `~/sky-game-sounds/`. Those pack files and the tool that
-makes them must never be committed, published or shared. Load them with
-**Settings → Import pack files**, selecting every file at once.
+At dev-server startup and build time, Vite generates `manifest.json` from the
+`.skypack.json` files in that directory. Both dev and production preview import
+these same packs from the app's own origin, cache them in IndexedDB, and wait for
+the import before the first note. Existing disabled packs stay disabled; newer
+browser edits are preserved. A checkout with no personal packs uses the synth.
+No external audio service is contacted and nothing is uploaded.
+
+Builds include the same audio files in `dist/sound-packs/`. The source packs and
+their manifest are tracked in Git; generated `dist/` is ignored. To add
+or replace a pack, put its `.skypack.json` file in `public/sound-packs/` and restart
+dev or rebuild. You can still use **Settings → Import pack files** for packs kept
+only in one browser.
 
 Some instruments have no matching sample family in `SFX_Instrument`, so they stay on
 the synth: Violin, Triumph Violin, Moonlit Lute, Vessel Flute and Tuned Krill Horn.
@@ -99,10 +107,10 @@ bank before scheduling, which `AudioEngine.init()` and `renderProject()` ensure.
 
 ## Sound pack privacy and the project rule
 
-- Packs live only in this browser's IndexedDB; there is no upload endpoint.
+- Browser imports live in IndexedDB; there is no upload endpoint.
 - Backup/import is a manual file the user controls.
-- The repository contains no recordings: packs are browser data and never enter the
-  filesystem or the build.
+- Project packs in `public/sound-packs/` are tracked in Git and included in builds.
+  A fresh clone restores them; both dev and preview load the same files.
 - User recordings can be personal data or third-party content; the user is
   responsible for rights, and the UI tells them not to redistribute others'
   recordings.

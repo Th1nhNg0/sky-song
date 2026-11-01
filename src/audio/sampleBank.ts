@@ -36,6 +36,7 @@ export interface SoundSourceInfo {
 let packs: SoundPack[] = [];
 let loaded = false;
 let loading: Promise<void> | null = null;
+let projectPacksChecked = false;
 let version = 0;
 const listeners = new Set<() => void>();
 
@@ -70,7 +71,13 @@ export async function ensureSoundPacksLoaded(force = false): Promise<void> {
   loading = (async () => {
     try {
       const storage = getSoundPackStorage();
-      const stored = await storage.loadAll();
+      let stored = await storage.loadAll();
+      // Include project packs in this promise so the first note cannot race
+      // their import and briefly fall back to the synthesizer.
+      if (typeof window !== 'undefined' && !projectPacksChecked) {
+        stored = await syncProjectSoundPacks(stored);
+        projectPacksChecked = true;
+      }
       packs = stored.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
     } catch {
       packs = [];
@@ -139,25 +146,49 @@ export function soundSourceInfo(instrumentId: string): SoundSourceInfo {
 }
 
 // In the browser, load packs as soon as the module is imported so the UI and the
-// engine agree about the active source before the first note. Node tests use the
-// explicit test seam below and never touch browser storage.
+// engine agree about the active source before the first note.
 if (typeof window !== 'undefined') {
-  void ensureSoundPacksLoaded().then(() => (import.meta.env.DEV ? syncLocalGamePacks() : undefined));
+  void ensureSoundPacksLoaded();
 }
 
-/** Dev only: copies new or rebuilt packs from the owner's local folder into the browser. */
-async function syncLocalGamePacks(): Promise<void> {
-  const response = await fetch('/__local-packs/manifest.json');
-  if (!response.ok) return;
-  const manifest = (await response.json()) as { id: string; updatedAt: string; file: string }[];
-  const storage = getSoundPackStorage();
-  let changed = false;
-  for (const entry of manifest) {
-    if (packs.some((pack) => pack.id === entry.id && pack.updatedAt === entry.updatedAt)) continue;
-    const file = await fetch(`/__local-packs/${entry.file}`);
-    if (!file.ok) continue;
-    await storage.save(packFromJson(await file.text()));
-    changed = true;
+/** Imports this checkout's personal packs in both dev and built previews. */
+async function syncProjectSoundPacks(stored: SoundPack[]): Promise<SoundPack[]> {
+  const available = new Map(stored.map((pack) => [pack.id, pack]));
+  const base = `${import.meta.env.BASE_URL}sound-packs/`;
+  try {
+    const response = await fetch(`${base}manifest.json`, { cache: 'no-cache' });
+    if (!response.ok) return stored;
+    const manifest = (await response.json()) as { id: string; updatedAt: string; file?: string; parts?: string[] }[];
+    if (!Array.isArray(manifest)) return stored;
+    for (const entry of manifest) {
+      // Only filenames on this app's origin are allowed, including when hosted
+      // below a subdirectory. A manifest cannot redirect a pack request elsewhere.
+      if (!entry || typeof entry.id !== 'string' || typeof entry.updatedAt !== 'string') continue;
+      const files = Array.isArray(entry.parts) ? entry.parts : [entry.file];
+      if (!files.length || !files.every((file) => typeof file === 'string' && /^[\w-]+\.skypack\.json$/.test(file))) continue;
+      const existing = available.get(entry.id);
+      if (existing && existing.updatedAt >= entry.updatedAt) continue;
+      try {
+        let pack: SoundPack | null = null;
+        for (const filename of files) {
+          const file = await fetch(`${base}${filename}?v=${encodeURIComponent(entry.updatedAt)}`);
+          if (!file.ok) throw new Error(`Could not load ${filename}`);
+          const part = packFromJson(await file.text());
+          if (part.id !== entry.id || part.updatedAt !== entry.updatedAt) throw new Error(`Pack metadata mismatch: ${filename}`);
+          if (pack) pack.samples.push(...part.samples);
+          else pack = part;
+        }
+        if (!pack) continue;
+        if (existing) pack.enabled = existing.enabled;
+        available.set(pack.id, pack);
+        // A quota failure must not discard a usable pack for this session.
+        await getSoundPackStorage().save(pack);
+      } catch (error) {
+        console.warn('Could not cache a project sound pack.', error);
+      }
+    }
+  } catch (error) {
+    console.warn('Could not load the project sound-pack manifest.', error);
   }
-  if (changed) await refreshSoundPacks();
+  return [...available.values()];
 }

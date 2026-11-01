@@ -60,9 +60,9 @@ This is the unvarnished list, current as of the delivery build. Items marked
     everywhere. The default profiles were reworked for a softer attack, warmer tone,
     longer tail and a larger synthetic cave (see `docs/audio-sources.md`), but that is
     a character approximation, not a reproduction.
-13. **No game samples, ripped audio, soundfonts or third-party sample libraries ship
-    with the app.** The only sample path is the optional sound pack the user creates
-    from their own recording. Nothing is downloaded or fetched at runtime.
+13. **Project sound packs are versioned in `public/sound-packs/`.** Both dev and
+    production builds fetch these files from the app's own origin. Additional
+    packs can still be imported into one browser.
 14. **Reverb is a procedural 5.2 s stereo impulse**, not a captured Sky space.
 15. **Percussion voices and some registers are approximations**, as above.
 16. **Browser audio support:** Chrome/Chromium is the primary tested target. A Firefox
@@ -158,14 +158,14 @@ This is the unvarnished list, current as of the delivery build. Items marked
     auto-slicing assigns slices to pads in order as a starting point, and the user can
     correct each row. There is no per-velocity layer, round-robin or release sample;
     repeated notes use the same recording.
-46. **Packs are local to one browser profile.** IndexedDB data is not synced or backed
+46. **Browser-only imports are local to one browser profile.** IndexedDB data is not synced or backed
     up automatically. If the browser exposes no IndexedDB, a session-only memory
     store is used and the panel warns that the pack will be lost; if IndexedDB is
     present but blocked/full, saving reports an error. The `.skypack.json` export is
-    the user's backup.
+    the user's backup. Project packs are also tracked in Git and restored by cloning.
 47. **Packs are not embedded in project files.** A collaborator hears
-    the synth fallback unless they import their own pack. This is deliberate: the app
-    does not redistribute game recordings.
+    the project's versioned packs when available, or the synth fallback unless they
+    import any additional browser-only packs used by that song.
 48. **The MP3 ID3 comment is generic.** It says “Sky Music Studio export — unofficial
     fan software; see docs/audio-sources.md”, which is not an audit of which
     instruments used user packs. WAV is the archival export; listen to the file and

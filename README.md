@@ -6,7 +6,7 @@ Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ri
 
 ![Sky Music Studio editing a violin melody, with the 15-key panel on the right and the other instruments as lanes below](docs/screenshots/arrange.png)
 
-> **Unofficial fan project.** Sky: Children of the Light is a trademark of thatgamecompany. This project is not affiliated with or endorsed by thatgamecompany, and it includes no game audio, artwork or music. The built-in sounds are original synthesis, so they approximate the game rather than match it.
+> **Unofficial fan project.** Sky: Children of the Light is a trademark of thatgamecompany. This project is not affiliated with or endorsed by thatgamecompany. It includes original synthesis and user-supplied game sound packs; see `THIRD_PARTY_NOTICES.md` for the distinction between the code and audio.
 
 ## Features
 
@@ -34,6 +34,7 @@ Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ri
 - Import MIDI files, which are arranged onto real game keys.
 - Export MIDI and `.skymusic.json` project files. MIDI exported here imports back note for note.
 - Optionally load sound packs made from your own recordings. They stay in your browser.
+- Versioned sound packs in `public/sound-packs/` load automatically in both dev and production preview, including after a fresh clone.
 
 ## Quick start
 
@@ -86,6 +87,12 @@ npm run test:e2e   # browser tests (first run: npx playwright install chromium)
 ```
 
 `npm run build` creates a static site in `dist/` that works on any static host, from a domain root or a subfolder. It needs no server, environment variables or API keys.
+
+Production is deployed on Cloudflare Workers at <https://sky.thinhcorner.com>.
+Cloudflare builds pushes to `main` from `Th1nhNg0/sky-song` with `npm run build`
+and deploys with `npx wrangler deploy`. The build splits oversized sound packs
+into smaller assets to fit Cloudflare's file limit, preserving every sample.
+Local dev and production preview load the same complete packs.
 
 The app uses React, TypeScript, Zustand and the Web Audio API:
 

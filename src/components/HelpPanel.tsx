@@ -97,7 +97,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </p>
           <p>
             MIDI is a Type-1 file with tempo, key signature, named tracks, GM programs and channel-10 percussion. MIDI timbres
-            differ by DAW/soundfont. All app sounds are original synthesis approximations, not game recordings.
+            differ by DAW/soundfont. Built-in synthesis is an approximation; personal sample packs supply recorded sounds.
           </p>
         </section>
         <section className="help-card">

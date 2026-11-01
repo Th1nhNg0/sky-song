@@ -1,8 +1,9 @@
 # Third-party notices
 
 Sky Music Studio's original source and documentation are MIT-licensed (see `LICENSE`).
-The app bundles the following third-party software. No third-party audio samples,
-artwork, fonts, soundfonts, or game assets are included.
+The app bundles the following third-party software and user-supplied game sound
+packs in `public/sound-packs/`. The MIT license for this project's original code
+and documentation does not grant a license to those third-party audio recordings.
 
 ## Runtime dependencies (shipped in the web bundle)
 

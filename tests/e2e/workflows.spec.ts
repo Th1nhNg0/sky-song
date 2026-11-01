@@ -12,6 +12,8 @@ const store = <T>(page: Page, read: string) =>
 const noteCount = (page: Page) => store<number>(page, 's.activeTrack().notes.length');
 
 async function boot(page: Page) {
+  // Keep editor tests independent of the owner's optional personal packs.
+  await page.route('**/sound-packs/manifest.json', (route) => route.fulfill({ json: [] }));
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
   page.on('console', (message) => {

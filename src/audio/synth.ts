@@ -399,13 +399,19 @@ const PROFILES: Record<SoundProfileId, SynthProfile> = {
   }),
   contrabass: profile({
     kind: 'pluck',
-    osc: 'triangle',
+    osc: 'sine',
+    // C1 is only 33 Hz. Keep the bass pitch, but give the pluck enough upper
+    // harmonics to carry on speakers that cannot reproduce the fundamental.
+    // Explicit sine partials also avoid the triangle's alternating harmonics
+    // cancelling some of that presence.
     partials: [
-      [0.5, 0.1],
-      [1, 0.55],
-      [2, 0.2],
-      [3, 0.08],
-      [4, 0.04],
+      [1, 0.48],
+      [2, 0.3],
+      [3, 0.22],
+      [4, 0.16],
+      [5, 0.12],
+      [6, 0.09],
+      [8, 0.05],
     ],
     attack: 0.012,
     naturalDecay: 3.6,
