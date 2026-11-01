@@ -1,10 +1,23 @@
-# Sky Music Studio
+<h1 align="center">Sky Music Studio</h1>
 
-Write, arrange and play music for the instruments in *Sky: Children of the Light*, right in your browser.
+<p align="center">
+  <a href="https://sky.thinhcorner.com"><b>Open the app</b></a> ·
+  <a href="docs/user-guide.md">User guide</a> ·
+  <a href="docs/sky-mechanics.md">How Sky's instruments work</a>
+</p>
+
+<p align="center">
+  <img alt="License: MIT" src="https://img.shields.io/github/license/Th1nhNg0/sky-song" />
+  <img alt="React 19" src="https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white" />
+  <img alt="TypeScript" src="https://img.shields.io/badge/TypeScript-5.9-3178c6?logo=typescript&logoColor=white" />
+  <img alt="Runs in the browser" src="https://img.shields.io/badge/runs%20in-your%20browser-8fd9ff" />
+</p>
+
+Free Sky: Children of the Light music composer. Write, arrange and play music for the game's instruments right in your browser, with MIDI import and export.
 
 Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ring out on their own while others can be held. Sky Music Studio is built around those rules, so what you compose stays on keys the instrument really has.
 
-![Sky Music Studio editing a violin melody, with the 15-key panel on the right and the other instruments as lanes below](docs/screenshots/arrange.png)
+[![Sky Music Studio editing a violin melody, with the 15-key panel on the right and the other instruments as lanes below](docs/screenshots/arrange.png)](https://sky.thinhcorner.com)
 
 > **Unofficial fan project.** Sky: Children of the Light is a trademark of thatgamecompany. This project is not affiliated with or endorsed by thatgamecompany. It includes original synthesis, user-supplied game sound packs and instrument pictures from the game; see `THIRD_PARTY_NOTICES.md` for the distinction between the code and audio.
 

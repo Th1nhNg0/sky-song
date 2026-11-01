@@ -4,15 +4,66 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#0b1026" />
+    <title>Sky Music Studio — Free Sky: Children of the Light Music Composer</title>
     <meta
       name="description"
-      content="Sky Music Studio — compose and perform original multi-part music for Sky: Children of the Light. Unofficial fan software; all sounds are original synthesized approximations."
+      content="Free browser-based music composer for Sky: Children of the Light. Write, arrange and play songs on the game's real instrument keys, import and export MIDI. Unofficial fan project."
     />
+    <meta name="keywords" content="Sky Children of the Light, Sky music sheet, Sky music composer, Sky instruments, Sky MIDI converter, Sky harp, Sky piano, music studio" />
+    <meta name="author" content="Th1nhNg0" />
+    <meta name="robots" content="index, follow, max-image-preview:large" />
+    <link rel="canonical" href="https://sky.thinhcorner.com/" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
-    <title>Sky Music Studio — unofficial Sky: Children of the Light composer</title>
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sky Music Studio" />
+    <meta property="og:title" content="Sky Music Studio — Free Sky: Children of the Light Music Composer" />
+    <meta
+      property="og:description"
+      content="Write, arrange and play music on the real instrument keys of Sky: Children of the Light. Free, in your browser, with MIDI import and export."
+    />
+    <meta property="og:url" content="https://sky.thinhcorner.com/" />
+    <meta property="og:image" content="https://sky.thinhcorner.com/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Sky Music Studio editing a violin melody, with the 15-key panel and instrument lanes" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Sky Music Studio — Free Sky: Children of the Light Music Composer" />
+    <meta
+      name="twitter:description"
+      content="Write, arrange and play music on the real instrument keys of Sky: Children of the Light. Free, in your browser."
+    />
+    <meta name="twitter:image" content="https://sky.thinhcorner.com/og-image.png" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "Sky Music Studio",
+        "url": "https://sky.thinhcorner.com/",
+        "description": "Free browser-based composer and arranger for the instruments in Sky: Children of the Light, with MIDI import and export. Unofficial fan project.",
+        "applicationCategory": "MusicApplication",
+        "operatingSystem": "Any (modern desktop browser)",
+        "browserRequirements": "Requires JavaScript and Web Audio",
+        "image": "https://sky.thinhcorner.com/og-image.png",
+        "screenshot": "https://sky.thinhcorner.com/og-image.png",
+        "inLanguage": "en",
+        "isAccessibleForFree": true,
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+        "author": { "@type": "Person", "name": "Th1nhNg0", "url": "https://github.com/Th1nhNg0" },
+        "sameAs": ["https://github.com/Th1nhNg0/sky-song"]
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main style="max-width:640px;margin:12vh auto;padding:0 24px;color:#eaf2ff;font-family:system-ui,sans-serif;line-height:1.6">
+        <h1>Sky Music Studio</h1>
+        <p>A free, unofficial music composer for <em>Sky: Children of the Light</em>. Write and arrange songs on the real keys of the game's instruments, play them back, and import or export MIDI, all in your browser.</p>
+      </main>
+    </div>
     <noscript>Sky Music Studio needs JavaScript enabled to run the audio engine and editor.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>

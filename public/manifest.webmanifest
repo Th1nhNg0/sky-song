@@ -1,0 +1,13 @@
+{
+  "name": "Sky Music Studio",
+  "short_name": "Sky Studio",
+  "description": "Compose and play music for Sky: Children of the Light instruments, right in your browser.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#060a17",
+  "theme_color": "#0b1026",
+  "icons": [
+    { "src": "./favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "./apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

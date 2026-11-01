@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /sound-packs/
+
+Sitemap: https://sky.thinhcorner.com/sitemap.xml
