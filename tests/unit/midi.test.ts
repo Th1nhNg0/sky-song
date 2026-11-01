@@ -42,4 +42,87 @@ describe('MIDI import/export', () => {
     const project = midiToProject(midi.toArray(), 'Long and slow');
     expect(() => parseProjectJson(JSON.stringify(project))).not.toThrow();
   });
+
+  it('keeps swung timing instead of flattening it to sixteenths', () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    const ppq = midi.header.ppq;
+    for (let i = 0; i < 8; i++) {
+      track.addNote({ midi: 60, ticks: i * ppq, durationTicks: ppq / 3 });
+      track.addNote({ midi: 62, ticks: i * ppq + Math.round((ppq * 2) / 3), durationTicks: ppq / 3 });
+    }
+    const starts = midiToProject(midi.toArray(), 'Swing').tracks[0].notes.map((note) => note.startBeat);
+    expect(starts[1]).toBeCloseTo(2 / 3);
+  });
+
+  it('trusts a part name over a mismatched patch', () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    track.name = 'Alto Sax 1';
+    track.instrument.number = 48;
+    track.addNote({ midi: 60, ticks: 0, durationTicks: 100 });
+    expect(midiToProject(midi.toArray(), 'Names').tracks[0].instrumentId).toBe('saxophone');
+  });
+
+  it('moves parts past the limit onto the nearest part and keeps drums alongside', () => {
+    const midi = new Midi();
+    [0, 24, 33, 40, 42, 60, 73].forEach((program, index) => {
+      const track = midi.addTrack();
+      track.instrument.number = program;
+      for (let i = 0; i < 20 - index; i++) track.addNote({ midi: 48 + index * 3, ticks: i * 960 + index * 120, durationTicks: 100 });
+    });
+    const drums = midi.addTrack();
+    drums.channel = 9;
+    drums.addNote({ midi: 36, ticks: 0, durationTicks: 100 });
+    const project = midiToProject(midi.toArray(), 'Crowded');
+    expect(project.tracks).toHaveLength(7);
+    expect(project.tracks.at(-1)?.instrumentId).toBe('drum');
+    expect(project.tracks.flatMap((track) => track.notes).length).toBeGreaterThan(100);
+  });
+
+  it('drops chord tones the pads cannot play but keeps a lone one', () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    [60, 64, 67, 70].forEach((pitch) => track.addNote({ midi: pitch, ticks: 0, durationTicks: 100 }));
+    const scale = [60, 62, 64, 65, 67, 69, 71];
+    for (let i = 1; i <= 21; i++) track.addNote({ midi: i === 8 ? 61 : scale[i % 7], ticks: i * 480, durationTicks: 400 });
+    const notes = midiToProject(midi.toArray(), 'Chromatic').tracks.flatMap((part) => part.notes);
+    expect(notes.filter((note) => note.startBeat === 0)).toHaveLength(3);
+    expect(notes.some((note) => note.startBeat === 8)).toBe(true);
+  });
+
+  it('hands notes out of reach to an instrument that plays their real pitch', () => {
+    const midi = new Midi();
+    const flute = midi.addTrack();
+    flute.instrument.number = 73;
+    const scale = [0, 2, 4, 5, 7, 9, 11];
+    // Most of the line fits the flute's two octaves; its top doesn't, in any octave.
+    for (let i = 0; i < 42; i++) flute.addNote({ midi: 60 + scale[i % 7] + 12 * (i % 2), ticks: i * 240, durationTicks: 200 });
+    for (let i = 0; i < 14; i++) flute.addNote({ midi: 84 + 2 + scale[i % 7], ticks: 10080 + i * 240, durationTicks: 200 });
+    const project = midiToProject(midi.toArray(), 'Wide');
+    const high = project.tracks.find((track) => track.instrumentId === 'xylophone');
+    expect(high?.notes.length).toBeGreaterThanOrEqual(12);
+    expect(project.tracks[0].notes.length).toBeGreaterThan(30);
+  });
+
+  it('caps what the band starts together but keeps the top and bottom notes', () => {
+    const midi = new Midi();
+    [0, 24, 33, 40, 42, 60].forEach((program, index) => {
+      const track = midi.addTrack();
+      track.instrument.number = program;
+      const pitches = [[72, 76], [55, 59], [36, 40], [64, 67], [48, 52], [45, 50]][index];
+      for (const pitch of pitches) track.addNote({ midi: pitch, ticks: 0, durationTicks: 400 });
+    });
+    const notes = midiToProject(midi.toArray(), 'Tutti').tracks.flatMap((track) => track.notes);
+    expect(notes).toHaveLength(6);
+  });
+
+  it('lifts a quiet file without changing its balance', () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    for (let i = 0; i < 12; i++) track.addNote({ midi: 60, ticks: i * 480, durationTicks: 400, velocity: i % 2 ? 0.3 : 0.15 });
+    const velocities = midiToProject(midi.toArray(), 'Quiet').tracks[0].notes.map((note) => note.velocity);
+    expect(Math.max(...velocities)).toBeCloseTo(0.9);
+    expect(Math.min(...velocities)).toBeCloseTo(0.45);
+  });
 });

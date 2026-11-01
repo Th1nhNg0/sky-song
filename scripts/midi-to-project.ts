@@ -35,9 +35,11 @@ Options
   -h, --help           show this text
 
 Notes
-  The importer keeps up to 6 pitched parts (plus a drum track), snaps note times to
-  a 0.25-beat grid, folds everything onto the instrument's real Sky pads, and picks
-  one whole-song transpose so the song lands on the diatonic pads where it can.
+  The importer keeps up to 6 pitched parts (plus a drum track), moving any extra part
+  onto the nearest one. Notes a part can't reach go to one that can, adding Contrabass
+  or Xylophone only when they would carry a tenth of the song. It snaps note times to a 0.25-beat grid (a triplet-friendly
+  1/12 grid for swung songs), folds everything onto the instrument's real Sky pads, and
+  picks one whole-song transpose so the song lands on the diatonic pads where it can.
   A single-track piano file is split into Melody / Chords / Bass parts.
   Pad indices are physical, so --key transposes playback without editing any note.
 `;
