@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createDemoProject, createStarterProject } from '../music/demo';
 import { getInstrument, hasInstrument } from '../music/instruments';
-import { createNote, createProject, createTrack, nowIso, TRACK_COLORS } from '../music/project';
+import { createNote, createProject, createTrack, nowIso, sortNotes, TRACK_COLORS } from '../music/project';
 import { snapBeat } from '../music/time';
 import type { LoopRegion, Note, Project, Track, ValidationIssue } from '../music/types';
 import { parseProjectJson, ProjectImportError } from '../music/validation';
@@ -13,7 +13,7 @@ import {
   saveProjectToLibrary,
   type LibraryEntry,
 } from '../storage/library';
-import { midiToProject } from '../music/midiImport';
+import { midiToProject, trimToNoteLimit } from '../music/midiImport';
 import { loadPreferences, savePreferences, type Preferences } from '../storage/preferences';
 
 type SaveState = 'saved' | 'unsaved' | 'saving' | 'error';
@@ -53,7 +53,7 @@ interface AppState {
   lastSavedAt: string | null;
   saveError: string | null;
   history: { past: Project[]; future: Project[] };
-  gesture: { project: Project; changed: boolean } | null;
+  gesture: { project: Project } | null;
   clipboard: Clipboard | null;
   toast: Toast | null;
   library: LibraryEntry[];
@@ -113,16 +113,20 @@ interface AppState {
   ): string | null;
   deleteNotes(ids: string[], options?: { history?: boolean }): void;
   deleteSelectedNotes(): void;
+  /** Copies the selection in place and selects the copies, for Alt-drag. */
+  cloneSelectionInPlace(): void;
+  nudgeSelection(deltaBeats: number, deltaPad: number): void;
+  setSelectionVelocity(velocity: number): void;
   dragSelectedNotes(
     originals: Record<string, { startBeat: number; pad: number }>,
     deltaBeats: number,
     deltaPad: number,
   ): void;
   resizeNote(noteId: string, durationBeats: number): void;
-  setNoteVelocity(noteId: string, velocity: number): void;
   copySelection(): void;
   cutSelection(): void;
-  pasteClipboard(atBeat: number): void;
+  /** Returns the beat just after the pasted notes, or null if nothing was pasted. */
+  pasteClipboard(atBeat: number): number | null;
   duplicateSelection(): void;
   quantizeSelection(grid: number, preserveOriginal: boolean): void;
   restoreOriginalTiming(): void;
@@ -139,10 +143,6 @@ interface AppState {
 let toastCounter = 0;
 let saveGeneration = 0;
 
-function clone<T>(value: T): T {
-  return structuredClone(value);
-}
-
 function sanitizeName(value: string, fallback: string, max = 120): string {
   const trimmed = value.trim();
   return (trimmed || fallback).slice(0, max);
@@ -150,6 +150,19 @@ function sanitizeName(value: string, fallback: string, max = 120): string {
 
 function findTrack(project: Project, id: string): Track | undefined {
   return project.tracks.find((track) => track.id === id);
+}
+
+function replaceTrack(project: Project, id: string, change: (track: Track) => Track): Project {
+  return { ...project, tracks: project.tracks.map((track) => (track.id === id ? change(track) : track)) };
+}
+
+function roundBeat(beat: number): number {
+  return Math.round(beat * 1000) / 1000;
+}
+
+/** Lowest change to `delta` that keeps the whole group on the instrument, preserving its shape. */
+function clampPadDelta(pads: number[], delta: number, keyCount: number): number {
+  return Math.min(keyCount - 1 - Math.max(...pads), Math.max(-Math.min(...pads), delta));
 }
 
 function makeNote(pad: number, start: number, duration: number, velocity = 0.85): Note {
@@ -160,10 +173,34 @@ function markDirty(project: Project): Project {
   return { ...project, updatedAt: nowIso() };
 }
 
+/** State after undo or redo: stays on the same track and keeps whichever selected notes still exist. */
+function restored(project: Project, state: { activeTrackId: string; selectedNoteIds: string[] }) {
+  const active = findTrack(project, state.activeTrackId) ?? project.tracks[0];
+  const present = new Set(active.notes.map((note) => note.id));
+  return {
+    project,
+    activeTrackId: active.id,
+    selectedNoteIds: state.selectedNoteIds.filter((id) => present.has(id)),
+    saveState: 'unsaved' as const,
+  };
+}
+
 const initialProject = createProject({ key: 0 });
 const initialPreferences = loadPreferences();
 
-export const useAppStore = create<AppState>()((set, get) => ({
+export const useAppStore = create<AppState>()((set, get) => {
+  /** Saves an edit. Unchanged tracks and notes keep their identity, so undo stays cheap. */
+  const commit = (project: Project, extra: Partial<AppState> = {}, history = true) => {
+    const state = get();
+    set({
+      project: markDirty(project),
+      saveState: 'unsaved',
+      history: history ? { past: [...state.history.past, state.project].slice(-80), future: [] } : state.history,
+      ...extra,
+    });
+  };
+
+  return {
   project: initialProject,
   activeTrackId: initialProject.tracks[0].id,
   selectedNoteIds: [],
@@ -291,12 +328,16 @@ export const useAppStore = create<AppState>()((set, get) => ({
   importMidi: async (bytes, title) => {
     try {
       const project = midiToProject(bytes, title);
+      const dropped = trimToNoteLimit(project);
       // Re-importing a song replaces it rather than leaving a second copy.
       project.id = get().library.find((entry) => entry.title === title)?.id ?? project.id;
       get().setProject(project);
       set({ saveState: 'unsaved', panel: null });
       await get().saveNow();
       await get().refreshLibrary();
+      const notes = project.tracks.reduce((sum, track) => sum + track.notes.length, 0);
+      if (dropped > 0) get().notify(`Imported “${title}”, but left out the last ${dropped} notes to stay within the project limit.`, 'warning');
+      else get().notify(`Imported “${title}”: ${notes} notes on ${project.tracks.length} tracks.`, 'success');
       return true;
     } catch (error) {
       get().notify(`MIDI import failed: ${error instanceof Error ? error.message : 'unreadable file'}`, 'error');
@@ -349,62 +390,37 @@ export const useAppStore = create<AppState>()((set, get) => ({
   setPlayhead: (playhead) => set({ playhead: Math.max(0, playhead) }),
 
   setTitle: (title) => {
-    const project = clone(get().project);
+    const project = get().project;
     const next = sanitizeName(title, 'Untitled Song');
-    if (next === project.title) return;
-    project.title = next;
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    if (next !== project.title) commit({ ...project, title: next });
   },
   setBpm: (bpm) => {
     if (!Number.isFinite(bpm)) return;
     const value = Math.round(Math.min(240, Math.max(40, bpm)));
-    const project = clone(get().project);
-    if (project.bpm === value) return;
-    project.bpm = value;
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    if (get().project.bpm !== value) commit({ ...get().project, bpm: value });
   },
   setKey: (key) => {
-    if (!Number.isInteger(key) || key < 0 || key > 11) return;
-    const project = clone(get().project);
-    if (project.key === key) return;
-    project.key = key;
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    if (!Number.isInteger(key) || key < 0 || key > 11 || get().project.key === key) return;
+    commit({ ...get().project, key });
     get().notify('Key changed. Every track is remapped to the same scale degrees.', 'info');
   },
   setMeter: (meter) => {
-    const project = clone(get().project);
+    const project = get().project;
     if (project.timeSignature[0] === meter[0] && project.timeSignature[1] === meter[1]) return;
-    project.timeSignature = [meter[0], meter[1]];
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    commit({ ...project, timeSignature: [meter[0], meter[1]] });
   },
   setLoop: (loop) => {
-    const project = clone(get().project);
-    project.loop = {
+    const project = get().project;
+    const next: LoopRegion = {
       enabled: loop.enabled,
       startBeat: Math.max(0, Math.min(loop.startBeat, loop.endBeat - 0.25)),
       endBeat: Math.max(loop.startBeat + 0.25, loop.endBeat),
     };
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    const same =
+      next.enabled === project.loop.enabled &&
+      next.startBeat === project.loop.startBeat &&
+      next.endBeat === project.loop.endBeat;
+    if (!same) commit({ ...project, loop: next });
   },
   toggleLoop: () => {
     const loop = get().project.loop;
@@ -412,11 +428,11 @@ export const useAppStore = create<AppState>()((set, get) => ({
   },
 
   setActiveTrack: (id) => {
-    if (!findTrack(get().project, id)) return;
+    if (id === get().activeTrackId || !findTrack(get().project, id)) return;
     set({ activeTrackId: id, selectedNoteIds: [] });
   },
   addTrack: (instrumentId) => {
-    const project = clone(get().project);
+    const project = get().project;
     if (project.tracks.length >= 24) {
       get().notify('A project can hold up to 24 performers.', 'warning');
       return;
@@ -424,79 +440,54 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const id = instrumentId && hasInstrument(instrumentId) ? instrumentId : 'harp';
     const track = createTrack(id, { colorIndex: project.tracks.length % TRACK_COLORS.length });
     if (!instrumentId) track.name = `${getInstrument(id).shortName} · Performer ${project.tracks.length + 1}`;
-    project.tracks.push(track);
-    set({
-      project: markDirty(project),
-      activeTrackId: track.id,
-      selectedNoteIds: [],
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    commit({ ...project, tracks: [...project.tracks, track] }, { activeTrackId: track.id, selectedNoteIds: [] });
   },
   removeTrack: (id) => {
-    const project = clone(get().project);
+    const project = get().project;
     if (project.tracks.length <= 1) {
       get().notify('A project needs at least one performer track.', 'warning');
       return;
     }
     const index = project.tracks.findIndex((track) => track.id === id);
     if (index === -1) return;
-    project.tracks.splice(index, 1);
-    const activeTrackId = get().activeTrackId === id ? project.tracks[Math.max(0, index - 1)].id : get().activeTrackId;
-    set({
-      project: markDirty(project),
-      activeTrackId,
-      selectedNoteIds: [],
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    const tracks = project.tracks.filter((track) => track.id !== id);
+    const activeTrackId = get().activeTrackId === id ? tracks[Math.max(0, index - 1)].id : get().activeTrackId;
+    commit({ ...project, tracks }, { activeTrackId, selectedNoteIds: [] });
   },
   duplicateTrack: (id) => {
-    const project = clone(get().project);
+    const project = get().project;
     const source = findTrack(project, id);
     if (!source) return;
     if (project.tracks.length >= 24) {
       get().notify('A project can hold up to 24 performers.', 'warning');
       return;
     }
-    const copyTrack = clone(source);
-    copyTrack.id = createTrack(source.instrumentId, { colorIndex: project.tracks.length }).id;
-    copyTrack.name = sanitizeName(`${source.name} (copy)`, 'Copy', 60);
-    copyTrack.notes = copyTrack.notes.map((note) => ({ ...note, id: createNote(note.pad, 0, 0.5).id }));
-    project.tracks.splice(project.tracks.findIndex((track) => track.id === id) + 1, 0, copyTrack);
-    set({
-      project: markDirty(project),
-      activeTrackId: copyTrack.id,
-      selectedNoteIds: [],
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    const copy: Track = {
+      ...source,
+      id: createTrack(source.instrumentId, { colorIndex: project.tracks.length }).id,
+      name: sanitizeName(`${source.name} (copy)`, 'Copy', 60),
+      notes: source.notes.map((note) => ({ ...note, id: createNote(note.pad, 0, 0.5).id })),
+    };
+    const tracks = [...project.tracks];
+    tracks.splice(tracks.indexOf(source) + 1, 0, copy);
+    commit({ ...project, tracks }, { activeTrackId: copy.id, selectedNoteIds: [] });
   },
   renameTrack: (id, name) => {
-    const project = clone(get().project);
+    const project = get().project;
     const track = findTrack(project, id);
     if (!track) return;
     const next = sanitizeName(name, track.name, 60);
-    if (next === track.name) return;
-    track.name = next;
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    if (next !== track.name) commit(replaceTrack(project, id, (item) => ({ ...item, name: next })));
   },
   moveTrack: (id, direction) => {
-    const project = clone(get().project);
+    const project = get().project;
     const index = project.tracks.findIndex((track) => track.id === id);
     const target = index + direction;
     if (index === -1 || target < 0 || target >= project.tracks.length) return;
-    const [track] = project.tracks.splice(index, 1);
-    project.tracks.splice(target, 0, track);
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    const tracks = [...project.tracks];
+    const [track] = tracks.splice(index, 1);
+    tracks.splice(target, 0, track);
+    commit({ ...project, tracks });
   },
   setTrackInstrument: (id, instrumentId) => {
     if (!hasInstrument(instrumentId)) return;
@@ -505,19 +496,14 @@ export const useAppStore = create<AppState>()((set, get) => ({
       get().notify(`${instrument.displayName} is not a selectable track instrument.`, 'warning');
       return;
     }
-    const project = clone(get().project);
+    const project = get().project;
     const track = findTrack(project, id);
     if (!track || track.instrumentId === instrumentId) return;
-    const before = track.notes.length;
-    track.notes = track.notes.filter((note) => note.pad < instrument.keyCount);
-    const removed = before - track.notes.length;
-    track.instrumentId = instrumentId;
-    const selected = get().selectedNoteIds.filter((noteId) => track.notes.some((note) => note.id === noteId));
-    set({
-      project: markDirty(project),
-      selectedNoteIds: selected,
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
+    const notes = track.notes.filter((note) => note.pad < instrument.keyCount);
+    const removed = track.notes.length - notes.length;
+    const kept = new Set(notes.map((note) => note.id));
+    commit(replaceTrack(project, id, (item) => ({ ...item, instrumentId, notes })), {
+      selectedNoteIds: get().selectedNoteIds.filter((noteId) => kept.has(noteId)),
     });
     if (removed > 0) {
       get().notify(
@@ -527,44 +513,18 @@ export const useAppStore = create<AppState>()((set, get) => ({
     }
   },
   setTrackColor: (id, color) => {
-    const project = clone(get().project);
-    const track = findTrack(project, id);
-    if (!track || track.color === color) return;
-    track.color = color;
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    const track = findTrack(get().project, id);
+    if (track && track.color !== color) commit(replaceTrack(get().project, id, (item) => ({ ...item, color })));
   },
   toggleTrackMute: (id) => {
-    const project = clone(get().project);
-    const track = findTrack(project, id);
-    if (!track) return;
-    track.muted = !track.muted;
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    commit(replaceTrack(get().project, id, (track) => ({ ...track, muted: !track.muted })));
   },
   toggleTrackSolo: (id) => {
-    const project = clone(get().project);
-    const track = findTrack(project, id);
-    if (!track) return;
-    track.solo = !track.solo;
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...get().history.past, get().project].slice(-80), future: [] },
-    });
+    commit(replaceTrack(get().project, id, (track) => ({ ...track, solo: !track.solo })));
   },
   setTrackVolume: (id, volume) => {
-    const project = clone(get().project);
-    const track = findTrack(project, id);
-    if (!track) return;
-    track.volume = Math.min(1.5, Math.max(0, volume));
-    set({ project: markDirty(project), saveState: 'unsaved' });
+    const value = Math.min(1.5, Math.max(0, volume));
+    commit(replaceTrack(get().project, id, (track) => ({ ...track, volume: value })), {}, false);
   },
 
   selectNotes: (ids, mode = 'replace') => {
@@ -583,100 +543,114 @@ export const useAppStore = create<AppState>()((set, get) => ({
     set({ selectedNoteIds: next });
   },
   selectAllNotes: () => {
-    const state = get();
-    const track = state.activeTrack();
-    set({ selectedNoteIds: track.notes.map((note) => note.id) });
+    set({ selectedNoteIds: get().activeTrack().notes.map((note) => note.id) });
   },
-  clearSelection: () => set({ selectedNoteIds: [] }),
+  clearSelection: () => {
+    if (get().selectedNoteIds.length > 0) set({ selectedNoteIds: [] });
+  },
 
   addNote: (pad, startBeat, durationBeats, options = {}) => {
     const state = get();
-    const project = clone(state.project);
-    const track = findTrack(project, state.activeTrackId);
+    const track = findTrack(state.project, state.activeTrackId);
     if (!track) return null;
     const instrument = getInstrument(track.instrumentId);
     if (!Number.isInteger(pad) || pad < 0 || pad >= instrument.keyCount) {
       state.notify(`Pad ${pad + 1} is outside ${instrument.displayName}'s ${instrument.keyCount}-pad grid.`, 'warning');
       return null;
     }
-    const note = makeNote(
-      pad,
-      Math.max(0, startBeat),
-      Math.max(0.05, durationBeats),
-      options.velocity ?? 0.85,
+    const note = makeNote(pad, Math.max(0, startBeat), Math.max(0.05, durationBeats), options.velocity ?? 0.85);
+    commit(
+      replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes([...item.notes, note]) })),
+      { selectedNoteIds: options.select === false ? state.selectedNoteIds : [note.id] },
+      options.history !== false,
     );
-    track.notes.push(note);
-    track.notes.sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
-    set({
-      project: markDirty(project),
-      selectedNoteIds: options.select === false ? state.selectedNoteIds : [note.id],
-      saveState: 'unsaved',
-      history:
-        options.history === false
-          ? state.history
-          : { past: [...state.history.past, state.project].slice(-80), future: [] },
-    });
     return note.id;
   },
   deleteNotes: (ids, options = {}) => {
     const state = get();
     if (ids.length === 0) return;
-    const project = clone(state.project);
-    const track = findTrack(project, state.activeTrackId);
+    const track = findTrack(state.project, state.activeTrackId);
     if (!track) return;
     const setIds = new Set(ids);
-    const before = track.notes.length;
-    track.notes = track.notes.filter((note) => !setIds.has(note.id));
-    if (track.notes.length === before) return;
-    set({
-      project: markDirty(project),
-      selectedNoteIds: state.selectedNoteIds.filter((id) => !setIds.has(id)),
-      saveState: 'unsaved',
-      history:
-        options.history === false
-          ? state.history
-          : { past: [...state.history.past, state.project].slice(-80), future: [] },
-    });
+    const notes = track.notes.filter((note) => !setIds.has(note.id));
+    if (notes.length === track.notes.length) return;
+    commit(
+      replaceTrack(state.project, track.id, (item) => ({ ...item, notes })),
+      { selectedNoteIds: state.selectedNoteIds.filter((id) => !setIds.has(id)) },
+      options.history !== false,
+    );
   },
   deleteSelectedNotes: () => get().deleteNotes(get().selectedNoteIds),
 
+  cloneSelectionInPlace: () => {
+    const state = get();
+    const track = state.activeTrack();
+    const ids = new Set(state.selectedNoteIds);
+    const copies = track.notes
+      .filter((note) => ids.has(note.id))
+      .map((note) => makeNote(note.pad, note.startBeat, note.durationBeats, note.velocity));
+    if (copies.length === 0) return;
+    commit(
+      replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes([...item.notes, ...copies]) })),
+      { selectedNoteIds: copies.map((note) => note.id) },
+      false,
+    );
+  },
+  nudgeSelection: (deltaBeats, deltaPad) => {
+    const state = get();
+    const track = state.activeTrack();
+    const ids = new Set(state.selectedNoteIds);
+    const selected = track.notes.filter((note) => ids.has(note.id));
+    if (selected.length === 0) return;
+    const beats = Math.max(deltaBeats, -Math.min(...selected.map((note) => note.startBeat)));
+    const pads = clampPadDelta(selected.map((note) => note.pad), deltaPad, getInstrument(track.instrumentId).keyCount);
+    if (beats === 0 && pads === 0) return;
+    const notes = track.notes.map((note) =>
+      ids.has(note.id) ? { ...note, startBeat: roundBeat(note.startBeat + beats), pad: note.pad + pads } : note,
+    );
+    commit(replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes(notes) })));
+  },
+  setSelectionVelocity: (velocity) => {
+    const state = get();
+    const ids = new Set(state.selectedNoteIds);
+    const value = Math.min(1, Math.max(0.05, velocity));
+    commit(
+      replaceTrack(state.project, state.activeTrackId, (track) => ({
+        ...track,
+        notes: track.notes.map((note) => (ids.has(note.id) ? { ...note, velocity: value } : note)),
+      })),
+      {},
+      false,
+    );
+  },
   dragSelectedNotes: (originals, deltaBeats, deltaPad) => {
     const state = get();
-    const project = clone(state.project);
-    const track = findTrack(project, state.activeTrackId);
+    const track = findTrack(state.project, state.activeTrackId);
     if (!track) return;
-    const instrument = getInstrument(track.instrumentId);
-    const minStart = Math.min(...Object.values(originals).map((entry) => entry.startBeat));
-    const beatDelta = Math.max(deltaBeats, -minStart);
-    for (const note of track.notes) {
+    const entries = Object.values(originals);
+    const beats = Math.max(deltaBeats, -Math.min(...entries.map((entry) => entry.startBeat)));
+    const pads = clampPadDelta(entries.map((entry) => entry.pad), deltaPad, getInstrument(track.instrumentId).keyCount);
+    let changed = false;
+    const notes = track.notes.map((note) => {
       const original = originals[note.id];
-      if (!original) continue;
-      note.startBeat = Math.max(0, Math.round((original.startBeat + beatDelta) * 1000) / 1000);
-      note.pad = Math.min(instrument.keyCount - 1, Math.max(0, original.pad + deltaPad));
-    }
-    track.notes.sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
-    set({ project: markDirty(project), saveState: 'unsaved' });
+      if (!original) return note;
+      const startBeat = roundBeat(original.startBeat + beats);
+      const pad = original.pad + pads;
+      if (startBeat === note.startBeat && pad === note.pad) return note;
+      changed = true;
+      return { ...note, startBeat, pad };
+    });
+    if (changed) commit(replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes(notes) })), {}, false);
   },
   resizeNote: (noteId, durationBeats) => {
     const state = get();
-    const project = clone(state.project);
-    const track = findTrack(project, state.activeTrackId);
+    const track = findTrack(state.project, state.activeTrackId);
     if (!track) return;
     const instrument = getInstrument(track.instrumentId);
     if (!instrument.supportsHold) return;
-    const note = track.notes.find((item) => item.id === noteId);
-    if (!note) return;
-    note.durationBeats = Math.min(instrument.maxHoldBeats, Math.max(0.1, Math.round(durationBeats * 1000) / 1000));
-    set({ project: markDirty(project), saveState: 'unsaved' });
-  },
-  setNoteVelocity: (noteId, velocity) => {
-    const state = get();
-    const project = clone(state.project);
-    const track = findTrack(project, state.activeTrackId);
-    const note = track?.notes.find((item) => item.id === noteId);
-    if (!note) return;
-    note.velocity = Math.min(1, Math.max(0.05, velocity));
-    set({ project: markDirty(project), saveState: 'unsaved' });
+    const next = Math.min(instrument.maxHoldBeats, Math.max(0.1, roundBeat(durationBeats)));
+    const notes = track.notes.map((note) => (note.id === noteId ? { ...note, durationBeats: next } : note));
+    commit(replaceTrack(state.project, track.id, (item) => ({ ...item, notes })), {}, false);
   },
 
   copySelection: () => {
@@ -691,15 +665,12 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const minStart = Math.min(...selected.map((note) => note.startBeat));
     const clipboard: Clipboard = {
       instrumentId: track.instrumentId,
-      notes: selected
-        .slice()
-        .sort((a, b) => a.startBeat - b.startBeat)
-        .map((note) => ({
-          pad: note.pad,
-          offsetBeat: note.startBeat - minStart,
-          durationBeats: note.durationBeats,
-          velocity: note.velocity,
-        })),
+      notes: selected.map((note) => ({
+        pad: note.pad,
+        offsetBeat: note.startBeat - minStart,
+        durationBeats: note.durationBeats,
+        velocity: note.velocity,
+      })),
     };
     set({ clipboard });
     state.notify(`Copied ${selected.length} note${selected.length === 1 ? '' : 's'}.`, 'info');
@@ -714,164 +685,131 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const clipboard = state.clipboard;
     if (!clipboard || clipboard.notes.length === 0) {
       state.notify('Nothing to paste yet.', 'info');
-      return;
+      return null;
     }
-    const project = clone(state.project);
-    const track = findTrack(project, state.activeTrackId);
-    if (!track) return;
+    const track = findTrack(state.project, state.activeTrackId);
+    if (!track) return null;
     const instrument = getInstrument(track.instrumentId);
     const kept = clipboard.notes.filter((note) => note.pad < instrument.keyCount);
     if (kept.length === 0) {
       state.notify(`${instrument.displayName} cannot play the copied pads.`, 'warning');
-      return;
+      return null;
     }
     const base = Math.max(0, atBeat);
-    const newIds: string[] = [];
-    for (const note of kept) {
-      const created = makeNote(note.pad, base + note.offsetBeat, note.durationBeats, note.velocity);
-      track.notes.push(created);
-      newIds.push(created.id);
-    }
-    track.notes.sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
-    set({
-      project: markDirty(project),
-      selectedNoteIds: newIds,
-      saveState: 'unsaved',
-      history: { past: [...state.history.past, state.project].slice(-80), future: [] },
-    });
+    const created = kept.map((note) => makeNote(note.pad, base + note.offsetBeat, note.durationBeats, note.velocity));
+    commit(
+      replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes([...item.notes, ...created]) })),
+      { selectedNoteIds: created.map((note) => note.id) },
+    );
     if (kept.length < clipboard.notes.length) {
       state.notify(
         `Pasted ${kept.length} of ${clipboard.notes.length} notes; ${instrument.displayName} has only ${instrument.keyCount} pads.`,
         'warning',
       );
     }
+    const step = state.preferences.snap || 0.25;
+    return base + Math.ceil((Math.max(...kept.map((note) => note.offsetBeat)) + step) / step) * step;
   },
   duplicateSelection: () => {
     const state = get();
     const track = state.activeTrack();
-    const selected = track.notes.filter((note) => state.selectedNoteIds.includes(note.id));
+    const ids = new Set(state.selectedNoteIds);
+    const selected = track.notes.filter((note) => ids.has(note.id));
     if (selected.length === 0) {
       state.notify('Select notes to duplicate.', 'info');
       return;
     }
-    const offset = Math.max(1, state.preferences.snap || 0.5);
-    const project = clone(state.project);
-    const target = findTrack(project, state.activeTrackId);
-    if (!target) return;
-    const ids: string[] = [];
-    for (const note of selected) {
-      const created = makeNote(
-        note.pad,
-        note.startBeat + offset,
-        note.durationBeats,
-        note.velocity,
-      );
-      target.notes.push(created);
-      ids.push(created.id);
-    }
-    target.notes.sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
-    set({
-      project: markDirty(project),
-      selectedNoteIds: ids,
-      saveState: 'unsaved',
-      history: { past: [...state.history.past, state.project].slice(-80), future: [] },
-    });
+    // The copy starts right after the selection, so a phrase repeats in time.
+    const step = state.preferences.snap || 0.25;
+    const hold = getInstrument(track.instrumentId).supportsHold;
+    const first = Math.min(...selected.map((note) => note.startBeat));
+    const last = Math.max(...selected.map((note) => note.startBeat + (hold ? note.durationBeats : step)));
+    const offset = Math.ceil((last - first) / step - 1e-6) * step;
+    const created = selected.map((note) =>
+      makeNote(note.pad, note.startBeat + offset, note.durationBeats, note.velocity),
+    );
+    commit(
+      replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes([...item.notes, ...created]) })),
+      { selectedNoteIds: created.map((note) => note.id) },
+    );
   },
   quantizeSelection: (grid, preserveOriginal) => {
     const state = get();
-    const project = clone(state.project);
-    const track = findTrack(project, state.activeTrackId);
-    if (!track) return;
-    const selected = new Set(state.selectedNoteIds);
-    const notes = selected.size > 0 ? track.notes.filter((note) => selected.has(note.id)) : track.notes;
-    if (notes.length === 0 || grid <= 0) return;
-    for (const note of notes) {
-      if (preserveOriginal && !note.original) {
-        note.original = { startBeat: note.startBeat, durationBeats: note.durationBeats };
-      }
-      note.startBeat = Math.round(snapBeat(note.startBeat, grid) * 1000) / 1000;
-      note.durationBeats = Math.max(grid, Math.round(note.durationBeats / grid) * grid);
-    }
-    track.notes.sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...state.history.past, state.project].slice(-80), future: [] },
+    const track = findTrack(state.project, state.activeTrackId);
+    if (!track || grid <= 0) return;
+    const hold = getInstrument(track.instrumentId).supportsHold;
+    const ids = new Set(state.selectedNoteIds);
+    const inScope = (note: Note) => ids.size === 0 || ids.has(note.id);
+    const count = track.notes.filter(inScope).length;
+    if (count === 0) return;
+    const notes = track.notes.map((note) => {
+      if (!inScope(note)) return note;
+      return {
+        ...note,
+        original:
+          note.original ??
+          (preserveOriginal ? { startBeat: note.startBeat, durationBeats: note.durationBeats } : undefined),
+        startBeat: roundBeat(snapBeat(note.startBeat, grid)),
+        // A one-shot rings out whatever its length, so only its onset has a grid position.
+        durationBeats: hold ? Math.max(grid, Math.round(note.durationBeats / grid) * grid) : note.durationBeats,
+      };
     });
+    commit(replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes(notes) })));
     state.notify(
-      `Quantized ${notes.length} note${notes.length === 1 ? '' : 's'}${preserveOriginal ? ' · original timing preserved' : ''}.`,
+      `Quantized ${count} note${count === 1 ? '' : 's'}${preserveOriginal ? ' · original timing preserved' : ''}.`,
       'success',
     );
   },
   restoreOriginalTiming: () => {
     const state = get();
-    const project = clone(state.project);
-    const track = findTrack(project, state.activeTrackId);
+    const track = findTrack(state.project, state.activeTrackId);
     if (!track) return;
-    const selected = new Set(state.selectedNoteIds);
-    const notes = selected.size > 0 ? track.notes.filter((note) => selected.has(note.id)) : track.notes;
+    const ids = new Set(state.selectedNoteIds);
     let restored = 0;
-    for (const note of notes) {
-      if (!note.original) continue;
-      note.startBeat = note.original.startBeat;
-      note.durationBeats = note.original.durationBeats;
-      delete note.original;
+    const notes = track.notes.map((note) => {
+      if (!note.original || (ids.size > 0 && !ids.has(note.id))) return note;
       restored++;
-    }
+      const { original, ...rest } = note;
+      return { ...rest, startBeat: original.startBeat, durationBeats: original.durationBeats };
+    });
     if (restored === 0) {
       state.notify('No preserved original timing on these notes.', 'info');
       return;
     }
-    track.notes.sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
-    set({
-      project: markDirty(project),
-      saveState: 'unsaved',
-      history: { past: [...state.history.past, state.project].slice(-80), future: [] },
-    });
+    commit(replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes(notes) })));
     state.notify(`Restored original timing on ${restored} note${restored === 1 ? '' : 's'}.`, 'success');
   },
 
   beginGesture: () => {
-    set({ gesture: { project: clone(get().project), changed: false } });
+    set({ gesture: { project: get().project } });
   },
   endGesture: () => {
     const gesture = get().gesture;
     if (!gesture) return;
-    if (JSON.stringify(gesture.project) !== JSON.stringify(get().project)) {
-      set({
-        history: { past: [...get().history.past, gesture.project].slice(-80), future: [] },
-        gesture: null,
-      });
+    if (gesture.project !== get().project) {
+      set({ history: { past: [...get().history.past, gesture.project].slice(-80), future: [] }, gesture: null });
     } else {
       set({ gesture: null });
     }
   },
   undo: () => {
-    const { history } = get();
-    if (history.past.length === 0) return;
+    const { history, gesture } = get();
+    if (gesture || history.past.length === 0) return;
     const past = [...history.past];
     const project = past.pop()!;
-    const activeTrackId = findTrack(project, get().activeTrackId) ? get().activeTrackId : project.tracks[0].id;
     set({
-      project,
+      ...restored(project, get()),
       history: { past, future: [get().project, ...history.future].slice(0, 80) },
-      activeTrackId,
-      selectedNoteIds: [],
-      saveState: 'unsaved',
     });
   },
   redo: () => {
-    const { history } = get();
-    if (history.future.length === 0) return;
+    const { history, gesture } = get();
+    if (gesture || history.future.length === 0) return;
     const future = [...history.future];
     const project = future.shift()!;
-    const activeTrackId = findTrack(project, get().activeTrackId) ? get().activeTrackId : project.tracks[0].id;
     set({
-      project,
+      ...restored(project, get()),
       history: { past: [...history.past, get().project].slice(-80), future },
-      activeTrackId,
-      selectedNoteIds: [],
-      saveState: 'unsaved',
     });
   },
 
@@ -881,4 +819,5 @@ export const useAppStore = create<AppState>()((set, get) => ({
     const state = get();
     return findTrack(state.project, state.activeTrackId) ?? state.project.tracks[0];
   },
-}));
+  };
+});

@@ -12,7 +12,7 @@ function Shortcut({ keys, label }: { keys: string; label: string }) {
 
 export function HelpPanel({ onClose }: { onClose: () => void }) {
   return (
-    <Modal title="Help & field guide" eyebrow="Unofficial fan software · strict Sky mode" onClose={onClose} size="large" testId="help-panel">
+    <Modal title="Help & field guide" eyebrow="Unofficial fan software · strict Sky mode" onClose={onClose} size="large">
       <div className="help-intro">
         <SparkIcon size={22} />
         <p>
@@ -26,32 +26,56 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
         <section className="help-card">
           <h3><MusicIcon size={16} /> First song</h3>
           <ol>
-            <li>Choose a track at the top and pick an instrument from the catalog.</li>
-            <li>Add note is the default tool: tap the grid to place a note. Edit lets you select and drag.</li>
-            <li>Only that instrument’s physical pads are shown — 15 diatonic pads, 8 percussion/pitched exceptions, or 4.</li>
-            <li>Press Space to play, or use Audition in the instrument catalog to hear a sound.</li>
-            <li>Change the key in the transport and every track is remapped to the same scale degrees.</li>
-            <li>Save happens automatically; the library keeps every project locally.</li>
+            <li>Click the instrument name above the grid to change it, or Add instrument below the tracks.</li>
+            <li>With Add note on, click a row to place a note. Held instruments stretch as you drag right.</li>
+            <li>Only that instrument’s real keys are shown: 15, 8 or 4, exactly as in the game.</li>
+            <li>Play the keys on the right, or with Q–T, A–G and Z–B. Step input writes them at the cursor.</li>
+            <li>Click the ruler to place the cursor, then press Space to play from there.</li>
+            <li>Songs save automatically. My songs keeps every song in this browser.</li>
           </ol>
         </section>
         <section className="help-card">
           <h3><KeyboardIcon size={16} /> Shortcuts</h3>
           <div className="shortcut-list">
-            <Shortcut keys="Space" label="Play / pause" />
-            <Shortcut keys="Shift+Space" label="Stop and return to start" />
-            <Shortcut keys="L" label="Toggle loop" />
-            <Shortcut keys="M" label="Toggle metronome" />
+            <Shortcut keys="Space" label="Play or pause from the cursor" />
+            <Shortcut keys="Shift+Space" label="Stop and return to the start" />
+            <Shortcut keys="Home" label="Cursor to the start" />
+            <Shortcut keys="End" label="Cursor to the last note" />
+            <Shortcut keys="1" label="Add note tool" />
+            <Shortcut keys="2" label="Edit tool" />
+            <Shortcut keys="K" label="Show or hide the keys" />
+            <Shortcut keys="I" label="Step input" />
+            <Shortcut keys="L" label="Loop" />
+            <Shortcut keys="M" label="Metronome click" />
+            <Shortcut keys="Q" label="Quantize, when the keys are hidden" />
+            <Shortcut keys="←" label="Move notes or cursor by the snap" />
+            <Shortcut keys="Shift+←" label="Move by a whole bar" />
+            <Shortcut keys="↑" label="Move selected notes up a key" />
+            <Shortcut keys="−" label="Zoom out" />
+            <Shortcut keys="=" label="Zoom in" />
+            <Shortcut keys="0" label="Fit the whole song" />
             <Shortcut keys="Ctrl+Z" label="Undo" />
             <Shortcut keys="Ctrl+Shift+Z" label="Redo" />
-            <Shortcut keys="Ctrl+A" label="Select all notes in the active track" />
-            <Shortcut keys="Ctrl+C" label="Copy selected notes" />
-            <Shortcut keys="Ctrl+X" label="Cut selected notes" />
-            <Shortcut keys="Ctrl+V" label="Paste at the playhead" />
-            <Shortcut keys="Ctrl+D" label="Duplicate selection" />
+            <Shortcut keys="Ctrl+A" label="Select the whole track" />
+            <Shortcut keys="Ctrl+C" label="Copy" />
+            <Shortcut keys="Ctrl+X" label="Cut" />
+            <Shortcut keys="Ctrl+V" label="Paste at the cursor" />
+            <Shortcut keys="Ctrl+D" label="Duplicate after the selection" />
             <Shortcut keys="Delete" label="Delete selected notes" />
-            <Shortcut keys="Alt+drag" label="Draw a note without changing tool" />
+            <Shortcut keys="Esc" label="Clear the selection" />
           </div>
-                  </section>
+        </section>
+        <section className="help-card">
+          <h3>With the mouse</h3>
+          <div className="shortcut-list">
+            <Shortcut keys="Drag" label="Move notes; they land on the grid" />
+            <Shortcut keys="Shift+drag" label="Move freely, or box-select on empty grid" />
+            <Shortcut keys="Alt+drag" label="Copy notes, or draw from the Edit tool" />
+            <Shortcut keys="Right-click" label="Delete a note (double-click works too)" />
+            <Shortcut keys="Ctrl+wheel" label="Zoom around the pointer" />
+          </div>
+          <p className="fine-print">Click a pitch at the left of the grid to hear it. Drag in the overview at the bottom to travel through a long song.</p>
+        </section>
         <section className="help-card">
           <h3>Strict Sky rules</h3>
           <p>
@@ -68,8 +92,8 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
         <section className="help-card">
           <h3><DownloadIcon size={16} /> Saving &amp; loading</h3>
           <p>
-            Songs autosave to the Library under More. Export downloads a <code>.skymusic.json</code> project file, and Import in
-            the Library loads it back; nothing is uploaded.
+            Songs autosave to My songs. Export downloads a <code>.skymusic.json</code> project file, and Import in
+            My songs loads it back; nothing is uploaded.
           </p>
           <p>
             MIDI is a Type-1 file with tempo, key signature, named tracks, GM programs and channel-10 percussion. MIDI timbres

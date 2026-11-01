@@ -68,7 +68,6 @@ function TrackRow({
     <article
       className={`track-card ${isActive ? 'is-active' : ''} ${track.muted ? 'is-muted' : ''}`}
       style={{ ['--track-color' as string]: track.color }}
-      data-testid="track-card"
       data-track-id={track.id}
       data-instrument-id={track.instrumentId}
       onClick={() => setActiveTrack(track.id)}
@@ -88,7 +87,6 @@ function TrackRow({
           setActiveTrack(track.id);
           onOpenCatalog({ mode: 'change', trackId: track.id });
         }}
-        data-testid="track-instrument-button"
       >
         <MusicIcon size={14} />
         <span>{instrument.displayName}</span>
@@ -106,7 +104,6 @@ function TrackRow({
           aria-pressed={track.muted}
           aria-label="Mute track"
           title="Mute"
-          data-testid="mute-button"
         >
           <MuteIcon size={14} /> M
         </button>
@@ -120,7 +117,6 @@ function TrackRow({
           aria-pressed={track.solo}
           aria-label="Solo track"
           title="Solo"
-          data-testid="solo-button"
         >
           S
         </button>
@@ -188,7 +184,6 @@ function TrackRow({
             className="danger-text"
             onClick={() => removeTrack(track.id)}
             aria-label="Delete track"
-            data-testid="delete-track"
           >
             <TrashIcon size={14} /> Delete
           </button>
@@ -211,7 +206,6 @@ export function TrackList({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogIn
         type="button"
         className="btn add-track"
         onClick={() => onOpenCatalog({ mode: 'add' })}
-        data-testid="add-track-button"
       >
         <PlusIcon size={16} /> Add performer
       </button>

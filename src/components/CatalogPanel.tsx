@@ -49,7 +49,6 @@ export function CatalogPanel({ intent, onClose }: { intent: CatalogIntent; onClo
       title={intent.mode === 'add' ? 'Add an instrument' : 'Choose an instrument'}
       onClose={onClose}
       size="wide"
-      testId="catalog-panel"
     >
       <div className="catalog-filters">
         <input
@@ -59,7 +58,6 @@ export function CatalogPanel({ intent, onClose }: { intent: CatalogIntent; onClo
           aria-label="Search instruments"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
-          data-testid="catalog-search"
         />
         <div className="catalog-parts" role="group" aria-label="Filter by part">
           {PARTS.map((item) => (
@@ -75,18 +73,16 @@ export function CatalogPanel({ intent, onClose }: { intent: CatalogIntent; onClo
         </div>
       </div>
 
-      <div className="catalog-grid" data-testid="catalog-grid">
+      <div className="catalog-grid">
         {results.map((instrument) => (
           <div
             key={instrument.id}
             className={`instrument-tile ${instrument.id === currentInstrument ? 'is-current' : ''}`}
-            data-testid={`instrument-card-${instrument.id}`}
           >
             <button
               type="button"
               className="instrument-tile-main"
               onClick={() => chooseInstrument(instrument.id)}
-              data-testid={`use-${instrument.id}`}
             >
               <InstrumentIcon instrumentId={instrument.id} size={44} />
               <span className="instrument-tile-name">{instrument.displayName}</span>
@@ -100,7 +96,6 @@ export function CatalogPanel({ intent, onClose }: { intent: CatalogIntent; onClo
               onClick={() => void playback.audition(instrument.id)}
               aria-label={`Hear ${instrument.displayName}`}
               title="Hear it"
-              data-testid={`audition-${instrument.id}`}
             >
               <PlayIcon size={12} />
             </button>

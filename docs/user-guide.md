@@ -8,10 +8,11 @@ MIDI.
 
 ## 1. First run
 
-1. Open the app in a desktop or mobile browser.
+1. Open the app in a desktop browser.
 2. Choose **Play the demo** to hear the engine, **Start a new song**,
-   or **Starter loop**. The demo is original: *Lanterns Over the Valley*, 40 bars in
-   C major at 82 BPM: Violin melody over Piano and Drum, with Flute, Cello and Harp.
+   or **Starter loop**. The demo is original: *Lanterns Over the Valley*, about two
+   minutes in C major at 82 BPM: Violin melody over Piano and Drum, with Flute,
+   Cello and Harp.
 3. Press **Play** once. The browser unlocks sound on that first press.
 4. The app autosaves into the browser's local project library. There is no account or
    upload.
@@ -34,29 +35,28 @@ MIDI.
 - Special items such as **Jam Station**, **Dark Horn**, and the unresolved plain
   **Krill Horn** are information-only, not track instruments.
 
-### Keys
-
-Choose from all 12 major keys in the transport. The project key applies to every
-track and remaps pads consistently. Example: pad 1 is C3 on a C3-based Harp in C
-major, D♭3 in D♭ major, and G3 in G major.
-
 ## 3. The screen
 
-- **Top bar:** Play/stop, position, the song name and a small save dot, tempo,
-  undo/redo, sound and **More**.
-- **Track row:** one chip per track, **+** to add a performer, **Add note / Edit**,
-  the current instrument button, and **Mix**.
-- **Editor:** the selected track's real pads, one row per playable pad, with bars
-  across the top. Add note is selected by default, so a tap places a note.
-- **More:** My songs (library), Instruments, Tracks & mix, Export, Settings &
-  sound, Help, plus loop, click, meter, snap, count-in and zoom.
+- **Top bar:** Play/stop, position, the song name and a small save dot, tempo, meter,
+  undo/redo, My songs, Import MIDI, Export and **⋯**.
+- **Toolbar:** Add note / Edit, Snap, Loop, Click, zoom, Mix and Keys.
+- **Tracks:** the open track shows its real keys, one row each. Its header holds the
+  instrument picker, mute, solo, volume and collapse. Every other track is a lane with
+  its own mute and solo; click a lane to open it.
+- **Keys:** the instrument's physical layout. Click the keys or press Q–T, A–G and Z–B
+  to play. Turn on **Step input** to write what you play at the cursor. Press **K** to
+  hide the panel.
+- **Bottom bar:** the position under the pointer, and an overview of the whole song.
+  Click or drag it to travel.
+- **⋯:** Instruments, Tracks & mix, Settings & sound, Help, count-in and whether notes
+  sound while you edit.
 
 ## 4. Editing in the timeline
 
 - **Add note (default):** tap/click anywhere in the grid to place a note on that
   pad and beat; drag sideways to lengthen a held note.
 - **Edit:** click a note to select it, drag selected notes to move them, drag empty
-  space for a marquee, and drag the right-edge handle on a sustain instrument to
+  space to box-select, and drag the right-edge handle on a sustain instrument to
   resize.
 - **Ruler:** click/drag to scrub; Left/Right arrow keys seek by one snap step.
 - **Loop lane:** enable Loop under More → Grid & timing. The lane then appears;
@@ -123,6 +123,10 @@ major, D♭3 in D♭ major, and G3 in G major.
   track per performer; GM programs; unpitched percussion on channel 10. DAW timbres
   will differ from this app's synthesis.
 - **Project JSON:** complete native project; load it back with Import in the Library.
+- **sky-mod song:** one `.skymod.json` for the separate sky-mod project, with every
+  non-empty track on a shared count-in. Copy it to `sheets\mine` in the Sky game
+  folder and open F5 → Music → My songs. Mute and solo are ignored. The export warns
+  when the song runs past the 120 s reported for one Shared Memory recording.
 - Every export is generated locally. No cloud service or key is involved.
 - MIDI contains notes, not timbres.
 
@@ -138,3 +142,15 @@ major, D♭3 in D♭ major, and G3 in G major.
   library entries.
 - **Unknown instrument on import:** the project references an instrument not in this
   catalog version; import is rejected rather than silently changing it.
+
+## Quick reference
+
+- **Delete a note:** right-click or double-click it.
+- **Copy by dragging:** hold Alt while dragging notes.
+- **Move off the grid:** hold Shift while dragging.
+- **Duplicate:** Ctrl+D places the copy straight after the selection.
+- **Change note strength:** select notes and use Strength in the selection bar.
+- **Zoom:** Ctrl+wheel around the pointer, or **0** to fit the whole song.
+- **Play from anywhere:** click the ruler, then press Space.
+
+Press **?** in the app for every shortcut.

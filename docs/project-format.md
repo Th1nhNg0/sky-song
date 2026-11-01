@@ -87,7 +87,7 @@ stored beat unit.
 field paths. Current limits:
 
 - 1–24 tracks
-- ≤ 4,000 notes per track; ≤ 20,000 notes total
+- ≤ 20,000 notes in the project, on any mix of tracks
 - title ≤ 120 chars; track name ≤ 60 chars
 - BPM 40–240; supported meters only; key integer 0–11
 - note pad must be within the instrument's `keyCount`; times must be finite and valid
@@ -155,8 +155,10 @@ A minimal project (one harp note, C major, 90 BPM):
 
 ## Interoperability status
 
-- **Implemented and tested:** native JSON, share links, WAV, MP3, MIDI.
-- **Not implemented:** MIDI import, Sky Studio JSON, Sky Music Nightly JSON/TXT,
-  `.skysheet` files, official in-game sheet import. These were investigated as
-  optional compatibility work; no verified public format was adopted. The app does
-  not claim compatibility.
+- **Implemented and tested:** native JSON, share links, WAV, MP3, MIDI export,
+  Type-1 MIDI import (`src/music/midiImport.ts`, headless via
+  `npm run midi2sky -- song.mid`).
+- **Not implemented:** Sky Studio JSON, Sky Music Nightly JSON/TXT, `.skysheet`
+  files, official in-game sheet import. These were investigated as optional
+  compatibility work; no verified public format was adopted. The app does not claim
+  compatibility.

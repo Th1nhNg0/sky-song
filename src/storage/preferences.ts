@@ -8,6 +8,9 @@ export interface Preferences {
   preserveOriginalTiming: boolean;
   snap: number;
   zoom: number;
+  keysOpen: boolean;
+  notePreview: boolean;
+  stepInput: boolean;
 }
 
 const DEFAULT_PREFERENCES: Preferences = {
@@ -20,7 +23,13 @@ const DEFAULT_PREFERENCES: Preferences = {
   preserveOriginalTiming: true,
   snap: 0.5,
   zoom: 56,
+  keysOpen: true,
+  notePreview: true,
+  stepInput: false,
 };
+
+export const MIN_ZOOM = 0.25;
+export const MAX_ZOOM = 240;
 
 const KEY = 'sky-music-studio:preferences:v1';
 
@@ -38,7 +47,10 @@ function normalizePreferences(raw: unknown): Preferences {
     onboardingDone: Boolean(source.onboardingDone),
     preserveOriginalTiming: source.preserveOriginalTiming !== false,
     snap: clampNumber(source.snap, 0, 4, DEFAULT_PREFERENCES.snap),
-    zoom: clampNumber(source.zoom, 20, 200, DEFAULT_PREFERENCES.zoom),
+    zoom: clampNumber(source.zoom, MIN_ZOOM, MAX_ZOOM, DEFAULT_PREFERENCES.zoom),
+    keysOpen: source.keysOpen !== false,
+    notePreview: source.notePreview !== false,
+    stepInput: source.stepInput === true,
   };
 }
 

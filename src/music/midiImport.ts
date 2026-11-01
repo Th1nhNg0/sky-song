@@ -1,9 +1,11 @@
 import { Midi } from '@tonejs/midi';
-import { getInstrument } from './instruments';
+import { midiSafeText } from '../audio/midi';
+import { getInstrument, INSTRUMENTS } from './instruments';
 import { resolvePad } from './pitch';
 import { createProject, createTrack, newId, sortNotes } from './project';
-import { TIME_SIGNATURES } from './time';
+import { MAX_BPM, MIN_BPM, TIME_SIGNATURES } from './time';
 import type { InstrumentDefinition, Note, Project } from './types';
+import { MAX_PROJECT_NOTES } from './validation';
 
 interface SourceNote {
   midi: number;
@@ -168,9 +170,68 @@ function splitSoloTrack(notes: SourceNote[], beatsPerBar: number): Part[] {
   ].filter((part) => part.notes.length > 0);
 }
 
+function clampBpm(bpm: number): number {
+  return Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(bpm)));
+}
+
+/** Files this app exported name each track `<track> | <instrument> (<part>, <role>)`. */
+function nativeTrackParts(name: string): { name: string; instrument: InstrumentDefinition } | null {
+  const match = /^(.*) \| (.+) \([^,]+, \w+\)$/.exec(name);
+  const instrument = match && INSTRUMENTS.find((item) => midiSafeText(item.displayName) === match[2]);
+  return match && instrument?.selectable ? { name: match[1], instrument } : null;
+}
+
+/** Restores a file exported by this app note for note, so nothing is arranged twice. */
+function nativeProject(midi: Midi, title: string): Project | null {
+  const sources = midi.tracks.filter((track) => track.notes.length > 0 || nativeTrackParts(track.name));
+  const parts = sources.map((track) => nativeTrackParts(track.name));
+  if (parts.length === 0 || parts.some((part) => !part)) return null;
+  const project = createProject({ title, bpm: clampBpm(midi.header.tempos[0]?.bpm ?? 90), key: 0 });
+  const meter = midi.header.timeSignatures[0]?.timeSignature;
+  project.timeSignature =
+    TIME_SIGNATURES.find((option) => option.value[0] === meter?.[0] && option.value[1] === meter?.[1])?.value ?? [4, 4];
+  project.tracks = sources.map((source, index) => {
+    const { name, instrument } = parts[index]!;
+    const track = createTrack(instrument.id, { name: name.slice(0, 60) || instrument.displayName, colorIndex: index });
+    const pitches = instrument.pads.map((_, pad) => {
+      const resolved = resolvePad(instrument, 0, pad);
+      return resolved.pitched ? resolved.midi : resolved.drumNote;
+    });
+    track.notes = sortNotes(
+      source.notes.map((note) => {
+        const exact = pitches.indexOf(note.midi);
+        const pad = exact >= 0 ? exact : pitches.reduce<number>(
+          (best, pitch, candidate) => Math.abs((pitch ?? 0) - note.midi) < Math.abs((pitches[best] ?? 0) - note.midi) ? candidate : best,
+          0,
+        );
+        return {
+          id: newId('note'),
+          pad,
+          startBeat: note.ticks / midi.header.ppq,
+          durationBeats: Math.max(GRID / 4, note.durationTicks / midi.header.ppq),
+          velocity: Math.max(0.05, note.velocity),
+        };
+      }),
+    );
+    return track;
+  });
+  return project;
+}
+
+/** Drops the end of a song that exceeds the project limit; returns how many notes went. */
+export function trimToNoteLimit(project: Project): number {
+  const starts = project.tracks.flatMap((track) => track.notes.map((note) => note.startBeat)).sort((a, b) => a - b);
+  if (starts.length <= MAX_PROJECT_NOTES) return 0;
+  const cutoff = starts[MAX_PROJECT_NOTES];
+  for (const track of project.tracks) track.notes = track.notes.filter((note) => note.startBeat < cutoff);
+  return starts.length - project.tracks.reduce((sum, track) => sum + track.notes.length, 0);
+}
+
 /** Converts a Standard MIDI File into a project that only uses real game pads. */
 export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): Project {
   const midi = new Midi(bytes);
+  const native = nativeProject(midi, title);
+  if (native) return native;
   const [meter] = midi.header.timeSignatures;
   // Fast waltzes are often notated in 6/8; as 3/4 at double tempo the notes sit on the beats.
   const waltz = meter?.timeSignature[0] === 6 && meter?.timeSignature[1] === 8;
@@ -218,8 +279,8 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   const known = TIME_SIGNATURES.find(
     (option) => option.value[0] === meter?.timeSignature[0] && option.value[1] === meter?.timeSignature[1],
   );
-  const bpm = Math.round((midi.header.tempos[0]?.bpm ?? 90) * (waltz ? 2 : 1));
-  const project = createProject({ title, bpm: Math.min(240, bpm), key: 0 });
+  const bpm = (midi.header.tempos[0]?.bpm ?? 90) * (waltz ? 2 : 1);
+  const project = createProject({ title, bpm: clampBpm(bpm), key: 0 });
   project.timeSignature = waltz ? [3, 4] : known ? known.value : [4, 4];
   project.tracks = parts.map((part, index) => {
     const track = createTrack(part.instrumentId, { name: part.name, colorIndex: index });

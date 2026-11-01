@@ -4,10 +4,12 @@ import { CATALOG_VERSION, PROJECT_SCHEMA_VERSION } from './types';
 import type { Note, Project, Track, ValidationIssue, ValidationResult } from './types';
 import { newId, nowIso } from './project';
 
+export const MAX_PROJECT_NOTES = 20000;
+
 const LIMITS = {
   maxTracks: 24,
-  maxNotesPerTrack: 4000,
-  maxNotesTotal: 20000,
+  maxNotesPerTrack: MAX_PROJECT_NOTES,
+  maxNotesTotal: MAX_PROJECT_NOTES,
   maxTitleLength: 120,
   maxTrackNameLength: 60,
   maxDurationBeats: 512,

@@ -1,8 +1,10 @@
 import { Component, useEffect, useRef, useState, type ErrorInfo, type ReactNode } from 'react';
 import { useAppStore } from './state/store';
-import { playback } from './state/playback';
+import { handleShortcut } from './state/shortcuts';
 import { TopBar } from './components/TopBar';
-import { TrackStrip } from './components/TrackStrip';
+import { EditorToolbar } from './components/EditorToolbar';
+import { KeyPanel, NoteFlash } from './components/KeyPanel';
+import { StatusBar } from './components/StatusBar';
 import { Timeline } from './components/Timeline';
 import { Toast } from './components/Toast';
 import { WelcomePanel } from './components/WelcomePanel';
@@ -14,18 +16,6 @@ import { HelpPanel } from './components/HelpPanel';
 import { TracksPanel } from './components/TracksPanel';
 import { lastOpenedProjectId } from './storage/library';
 import { SparkIcon } from './components/Icons';
-
-function isEditableTarget(target: EventTarget | null): boolean {
-  if (!(target instanceof HTMLElement)) return false;
-  const tag = target.tagName.toLowerCase();
-  return (
-    tag === 'input' ||
-    tag === 'textarea' ||
-    tag === 'select' ||
-    target.isContentEditable ||
-    target.closest('[contenteditable="true"]') !== null
-  );
-}
 
 /** Dev only: first-time import of the songs in the owner's local folder. */
 async function importLocalSongs(): Promise<boolean> {
@@ -79,6 +69,7 @@ export default function App() {
   const welcomeOpen = useAppStore((state) => state.welcomeOpen);
   const saveState = useAppStore((state) => state.saveState);
   const project = useAppStore((state) => state.project);
+  const keysOpen = useAppStore((state) => state.preferences.keysOpen);
   const [catalogIntent, setCatalogIntent] = useState<CatalogIntent>({ mode: 'browse' });
   const initialized = useRef(false);
 
@@ -129,104 +120,21 @@ export default function App() {
   }, [saveState]);
 
   useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) return;
-      if (isEditableTarget(event.target)) return;
-      const state = useAppStore.getState();
-      const key = event.key;
-      const lower = key.toLowerCase();
-      const mod = event.ctrlKey || event.metaKey;
-
-      if (key === 'Escape') {
-        if (state.panel) {
-          state.setPanel(null);
-          return;
-        }
-        if (state.welcomeOpen) {
-          state.finishOnboarding();
-          state.setWelcomeOpen(false);
-        }
-        return;
-      }
-
-      if (state.welcomeOpen) return;
-      if (state.panel) return;
-
-      if (mod) {
-        if (lower === 'z') {
-          event.preventDefault();
-          if (event.shiftKey) state.redo();
-          else state.undo();
-          return;
-        }
-        if (lower === 'y') {
-          event.preventDefault();
-          state.redo();
-          return;
-        }
-        if (lower === 'a') {
-          event.preventDefault();
-          state.selectAllNotes();
-          return;
-        }
-        if (lower === 'c') {
-          event.preventDefault();
-          state.copySelection();
-          return;
-        }
-        if (lower === 'x') {
-          event.preventDefault();
-          state.cutSelection();
-          return;
-        }
-        if (lower === 'v') {
-          event.preventDefault();
-          state.pasteClipboard(playback.position());
-          return;
-        }
-        if (lower === 'd') {
-          event.preventDefault();
-          state.duplicateSelection();
-          return;
-        }
-        return;
-      }
-
-      if (key === 'Delete' || key === 'Backspace') {
-        event.preventDefault();
-        state.deleteSelectedNotes();
-        return;
-      }
-
-      if (key === ' ' || key === 'Spacebar') {
-        event.preventDefault();
-        if (event.shiftKey) playback.stop();
-        else void playback.togglePlay();
-        return;
-      }
-
-      if (lower === 'l') {
-        event.preventDefault();
-        state.toggleLoop();
-      } else if (lower === 'm') {
-        event.preventDefault();
-        state.setPreferences({ metronomeEnabled: !state.preferences.metronomeEnabled });
-      } else if (key === '?') {
-        state.setPanel('help');
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
 
   return (
     <ErrorBoundary>
       <div className={`app-shell ${panel ? 'has-panel' : ''}`}>
         <TopBar onOpenCatalog={() => openCatalog({ mode: 'browse' })} />
-        <TrackStrip onOpenCatalog={openCatalog} />
+        <EditorToolbar />
         <main className="studio-main">
-          <Timeline />
+          <Timeline onOpenCatalog={openCatalog} />
+          {keysOpen && <KeyPanel />}
         </main>
+        <StatusBar />
+        <NoteFlash />
 
         {panel === 'catalog' && <CatalogPanel intent={catalogIntent} onClose={() => useAppStore.getState().setPanel(null)} />}
         {panel === 'library' && <LibraryPanel onClose={() => useAppStore.getState().setPanel(null)} />}

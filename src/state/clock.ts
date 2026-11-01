@@ -22,3 +22,29 @@ export const useAudioStore = create<AudioState>()((set) => ({
   message: null,
   setStatus: (status, message = null) => set({ status, message }),
 }));
+
+export const LABEL_WIDTH = 196;
+
+interface TimelineNavigation {
+  zoomTo(px: number, anchorClientX?: number): void;
+  zoomToFit(): void;
+  scrollToBeat(beat: number): void;
+}
+
+interface ViewState {
+  scrollLeft: number;
+  /** Width of the visible note area, excluding the track header column. */
+  viewWidth: number;
+  totalBeats: number;
+  hover: { beat: number; pad: number | null } | null;
+  navigation: TimelineNavigation | null;
+}
+
+/** Scroll position and pointer readout, separate so scrolling never re-renders the editor. */
+export const useViewStore = create<ViewState>()(() => ({
+  scrollLeft: 0,
+  viewWidth: 800,
+  totalBeats: 32,
+  hover: null,
+  navigation: null,
+}));

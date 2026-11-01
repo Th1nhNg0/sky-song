@@ -85,13 +85,13 @@ export function createTrackBus(
   return createBus(ctx, graph, reverbAmount);
 }
 
-/** Short metronome click. */
+/** Short metronome click. Returns a function that silences it if it has not sounded yet. */
 export function scheduleClick(
   ctx: BaseAudioContext,
   destination: AudioNode,
   time: number,
   accent: boolean,
-): void {
+): () => void {
   const start = Math.max(time, ctx.currentTime + 0.001);
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
@@ -104,4 +104,5 @@ export function scheduleClick(
   gain.connect(destination);
   osc.start(start);
   osc.stop(start + 0.11);
+  return () => osc.stop();
 }

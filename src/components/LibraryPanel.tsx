@@ -65,13 +65,13 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Project library" eyebrow="Stored locally in this browser · no account, no server" onClose={onClose} size="large" testId="library-panel">
+    <Modal title="Project library" eyebrow="Stored locally in this browser · no account, no server" onClose={onClose} size="large">
       <div className="library-toolbar">
         <div className="library-actions">
-          <button type="button" className="btn primary" onClick={() => { newProject(); onClose(); }} data-testid="library-new">
+          <button type="button" className="btn primary" onClick={() => { newProject(); onClose(); }}>
             <PlusIcon size={15} /> New song
           </button>
-          <button type="button" className="btn" onClick={() => { newProject({ demo: true }); onClose(); }} data-testid="library-demo">
+          <button type="button" className="btn" onClick={() => { newProject({ demo: true }); onClose(); }}>
             <SparkIcon size={15} /> Load demo
           </button>
           <button type="button" className="btn" onClick={() => { newProject({ starter: true }); onClose(); }}>
@@ -90,7 +90,6 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
             type="file"
             accept=".json,.skymusic.json,application/json,.mid,.midi,audio/midi"
             className="file-input"
-            data-testid="import-file"
             onChange={(event) => void importFile(event.target.files?.[0] ?? null)}
           />
         </div>
@@ -103,9 +102,9 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
 
       {loading && <p className="loading-line">Reading local library…</p>}
 
-      <div className="library-list" data-testid="library-list">
+      <div className="library-list">
         {library.map((entry) => (
-          <article key={entry.id} className={`library-card ${entry.id === current.id ? 'is-current' : ''}`} data-testid="library-entry">
+          <article key={entry.id} className={`library-card ${entry.id === current.id ? 'is-current' : ''}`}>
             <div className="library-icon"><LibraryIcon size={19} /></div>
             <div className="library-card-main">
               <h3>{entry.title}</h3>
@@ -124,7 +123,6 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
                 onClick={async () => {
                   if (await openProject(entry.id)) onClose();
                 }}
-                data-testid="library-open"
               >
                 Open
               </button>
@@ -145,7 +143,6 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
                       await deleteProject(entry.id);
                       setConfirming(null);
                     }}
-                    data-testid="library-delete-confirm"
                   >
                     Delete
                   </button>

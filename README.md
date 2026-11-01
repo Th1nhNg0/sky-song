@@ -15,10 +15,10 @@ strict, physical, diatonic pads — not a generic chromatic piano.
 
 ## What it does
 
-- **One clear studio screen** — open a song, choose a track and instrument, tap
-  the grid to add a note, and press Play. Tempo and key stay visible; library,
-  export, mix, loop, click, snap, meter, count-in and zoom live under one **More**
-  menu. The selected track gets a friendly 15-pad-style roll with large rows.
+- **One clear studio screen** — open a song, choose a track and instrument, click
+  the grid to add a note, and press Play. Snap, loop, click and zoom sit in a toolbar,
+  every track has its own mute and solo, and the keys panel plays the real 15-key
+  layout from the mouse or keyboard. An overview travels through long songs.
 - **Researched instrument catalog** — 44 playable entries, variants and special
   cases, with evidence, confidence, status, pad count/layout, native sheet part,
   sustain behavior and a distinct original synth profile. Special props and
@@ -58,11 +58,34 @@ npm install
 npm run dev            # http://127.0.0.1:5173
 npm run build          # type-check + production static build in dist/
 npm run preview        # preview the production build on port 4173
+npm test               # unit tests for the transport, editing, MIDI and grid
+npm run test:e2e       # real-browser workflows (first run: npx playwright install chromium)
 ```
 
 Open the app and choose **Play the demo** or **Start a new song**. Press **Play**
-once to unlock browser audio. The demo is an original 40-bar ensemble piece in C major at
-82 BPM: Violin melody over Piano and Drum, with Flute, Cello and Harp.
+once to unlock browser audio. The demo is an original two-minute piece in C major at 82 BPM
+with a verse, chorus, bridge and final climax: Violin melody over Piano and Drum,
+with Flute, Cello and Harp.
+
+### Turning a MIDI file into a project
+
+The app imports Type-1 MIDI directly (**Import MIDI** in the top bar). The same importer
+also runs headless, which is handy when you have a `.mid` and want a file:
+
+```bash
+npm run midi2sky -- path/to/song.mid          # writes song.skymusic.json next to it
+npm run midi2sky -- song.mid -o out.json -k Db -b 96 --title "My Song"
+node scripts/midi2sky.mjs -h                  # every option
+```
+
+`scripts/midi2sky.mjs` bundles `scripts/midi-to-project.ts` (esbuild) and calls
+`src/music/midiImport.ts`, then runs the result through the app's own
+`parseProjectJson` validation — so the file it writes is one the app will accept.
+Expect it to fold notes onto the real Sky pads, keep up to 6 pitched parts plus a
+drum track, snap times to a 0.25-beat grid, and pick one whole-song transpose so
+the piece lands on the diatonic pads where it can. Pass `--key` to transpose
+playback afterward: pads are physical, so no note data changes. Use it with MIDI
+you wrote or own — the tool downloads nothing and contains no song data itself.
 
 ### Verification commands
 
@@ -80,12 +103,13 @@ src/music/       keys, pad patterns, instrument manifest, pitch resolution,
                  project schema, validation/migration, original demo songs
 src/audio/       original synth voices, mixer graph, look-ahead transport,
                  MIDI writer
-src/components/  top bar, toolbar, track strip, timeline/piano roll,
+src/components/  top bar, toolbar, timeline/piano roll, keys, overview,
                  More menu, catalog, library, sounds, export, settings,
                  help
 src/storage/     IndexedDB library, preferences
 src/state/       Zustand store, playback controller, playhead/audio stores
 src/export/      download helpers and export orchestration
+scripts/         headless tools (MIDI → .skymusic.json converter)
 docs/            research, decisions, known gaps, format, user guide, audio sources
 ```
 
@@ -145,4 +169,3 @@ The original code and documentation in this repository are MIT-licensed (see
 - [Architecture decisions](docs/decisions.md)
 - [Known gaps and limitations](docs/known-gaps.md)
 - [Audio sources and licenses](docs/audio-sources.md)
-- [Task tracker](TASKS.md)

@@ -113,6 +113,13 @@ export const DownloadIcon = (props: IconProps) => (
   </Svg>
 );
 
+export const UploadIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M12 14.5v-11M7.5 8 12 3.5 16.5 8" />
+    <path d="M4.5 17.5v2.2h15v-2.2" />
+  </Svg>
+);
+
 export const HelpIcon = (props: IconProps) => (
   <Svg {...props}>
     <circle cx="12" cy="12" r="8.6" />
@@ -233,5 +240,18 @@ export const MoreIcon = (props: IconProps) => (
 export const CursorIcon = (props: IconProps) => (
   <Svg {...props}>
     <path d="M6.5 4.8v12.4l3.1-3.1 2.2 4.5 2.7-1.3-2.2-4.5h4.3L6.5 4.8Z" />
+  </Svg>
+);
+
+export const FitIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M4 12h16M4 12l3.5-3.5M4 12l3.5 3.5M20 12l-3.5-3.5M20 12l-3.5 3.5M4 5v14M20 5v14" />
+  </Svg>
+);
+
+export const KeysIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <rect x="4" y="5" width="16" height="14" rx="2.5" />
+    <path d="M9.3 5v14M14.7 5v14M4 12h16" />
   </Svg>
 );

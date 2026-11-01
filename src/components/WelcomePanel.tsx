@@ -19,7 +19,7 @@ export function WelcomePanel() {
   };
 
   return (
-    <div className="welcome-backdrop" role="dialog" aria-modal="true" aria-label="Welcome to Sky Music Studio" data-testid="welcome">
+    <div className="welcome-backdrop" role="dialog" aria-modal="true" aria-label="Welcome to Sky Music Studio">
       <div className="welcome-panel">
         <button type="button" className="modal-close welcome-close" onClick={dismiss} aria-label="Close welcome">
           <CloseIcon size={18} />
@@ -39,18 +39,17 @@ export function WelcomePanel() {
             type="button"
             className="welcome-primary"
             onClick={() => start({ demo: true })}
-            data-testid="welcome-demo"
             autoFocus
           >
             <PlayIcon size={18} /> Play the demo
           </button>
-          <button type="button" className="welcome-secondary" onClick={() => start()} data-testid="welcome-new">
+          <button type="button" className="welcome-secondary" onClick={() => start()}>
             <MusicIcon size={17} /> Start a new song
           </button>
         </div>
 
         <div className="welcome-links">
-          <button type="button" className="link-btn" onClick={() => start({ starter: true })} data-testid="welcome-starter">
+          <button type="button" className="link-btn" onClick={() => start({ starter: true })}>
             Start with a simple loop
           </button>
           {library.length > 0 && (

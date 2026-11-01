@@ -15,7 +15,6 @@ export function TracksPanel({
       title="Performers"
       onClose={onClose}
       size="medium"
-      testId="tracks-panel"
     >
       <p className="panel-hint">Pick a track to edit it. Mix and instrument options stay here.</p>
       <div className="tracks-panel-body">

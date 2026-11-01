@@ -7,14 +7,12 @@ export function Modal({
   onClose,
   children,
   size = 'large',
-  testId,
 }: {
   title: string;
   eyebrow?: string;
   onClose: () => void;
   children: ReactNode;
   size?: 'small' | 'medium' | 'large' | 'wide';
-  testId?: string;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -68,7 +66,6 @@ export function Modal({
         aria-modal="true"
         aria-label={title}
         ref={panelRef}
-        data-testid={testId}
       >
         <div className="modal-head">
           <div>

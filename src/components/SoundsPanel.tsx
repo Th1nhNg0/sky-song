@@ -451,7 +451,7 @@ export function SoundsPanel() {
   const activePack = source.kind === 'sample' ? source.pack : null;
 
   return (
-    <section className="settings-card wide sounds-panel" data-testid="sounds-panel">
+    <section className="settings-card wide sounds-panel">
       <SoundsStyles />
       <div className="sounds-heading">
         <div>
@@ -467,7 +467,6 @@ export function SoundsPanel() {
             className="input select"
             value={instrumentId}
             onChange={(event) => setInstrumentId(event.target.value)}
-            data-testid="sounds-instrument"
           >
             {instruments.map((item) => (
               <option key={item.id} value={item.id}>
@@ -478,7 +477,7 @@ export function SoundsPanel() {
         </label>
       </div>
 
-      <div className={`sounds-source ${source.kind}`} data-testid="sounds-source">
+      <div className={`sounds-source ${source.kind}`}>
         <div>
           <strong>
             {activePack
@@ -516,9 +515,9 @@ export function SoundsPanel() {
         {instrumentPacks.length === 0 ? (
           <p className="fine-print">No packs yet. Record a scale from your own game, or load one file per note below.</p>
         ) : (
-          <ul className="sounds-pack-list" data-testid="sounds-pack-list">
+          <ul className="sounds-pack-list">
             {instrumentPacks.map((pack) => (
-              <li key={pack.id} className="sounds-pack-row" data-testid="sounds-pack-row">
+              <li key={pack.id} className="sounds-pack-row">
                 <div className="sounds-pack-info">
                   <strong>{pack.name}</strong>
                   <span>
@@ -606,7 +605,6 @@ export function SoundsPanel() {
                   accept="audio/wav,audio/mpeg,audio/ogg,audio/*"
                   onChange={(event) => void handleScaleFile(event)}
                   hidden
-                  data-testid="sounds-scale-file"
                 />
               </label>
               {recording && (
@@ -632,7 +630,6 @@ export function SoundsPanel() {
                 multiple
                 onChange={(event) => void handleNoteFiles(event)}
                 hidden
-                data-testid="sounds-note-files"
               />
             </label>
             <span className="fine-print">
@@ -656,7 +653,7 @@ export function SoundsPanel() {
           </p>
         )}
         {notice && (
-          <p className="sounds-notice" data-testid="sounds-notice">
+          <p className="sounds-notice">
             {notice}
           </p>
         )}
@@ -667,9 +664,9 @@ export function SoundsPanel() {
               <h4>{draft.length} prepared sample{draft.length === 1 ? '' : 's'}</h4>
               <span className="mini-chip">{pitched ? 'auto-detected MIDI, editable' : 'assign to pads'}</span>
             </div>
-            <div className="sounds-rows" data-testid="sounds-draft-rows">
+            <div className="sounds-rows">
               {draft.map((sample, index) => (
-                <div className="sounds-row" key={sample.id} data-testid="sounds-draft-row">
+                <div className="sounds-row" key={sample.id}>
                   <span className="sounds-row-index">{index + 1}</span>
                   <span className="sounds-row-time">
                     {formatSeconds(sample.sourceStartSeconds)} · {formatSeconds(sample.durationSeconds)}
@@ -682,7 +679,6 @@ export function SoundsPanel() {
                       <input
                         type="number"
                         className="input sounds-midi-input"
-                        data-testid="sounds-midi-input"
                         min={0}
                         max={127}
                         value={sample.midi ?? ''}
@@ -732,7 +728,6 @@ export function SoundsPanel() {
                 <input
                   className="input"
                   value={name}
-                  data-testid="sounds-pack-name"
                   placeholder={`${instrument.displayName} recording`}
                   onChange={(event) => setName(event.target.value)}
                   maxLength={80}
@@ -743,7 +738,6 @@ export function SoundsPanel() {
                 className="btn primary"
                 onClick={() => void saveDraft()}
                 disabled={busy || draft.length === 0}
-                data-testid="sounds-save-pack"
               >
                 Save pack in this browser
               </button>

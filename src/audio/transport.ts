@@ -2,6 +2,7 @@ import { getInstrument } from '../music/instruments';
 import { beatsPerMeasure, beatsToSeconds } from '../music/time';
 import type { LoopRegion, Project } from '../music/types';
 import type { PlaybackEngine } from './engine';
+import { createTicker, type Ticker } from './ticker';
 
 export type TransportState = 'stopped' | 'playing' | 'paused';
 
@@ -36,6 +37,8 @@ export interface TransportOptions {
 }
 
 const EPSILON = 1e-7;
+/** A note this overdue after a stall is skipped: bunching it up would sound worse than a gap. */
+const MAX_LATE_SECONDS = 0.08;
 
 function mod(value: number, base: number): number {
   return ((value % base) + base) % base;
@@ -51,7 +54,7 @@ export class Transport {
   private tickIntervalMs: number;
   private clock: () => number;
   private manualTick: boolean;
-  private timer: number | null = null;
+  private ticker: Ticker | null = null;
 
   private state: TransportState = 'stopped';
   private project: Project;
@@ -74,6 +77,7 @@ export class Transport {
   private lastScheduledV = 0;
   private firedLoopIterations = 0;
   private lastTickAt = 0;
+  private droppedLate = 0;
 
   constructor(options: TransportOptions) {
     this.engine = options.engine;
@@ -81,7 +85,7 @@ export class Transport {
     this.getSettings = options.getSettings;
     this.onStateChange = options.onStateChange;
     this.onLoopIteration = options.onLoopIteration;
-    this.lookaheadSeconds = options.lookaheadSeconds ?? 0.12;
+    this.lookaheadSeconds = options.lookaheadSeconds ?? 0.2;
     this.tickIntervalMs = options.tickIntervalMs ?? 25;
     this.clock = options.now ?? (() => this.engine.now());
     this.manualTick = options.manualTick ?? false;
@@ -184,6 +188,7 @@ export class Transport {
     const wasPlaying = this.state === 'playing';
     const previous = this.project;
     const position = this.positionBeats();
+    const virtual = wasPlaying ? this.currentVirtual(false) : 0;
     const timingChanged = project.bpm !== previous.bpm;
     const loopChanged =
       project.loop.enabled !== previous.loop.enabled ||
@@ -191,13 +196,24 @@ export class Transport {
       project.loop.endBeat !== previous.loop.endBeat;
     this.project = project;
     this.rebuild();
-    if (wasPlaying && (timingChanged || loopChanged)) {
-      this.seek(position);
-    } else if (!wasPlaying) {
-      this.pausedBeat = project.loop.enabled
-        ? Math.min(Math.max(this.pausedBeat, project.loop.startBeat), project.loop.endBeat - 0.001)
-        : Math.min(this.pausedBeat, this.contentEndBeat);
+    if (wasPlaying && loopChanged) this.seek(position);
+    else if (wasPlaying && timingChanged) this.retime(virtual);
+  }
+
+  /** Continues from the same musical position at a new tempo, leaving sounding notes alone. */
+  private retime(virtual: number): void {
+    const now = this.clock();
+    if (now < this.anchorTime) {
+      this.seek(this.anchorVirtual);
+      return;
     }
+    this.engine.cancelPending?.(now);
+    this.anchorVirtual = virtual;
+    this.anchorTime = now;
+    this.lastScheduledV = virtual;
+    this.recomputeIndicesAfter(virtual);
+    this.nextClickV = Math.ceil(virtual - EPSILON);
+    this.tick();
   }
 
   private timeForVirtual(virtualBeat: number): number {
@@ -215,6 +231,11 @@ export class Transport {
 
   private scheduleEvent(event: ScheduledEvent, virtualBeat: number): void {
     const loop = this.project.loop;
+    const startTime = this.timeForVirtual(virtualBeat);
+    if (this.clock() - startTime > MAX_LATE_SECONDS) {
+      this.droppedLate++;
+      return;
+    }
     let durationBeats = event.durationBeats;
     if (loop.enabled) {
       const remaining = loop.endBeat - event.startBeat;
@@ -225,12 +246,11 @@ export class Transport {
       instrument: getInstrument(event.instrumentId),
       keyIndex: event.keyIndex,
       pad: event.pad,
-      startTime: this.timeForVirtual(virtualBeat),
+      startTime,
       durationSeconds: beatsToSeconds(durationBeats, this.project.bpm),
       velocity: event.velocity,
       seed: event.seed,
     });
-    this.lastScheduledV = Math.max(this.lastScheduledV, virtualBeat);
   }
 
   private scheduleSampleClick(virtualBeat: number, songBeat: number): void {
@@ -258,10 +278,8 @@ export class Transport {
   play(fromBeat?: number): void {
     const settings = this.getSettings();
     const loop = this.project.loop;
-    let start = fromBeat ?? (this.state === 'paused' ? this.pausedBeat : loop.enabled ? loop.startBeat : 0);
-    if (this.state === 'paused' && fromBeat === undefined && !loop.enabled && start >= this.contentEndBeat - 0.01) {
-      start = 0;
-    }
+    let start = fromBeat ?? this.pausedBeat;
+    if (fromBeat === undefined && !loop.enabled && start >= this.contentEndBeat - 0.01) start = 0;
     if (loop.enabled) {
       if (start < loop.startBeat || start >= loop.endBeat) start = loop.startBeat;
     } else {
@@ -277,6 +295,7 @@ export class Transport {
     this.loopIndex = 0;
     this.loopClickIndex = 0;
     this.firedLoopIterations = 0;
+    this.lastTickAt = 0;
     this.countInBeats = 0;
     this.rebuildEvents();
     const countIn = Math.max(0, settings.countInMeasures) * beatsPerMeasure(this.project.timeSignature);
@@ -292,14 +311,12 @@ export class Transport {
   private startTimer(): void {
     if (this.manualTick || typeof window === 'undefined') return;
     this.stopTimer();
-    this.timer = window.setInterval(() => this.tick(), this.tickIntervalMs);
+    this.ticker = createTicker(() => this.tick(), this.tickIntervalMs);
   }
 
   private stopTimer(): void {
-    if (this.timer !== null) {
-      window.clearInterval(this.timer);
-      this.timer = null;
-    }
+    this.ticker?.stop();
+    this.ticker = null;
   }
 
   private stopVoices(): void {
@@ -328,13 +345,14 @@ export class Transport {
 
   seek(beat: number): void {
     const loop = this.project.loop;
-    let target = Math.max(0, beat);
-    if (loop.enabled) {
-      target = Math.min(Math.max(loop.startBeat, target), loop.endBeat - 0.001);
-    } else {
-      target = Math.min(target, Math.max(this.contentEndBeat, 0));
-    }
     const wasPlaying = this.state === 'playing';
+    let target = Math.max(0, beat);
+    // A stopped cursor may rest anywhere; only a running transport has to stay in range.
+    if (wasPlaying) {
+      target = loop.enabled
+        ? Math.min(Math.max(loop.startBeat, target), loop.endBeat - 0.001)
+        : Math.min(target, this.contentEndBeat);
+    }
     if (wasPlaying) {
       this.stopVoices();
       this.state = 'playing';
@@ -347,6 +365,7 @@ export class Transport {
     this.plainIndex = 0;
     this.loopIndex = 0;
     this.loopClickIndex = 0;
+    this.lastTickAt = 0;
     this.nextClickV = Math.ceil(target - EPSILON);
     this.rebuildEvents();
     if (wasPlaying) {
@@ -402,6 +421,7 @@ export class Transport {
     } else {
       this.schedulePlain(horizon);
     }
+    this.lastScheduledV = Math.max(this.lastScheduledV, horizon);
     if (now > this.anchorTime && now - this.latencySeconds > this.anchorTime) {
       const raw = this.anchorVirtual + (now - this.latencySeconds - this.anchorTime) * this.bps;
       if (!loop.enabled && raw > this.contentEndBeat + 0.05) {
@@ -440,8 +460,7 @@ export class Transport {
     // Determine the cycle that contains the scheduling horizon; advance as needed.
     while (guard++ < 2000) {
       const cycleStart = this.loopBase;
-      const cycleEnd = cycleStart + length;
-      if (cycleStart > horizon + length) break;
+      const cycleEnd = cycleStart + this.project.loop.endBeat;
       while (this.loopIndex < this.loopEvents.length) {
         const event = this.loopEvents[this.loopIndex];
         const virtual = cycleStart + event.startBeat;
@@ -464,7 +483,7 @@ export class Transport {
         }
       }
       if (cycleEnd > horizon) break;
-      this.loopBase = cycleEnd;
+      this.loopBase += length;
       this.loopIndex = 0;
       this.loopClickIndex = 0;
       this.firedLoopIterations++;
@@ -510,6 +529,7 @@ export class Transport {
     anchorTime: number;
     lastScheduledV: number;
     bps: number;
+    droppedLate: number;
   } {
     return {
       state: this.state,
@@ -519,6 +539,7 @@ export class Transport {
       anchorTime: this.anchorTime,
       lastScheduledV: this.lastScheduledV,
       bps: this.bps,
+      droppedLate: this.droppedLate,
     };
   }
 

@@ -87,21 +87,23 @@ This is the unvarnished list, current as of the delivery build. Items marked
 
 ## Product scope
 
-21. **No MIDI import.** MIDI export is implemented and tested; import was not required
-    by the goal and is not present.
+21. **MIDI import is exact only for this app's own files.** A file exported here comes
+    back note for note, with its tracks, instruments and pads. Other MIDI files are
+    arranged onto real game keys: they are transposed to the white notes, capped at six
+    parts and four-note chords, and only the first tempo is read. Songs over 20,000
+    notes lose their ending, and the app says how many notes were left out.
 22. **No Sky Studio / Sky Music Nightly / `.skysheet` interoperability.** This was
     investigated as optional compatibility. No verified public format was adopted,
     so the app does not claim or partially implement it.
-23. **No official in-game sheet import, bots, macros, or key automation.** The app
-    explicitly guides manual human play. It cannot make Sky import a custom sheet.
+23. **No official in-game sheet import, bots, macros, or key automation in the app.**
+    It cannot make Sky import a custom sheet. **Export for sky-mod** writes a file for
+    the separate sky-mod project, which does the in-game playback; nothing here sends
+    input to the game. The file's 4- and 8-pad key layout is unverified in game.
 24. **No multiplayer, synchronized editing, accounts, or backend.** By design.
-25. **Mobile keeps the same single screen.** The track strip scrolls sideways;
-    Tracks & mix and timing tools are under More, and Add note is the default touch
-    action. There is no separate compact song-settings sheet.
-26. **Undo history uses whole-project snapshots.** Note/track structure, key/tempo,
-    mute/solo, instrument changes, colors and loop regions are undoable; a volume
-    slider drag is grouped into one history entry via pointer/keyboard gestures. Very
-    long editing sessions are capped at 80 history steps by design.
+25. **Desktop only.** The editor is laid out for windows 1024 px wide and up. Phones are
+    not supported.
+26. **Undo keeps 80 steps.** Edits share unchanged tracks and notes, so history stays
+    small even on long songs. A whole drag or slider move is one step.
 27. **Accessibility is improved but not certified.** Focus-visible styles, labels,
     reduced-motion CSS, focus trapping in modals and keyboard operation are present;
     there has been no formal WCAG audit or screen-reader certification. Some controls
@@ -109,8 +111,7 @@ This is the unvarnished list, current as of the delivery build. Items marked
 28. **Printing** opens a standalone HTML view; users choose “Save as PDF” in the
     browser print dialog. The app does not generate its own PDF binary. SVG export is
     single-player and caps at 220 displayed steps.
-31. **The demo and all example music are original**; no copyrighted Sky songs are
-    included. The user is responsible for rights to music they enter.
+31. **Music rights.** The user is responsible for rights to music they enter.
 32. **No cloud backup.** Clearing browser data removes the local library; exporting a
     project file is the backup mechanism.
 33. **Browser storage quotas** vary. The app reports storage errors rather than
@@ -123,11 +124,12 @@ This is the unvarnished list, current as of the delivery build. Items marked
 35. **Audio is verified for non-silence, duration, format and distinctness**, not by
     an expert listening panel or against game recordings. The “quality” claim is
     therefore about a playable, distinct synthesized baseline, not exact fidelity.
-37. **Firefox is a smoke check, not the full Playwright suite.** Chromium desktop and
-    390 px mobile emulation run the full 12-test suite.
-38. **No load testing with thousands of tracks/notes** beyond import limits. The app
-    caps at 24 tracks and 20,000 notes; extremely dense arrangements may render the
-    timeline slowly in a low-end browser.
+37. **Browser tests run in Chromium only.** `npm run test:e2e` covers composing, playback,
+    MIDI round trips, reloads, a 20,000-note song and four desktop sizes. Firefox and
+    Safari are not part of it.
+38. **Load is tested at the 20,000-note limit** on a desktop machine, not on low-end
+    hardware. Only notes near the view are drawn, so note count mainly affects saving
+    and the overview.
 39. **MIDI channel reuse above 15 melodic tracks.** A MIDI file has 15 melodic
     channels after channel 10 percussion; the app supports up to 24 tracks, so
     additional melodic performers reuse channels. The MIDI file remains valid and
@@ -170,11 +172,6 @@ This is the unvarnished list, current as of the delivery build. Items marked
     check the catalog badges for provenance.
 49. **Pack audio is stored unencrypted in the browser.** Anyone with access to the
     browser profile can read it. Do not load recordings you are not allowed to keep.
-50. **The Node audio tests render a numeric mirror, not Web Audio.** Node has no
-    `AudioContext`/`OfflineAudioContext`, so `tests/audio-targets.test.ts` uses
-    `src/audio/offlineRender.ts` with the same profile data. The real browser path is
-    covered by the Playwright test “records a user sound pack: slices, detects,
-    persists, plays and exports”: synthesized WAV fixture → slicing/pitch detection →
-    save → catalog badge → reload + IndexedDB read → sample audition → WAV export
-    with sample voices. WAV evidence is written to `test-results/audio-wavs/`
-    (gitignored), not committed.
+50. **Timing tests use a fake audio clock.** `npm test` checks the transport's schedule
+    against a stand-in engine. The browser tests confirm real playback runs, but do not
+    measure what comes out of the speakers. Sound-pack recording has no automated test.

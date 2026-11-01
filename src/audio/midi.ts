@@ -118,7 +118,7 @@ function u32(value: number): number[] {
  * MIDI text meta events are commonly decoded as Latin-1. Keep exported names
  * ASCII so DAWs and other parsers show readable instrument/part labels.
  */
-function midiSafeText(value: string): string {
+export function midiSafeText(value: string): string {
   const replacements: Record<string, string> = {
     '·': '-',
     '—': '-',

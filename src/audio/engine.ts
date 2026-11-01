@@ -29,6 +29,8 @@ export interface PlaybackEngine {
   scheduleVoice(spec: ScheduledVoiceSpec): void;
   scheduleClick(time: number, accent: boolean): void;
   stopAll(fadeSeconds?: number): void;
+  /** Removes voices and clicks that have not started by the given time. */
+  cancelPending?(afterTime: number): void;
   outputLatencySeconds?(): number;
 }
 
@@ -67,6 +69,7 @@ export class AudioEngine implements PlaybackEngine {
   private buses = new Map<string, { bus: VoiceGraph; instrumentId: string }>();
   private active: ActiveVoice[] = [];
   private previewVoices: SynthVoice[] = [];
+  private pendingClicks: { time: number; cancel: () => void }[] = [];
   private initPromise: Promise<void> | null = null;
   private unlockListenersAttached = false;
   lastError: string | null = null;
@@ -265,7 +268,24 @@ export class AudioEngine implements PlaybackEngine {
 
   scheduleClick(time: number, accent: boolean): void {
     if (!this.ctx || !this.graph) return;
-    scheduleClick(this.ctx, this.graph.clickBus, time, accent);
+    const now = this.ctx.currentTime;
+    this.pendingClicks = this.pendingClicks.filter((click) => click.time > now);
+    this.pendingClicks.push({ time, cancel: scheduleClick(this.ctx, this.graph.clickBus, time, accent) });
+  }
+
+  cancelPending(afterTime: number): void {
+    if (!this.ctx) return;
+    const stopAt = this.ctx.currentTime;
+    this.active = this.active.filter((entry) => {
+      if (entry.startedAt <= afterTime) return true;
+      entry.voice.stop(stopAt);
+      return false;
+    });
+    this.pendingClicks = this.pendingClicks.filter((click) => {
+      if (click.time <= afterTime) return true;
+      click.cancel();
+      return false;
+    });
   }
 
   stopAll(fadeSeconds = 0.04): void {
@@ -277,8 +297,10 @@ export class AudioEngine implements PlaybackEngine {
     for (const voice of this.previewVoices) {
       voice.stop(at);
     }
+    for (const click of this.pendingClicks) click.cancel();
     this.active = [];
     this.previewVoices = [];
+    this.pendingClicks = [];
   }
 
   /** Plays a pad immediately (live performance / audition). */

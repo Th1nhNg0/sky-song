@@ -4,6 +4,7 @@ import { useAudioStore } from '../state/clock';
 import { playback } from '../state/playback';
 import { AudioIcon, SparkIcon } from './Icons';
 import { MoreMenu } from './MoreMenu';
+import { QuickActions } from './QuickActions';
 import { HistoryButtons, SongFields, TransportControls } from './Transport';
 
 const SAVE_LABEL: Record<string, string> = {
@@ -45,7 +46,6 @@ export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
           className={`project-title ${editingTitle ? 'is-editing' : ''}`}
           value={title}
           aria-label="Project title"
-          data-testid="project-title"
           onFocus={() => setEditingTitle(true)}
           onChange={(event) => setTitle(event.target.value.slice(0, 120))}
           onBlur={commitTitle}
@@ -75,13 +75,13 @@ export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
       <HistoryButtons />
 
       <nav className="top-actions" aria-label="Project actions">
+        <QuickActions />
         <button
           type="button"
           className={`btn top-icon audio-pill ${audioStatus}`}
           onClick={() => void playback.enableAudio()}
           aria-label={audioLabel}
           title={audioLabel}
-          data-testid="audio-pill"
         >
           {audioStatus === 'ready' ? <AudioIcon size={18} /> : <SparkIcon size={17} />}
         </button>

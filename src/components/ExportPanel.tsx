@@ -42,7 +42,7 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Export" eyebrow="Project file · multitrack MIDI" onClose={onClose} size="large" testId="export-panel">
+    <Modal title="Export" eyebrow="Project file · multitrack MIDI" onClose={onClose} size="large">
       <div className="export-panel">
         <div className="export-grid">
           <article className="export-card">

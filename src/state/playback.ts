@@ -2,6 +2,25 @@ import { AudioEngine } from '../audio/engine';
 import { Transport, type TransportState } from '../audio/transport';
 import { useAppStore } from './store';
 import { useAudioStore, useClockStore } from './clock';
+import { PlayheadSmoother } from './smoothing';
+import { getInstrument } from '../music/instruments';
+import type { Project } from '../music/types';
+
+/** Only these fields reach the mixer, so note edits leave the audio graph alone. */
+function mixChanged(next: Project, previous: Project): boolean {
+  if (next.tracks === previous.tracks) return false;
+  if (next.tracks.length !== previous.tracks.length) return true;
+  return next.tracks.some((track, index) => {
+    const other = previous.tracks[index];
+    return (
+      track.id !== other.id ||
+      track.volume !== other.volume ||
+      track.muted !== other.muted ||
+      track.solo !== other.solo ||
+      track.instrumentId !== other.instrumentId
+    );
+  });
+}
 
 class PlaybackController {
   readonly engine: AudioEngine;
@@ -10,6 +29,8 @@ class PlaybackController {
   private unsubscribe: (() => void) | null = null;
   private audioReady = false;
   private starting: Promise<boolean> | null = null;
+  private smoother = new PlayheadSmoother();
+  private lastPreview = { key: '', at: 0 };
 
   constructor() {
     this.engine = new AudioEngine();
@@ -32,7 +53,7 @@ class PlaybackController {
     this.unsubscribe = useAppStore.subscribe((state, previous) => {
       if (state.project !== previous.project) {
         this.transport.setProject(state.project);
-        this.engine.syncTracks(state.project);
+        if (mixChanged(state.project, previous.project)) this.engine.syncTracks(state.project);
       }
       if (state.preferences.reverbAmount !== previous.preferences.reverbAmount) {
         this.engine.setReverbAmount(state.preferences.reverbAmount);
@@ -92,8 +113,11 @@ class PlaybackController {
 
   private startFrameLoop(): void {
     if (this.rafId !== null || typeof window === 'undefined') return;
+    this.smoother.reset();
     const frame = () => {
-      useClockStore.getState().setPlayhead(this.transport.positionBeats());
+      const beatsPerSecond = useAppStore.getState().project.bpm / 60;
+      const shown = this.smoother.next(this.transport.positionBeats(), performance.now(), beatsPerSecond);
+      useClockStore.getState().setPlayhead(shown);
       if (this.transport.currentState === 'playing') {
         this.rafId = window.requestAnimationFrame(frame);
       } else {
@@ -137,6 +161,7 @@ class PlaybackController {
 
   seek(beat: number): void {
     this.transport.seek(beat);
+    this.smoother.reset();
     useClockStore.getState().setPlayhead(this.transport.positionBeats());
     if (this.transport.currentState === 'playing') this.startFrameLoop();
   }
@@ -149,6 +174,19 @@ class PlaybackController {
     const ok = await this.ensureAudio();
     if (!ok) return;
     this.engine.audition(instrumentId, useAppStore.getState().project.key);
+  }
+
+  /** Sounds one pad while editing. Quiet during playback, when the song itself is the feedback. */
+  async previewPad(instrumentId: string, pad: number, velocity = 0.8, force = false): Promise<void> {
+    const app = useAppStore.getState();
+    if (!force && (!app.preferences.notePreview || app.isPlaying)) return;
+    const key = `${instrumentId}:${pad}`;
+    const at = performance.now();
+    if (this.lastPreview.key === key && at - this.lastPreview.at < 70) return;
+    this.lastPreview = { key, at };
+    if (!(await this.ensureAudio())) return;
+    const instrument = getInstrument(instrumentId);
+    this.engine.playPad({ instrument, keyIndex: app.project.key, pad, velocity, durationSeconds: 0.45 });
   }
 
   async enableAudio(): Promise<void> {

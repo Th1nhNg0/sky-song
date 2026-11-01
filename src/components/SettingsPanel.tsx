@@ -12,7 +12,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const audioMessage = useAudioStore((state) => state.message);
 
   return (
-    <Modal title="Settings" eyebrow="Audio, playback and project defaults" onClose={onClose} size="large" testId="settings-panel">
+    <Modal title="Settings" eyebrow="Audio, playback and project defaults" onClose={onClose} size="large">
       <div className="settings-grid">
         <section className="settings-card">
           <h3>Audio engine</h3>

@@ -13,7 +13,7 @@ export function Toast() {
 
   if (!toast) return null;
   return (
-    <div className={`toast toast-${toast.kind}`} role="status" aria-live="polite" data-testid="toast">
+    <div className={`toast toast-${toast.kind}`} role="status" aria-live="polite">
       <span className="toast-mark" aria-hidden="true" />
       <span>{toast.message}</span>
       <button type="button" className="toast-close" onClick={dismiss} aria-label="Dismiss message">

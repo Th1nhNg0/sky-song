@@ -1,446 +1,556 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
-import { useAppStore } from '../state/store';
-import { useClockStore } from '../state/clock';
-import { playback } from '../state/playback';
+import { firstNoteAt, gridBackground } from '../music/grid';
 import { getInstrument } from '../music/instruments';
 import { resolvePad } from '../music/pitch';
-import { projectEndBeat } from '../music/project';
+import { isTrackAudible, projectEndBeat } from '../music/project';
 import { beatsPerMeasure, formatBarBeat, snapBeat } from '../music/time';
-import type { LoopRegion, Note, Track } from '../music/types';
+import type { Note } from '../music/types';
+import { getSoundBankVersion, soundSourceInfo, subscribeSoundBank } from '../audio/sampleBank';
+import { LABEL_WIDTH, useClockStore, useViewStore } from '../state/clock';
+import { playback } from '../state/playback';
+import { useAppStore } from '../state/store';
+import { MAX_ZOOM, MIN_ZOOM } from '../storage/preferences';
+import type { CatalogIntent } from './CatalogPanel';
 import {
   CheckIcon,
+  ChevronDownIcon,
   CopyIcon,
   DuplicateIcon,
   LoopIcon,
   PasteIcon,
+  PlusIcon,
   RecordIcon,
-  StarIcon,
   TrashIcon,
+  VolumeIcon,
 } from './Icons';
 import { InstrumentIcon } from './InstrumentIcon';
+import { LoopLane, Ruler, usePlayheadTransform } from './Ruler';
+import { LANE_HEIGHT, TrackLane, TrackMixButtons } from './TrackLane';
+
+type NoteOrigin = Record<string, { startBeat: number; pad: number }>;
 
 type DragState =
-  | {
-      kind: 'move';
-      startX: number;
-      startY: number;
-      originals: Record<string, { startBeat: number; pad: number }>;
-    }
+  | { kind: 'move'; startX: number; startY: number; originals: NoteOrigin; anchor: { startBeat: number; pad: number } }
   | { kind: 'resize'; startX: number; noteId: string; originalDuration: number }
-  | { kind: 'draw'; startX: number; noteId: string; baseDuration: number }
   | { kind: 'marquee'; x1: number; y1: number; additive: boolean };
 
-function RulerPlayhead({ px }: { px: number }) {
-  const playhead = useClockStore((state) => state.playhead);
-  return <div className="ruler-playhead" style={{ left: playhead * px }} aria-hidden="true" />;
-}
+const ACTIVE_HEADER_HEIGHT = 38;
+const RULER_HEIGHT = 34;
+const LOOP_HEIGHT = 26;
+const ADD_ROW_HEIGHT = 38;
+const MIN_ROW = 20;
+const MAX_ROW = 42;
+const NOTE_SIZE = 26;
+const COMPACT_ZOOM = 24;
+/** Extra width drawn beyond each side of the viewport, and how far scrolling goes before redrawing it. */
+const OVERSCAN = 900;
+const WINDOW_STEP = 300;
+const EDGE_ZONE = 44;
+const EDGE_SPEED = 16;
+const USER_SCROLL_HOLD_MS = 2500;
 
-const LANE_HEIGHT = 56;
-const NOTE_DOT = 28;
-const ACTIVE_HEADER_HEIGHT = 34;
-
-/** One instrument's notes in miniature; clicking it opens that instrument for editing. */
-const TrackLane = memo(function TrackLane({
-  track,
-  px,
-  totalBeats,
-  onSelect,
+const RollNote = memo(function RollNote({
+  note,
+  left,
+  top,
+  width,
+  height,
+  selected,
+  hold,
+  label,
+  fullName,
+  position,
 }: {
-  track: Track;
-  px: number;
-  totalBeats: number;
-  onSelect: (id: string) => void;
+  note: Note;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  selected: boolean;
+  hold: boolean;
+  label: string;
+  fullName: string;
+  position: string;
 }) {
-  const instrument = getInstrument(track.instrumentId);
-  const pads = instrument.keyCount;
-  const inner = LANE_HEIGHT - 10;
-  const noteHeight = Math.max(4, inner / pads - 1);
   return (
     <div
-      className={`track-lane ${track.muted ? 'is-muted' : ''}`}
-      style={{ ['--track-color' as string]: track.color, height: LANE_HEIGHT }}
+      className={`roll-note ${hold ? 'is-held' : 'is-shot'} ${selected ? 'is-selected' : ''}`}
+      style={{ left, top, width, height, opacity: 0.78 + note.velocity * 0.22 }}
+      data-note-id={note.id}
+      title={`${fullName} · ${position}${hold ? ` · held ${note.durationBeats.toFixed(2)} beats` : ''}`}
     >
-      <button
-        type="button"
-        className="track-chip track-lane-label"
-        onClick={() => onSelect(track.id)}
-        data-testid="track-chip"
-        data-track-id={track.id}
-        data-instrument-id={track.instrumentId}
-        title={`Edit ${track.name}`}
-      >
-        <InstrumentIcon instrumentId={track.instrumentId} size={24} />
-        <span className="track-chip-name">{instrument.shortName}</span>
-      </button>
-      <button
-        type="button"
-        className="track-lane-notes"
-        style={{ width: totalBeats * px }}
-        onClick={() => onSelect(track.id)}
-        aria-label={`Edit ${track.name}`}
-        tabIndex={-1}
-      >
-        {track.notes.map((note) => (
-          <span
-            key={note.id}
-            className="track-lane-note"
-            style={{
-              left: note.startBeat * px,
-              top: 5 + (note.pad * inner) / pads,
-              width: instrument.supportsHold ? Math.max(noteHeight, note.durationBeats * px - 2) : noteHeight,
-              height: noteHeight,
-            }}
-          />
-        ))}
-      </button>
+      <span className="roll-note-label">{label}</span>
+      {hold && <span className="note-resize" aria-hidden="true" />}
     </div>
   );
 });
 
-function PlayheadLine({ px, height, labelWidth }: { px: number; height: number; labelWidth: number }) {
-  const playhead = useClockStore((state) => state.playhead);
+function PlayheadLine({ px }: { px: number }) {
+  const ref = usePlayheadTransform<HTMLDivElement>(px, LABEL_WIDTH);
+  return <div ref={ref} className="playhead-line" aria-hidden="true" />;
+}
+
+function ActiveVolume({ trackId, volume, name }: { trackId: string; volume: number; name: string }) {
+  const setVolume = useAppStore((state) => state.setTrackVolume);
+  const beginGesture = useAppStore((state) => state.beginGesture);
+  const endGesture = useAppStore((state) => state.endGesture);
   return (
-    <div
-      className="playhead-line"
-      style={{ left: labelWidth + playhead * px, height: height || '100%' }}
-      aria-hidden="true"
-      data-testid="playhead"
-    >
-      <span className="playhead-cap" />
-    </div>
+    <label className="active-volume" title={`Volume ${Math.round(volume * 100)}%`}>
+      <VolumeIcon size={14} />
+      <input
+        type="range"
+        min={0}
+        max={1.2}
+        step={0.01}
+        value={volume}
+        aria-label={`${name} volume`}
+        onChange={(event) => setVolume(trackId, Number(event.target.value))}
+        onPointerDown={beginGesture}
+        onPointerUp={(event) => {
+          endGesture();
+          event.currentTarget.blur();
+        }}
+      />
+    </label>
   );
 }
 
-function LoopLane({
-  totalBeats,
-  px,
-  loop,
-  meter,
-  onChange,
-}: {
-  totalBeats: number;
-  px: number;
-  loop: LoopRegion;
-  meter: [number, number];
-  onChange: (loop: LoopRegion) => void;
-}) {
-  const laneRef = useRef<HTMLDivElement>(null);
-  const [draft, setDraft] = useState<{ start: number; end: number } | null>(null);
-  const dragRef = useRef<{ mode: 'new' | 'start' | 'end'; anchor: number; fixed: number } | null>(null);
-  const [dragging, setDragging] = useState(false);
-
-  const beatFromEvent = (event: PointerEvent | ReactPointerEvent): number => {
-    const rect = laneRef.current?.getBoundingClientRect();
-    if (!rect) return 0;
-    const x = Math.min(Math.max(0, event.clientX - rect.left), totalBeats * px);
-    return Math.round((x / px) * 1000) / 1000;
-  };
-
-  useEffect(() => {
-    if (!dragging) return;
-    const move = (event: PointerEvent) => {
-      const drag = dragRef.current;
-      if (!drag) return;
-      const beat = beatFromEvent(event);
-      if (drag.mode === 'new') {
-        setDraft({ start: Math.min(drag.anchor, beat), end: Math.max(drag.anchor, beat) });
-      } else if (drag.mode === 'start') {
-        setDraft({ start: Math.min(beat, drag.fixed - 0.25), end: drag.fixed });
-      } else {
-        setDraft({ start: drag.fixed, end: Math.max(beat, drag.fixed + 0.25) });
-      }
-    };
-    const up = () => {
-      const drag = dragRef.current;
-      const range = draft;
-      if (drag) {
-        if (range && range.end - range.start >= 0.25) {
-          onChange({ enabled: true, startBeat: range.start, endBeat: range.end });
-        } else if (drag.mode === 'new') {
-          onChange({ enabled: true, startBeat: drag.anchor, endBeat: drag.anchor + 4 });
-        }
-      }
-      dragRef.current = null;
-      setDragging(false);
-      setDraft(null);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up, { once: true });
-    window.addEventListener('pointercancel', up, { once: true });
-    return () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
-    };
-    // beatFromEvent only reads refs and the stable px/totalBeats values.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dragging, draft, onChange, px, totalBeats]);
-
-  const startDrag = (event: ReactPointerEvent, mode: 'new' | 'start' | 'end') => {
-    event.preventDefault();
-    event.stopPropagation();
-    const beat = beatFromEvent(event);
-    if (mode === 'new') {
-      dragRef.current = { mode, anchor: beat, fixed: beat };
-      setDraft({ start: beat, end: beat + 0.001 });
-    } else if (mode === 'start') {
-      dragRef.current = { mode, anchor: beat, fixed: loop.endBeat };
-      setDraft({ start: beat, end: loop.endBeat });
-    } else {
-      dragRef.current = { mode, anchor: beat, fixed: loop.startBeat };
-      setDraft({ start: loop.startBeat, end: beat });
-    }
-    setDragging(true);
-  };
-
-  const shown = draft ?? { start: loop.startBeat, end: loop.endBeat };
-  const width = Math.max(2, (shown.end - shown.start) * px);
+function SelectionBar({ onLoop, onQuantize }: { onLoop: () => void; onQuantize: () => void }) {
+  const count = useAppStore((state) => state.selectedNoteIds.length);
+  const state = useAppStore.getState();
+  const hasOriginal = useAppStore((current) => {
+    const ids = new Set(current.selectedNoteIds);
+    return current.activeTrack().notes.some((note) => note.original && ids.has(note.id));
+  });
+  const velocity = useAppStore((current) => {
+    const ids = new Set(current.selectedNoteIds);
+    const selected = current.activeTrack().notes.filter((note) => ids.has(note.id));
+    return selected.length ? selected.reduce((sum, note) => sum + note.velocity, 0) / selected.length : 0.85;
+  });
+  if (count === 0) return null;
   return (
-    <div className="loop-row">
-      <div className="loop-corner">
-        <LoopIcon size={12} />
-        <span>Loop</span>
-      </div>
-      <div
-        className="loop-lane"
-        ref={laneRef}
-        style={{ width: totalBeats * px }}
-        onPointerDown={(event) => startDrag(event, 'new')}
-        title="Drag to set a loop region; drag the ends to resize"
-        data-testid="loop-lane"
-      >
-        <div
-          className={`loop-region ${loop.enabled ? 'is-enabled' : ''} ${draft ? 'is-draft' : ''}`}
-          style={{ left: shown.start * px, width }}
+    <div className="selection-bar" role="toolbar" aria-label="Selected notes">
+      <strong>{count} selected</strong>
+      <div className="selection-actions">
+        <button type="button" onClick={state.copySelection} aria-label="Copy selected notes" title="Copy (Ctrl+C)">
+          <CopyIcon size={15} />
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            const end = useAppStore.getState().pasteClipboard(playback.position());
+            if (end !== null) playback.seek(end);
+          }}
+          aria-label="Paste notes at cursor"
+          title="Paste at cursor (Ctrl+V)"
         >
-          <button
-            type="button"
-            className="loop-handle start"
-            aria-label="Drag loop start"
-            onPointerDown={(event) => startDrag(event, 'start')}
+          <PasteIcon size={15} />
+        </button>
+        <button type="button" onClick={state.duplicateSelection} aria-label="Duplicate selected notes" title="Duplicate after selection (Ctrl+D)">
+          <DuplicateIcon size={15} />
+        </button>
+        <span className="selection-divider" />
+        <label className="velocity-control" title={`Strength ${Math.round(velocity * 100)}%`}>
+          <span>Strength</span>
+          <input
+            type="range"
+            min={0.05}
+            max={1}
+            step={0.01}
+            value={velocity}
+            aria-label="Strength of selected notes"
+            onChange={(event) => useAppStore.getState().setSelectionVelocity(Number(event.target.value))}
+            onPointerDown={state.beginGesture}
+            onPointerUp={(event) => {
+              state.endGesture();
+              event.currentTarget.blur();
+            }}
           />
-          <span className="loop-label">
-            {formatBarBeat(shown.start, meter)} – {formatBarBeat(shown.end, meter)}
-          </span>
-          <button
-            type="button"
-            className="loop-handle end"
-            aria-label="Drag loop end"
-            onPointerDown={(event) => startDrag(event, 'end')}
-          />
-        </div>
+        </label>
+        <span className="selection-divider" />
+        <button type="button" onClick={onQuantize} title="Move to the grid (Q with keys hidden)">
+          <CheckIcon size={15} /> <span>Quantize</span>
+        </button>
+        {hasOriginal && (
+          <button type="button" onClick={state.restoreOriginalTiming} title="Back to the timing before quantizing">
+            <RecordIcon size={13} /> <span>Restore</span>
+          </button>
+        )}
+        <button type="button" onClick={onLoop} title="Loop these notes">
+          <LoopIcon size={15} /> <span>Loop</span>
+        </button>
+        <span className="selection-divider" />
+        <button type="button" className="danger-text" onClick={state.deleteSelectedNotes} aria-label="Delete selected notes" title="Delete (Del)">
+          <TrashIcon size={15} />
+        </button>
+        <button type="button" onClick={state.clearSelection} aria-label="Clear selection" title="Clear selection (Esc)">
+          Done
+        </button>
       </div>
     </div>
   );
 }
 
-export function Timeline() {
+export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogIntent) => void }) {
   const project = useAppStore((state) => state.project);
   const activeTrackId = useAppStore((state) => state.activeTrackId);
   const selectedNoteIds = useAppStore((state) => state.selectedNoteIds);
-  const preferences = useAppStore((state) => state.preferences);
+  const px = useAppStore((state) => state.preferences.zoom);
+  const snap = useAppStore((state) => state.preferences.snap);
+  const preserveOriginal = useAppStore((state) => state.preferences.preserveOriginalTiming);
   const editTool = useAppStore((state) => state.editTool);
   const setLoop = useAppStore((state) => state.setLoop);
-  const addNote = useAppStore((state) => state.addNote);
-  const selectNotes = useAppStore((state) => state.selectNotes);
-  const clearSelection = useAppStore((state) => state.clearSelection);
-  const duplicateSelection = useAppStore((state) => state.duplicateSelection);
-  const copySelection = useAppStore((state) => state.copySelection);
-  const pasteClipboard = useAppStore((state) => state.pasteClipboard);
-  const deleteSelectedNotes = useAppStore((state) => state.deleteSelectedNotes);
-  const quantizeSelection = useAppStore((state) => state.quantizeSelection);
-  const restoreOriginalTiming = useAppStore((state) => state.restoreOriginalTiming);
-  const notify = useAppStore((state) => state.notify);
   const setActiveTrack = useAppStore((state) => state.setActiveTrack);
-  const activeTrack = project.tracks.find((track) => track.id === activeTrackId) ?? project.tracks[0];
-  const instrument = getInstrument(activeTrack.instrumentId);
-  const px = preferences.zoom;
-  const snap = preferences.snap;
-  const beatsPerBar = beatsPerMeasure(project.timeSignature);
-  const contentEnd = Math.max(
-    projectEndBeat(project),
-    project.loop.endBeat,
-    project.loop.startBeat + 4,
-    16,
-  );
-  const totalBeats = contentEnd + 8;
-  const labelWidth = 104;
-  const scrollRef = useRef<HTMLDivElement>(null);
-  const gridRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<DragState | null>(null);
+  const [minimizedId, setMinimizedId] = useState<string | null>(null);
+  const [viewHeight, setViewHeight] = useState(0);
+  const [viewWidth, setViewWidth] = useState(800);
+  const [windowStart, setWindowStart] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [marquee, setMarquee] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
+  useSyncExternalStore(subscribeSoundBank, getSoundBankVersion);
 
-  const [viewHeight, setViewHeight] = useState(0);
-  const headerHeight =
-    34 +
-    (project.loop.enabled ? 28 : 0) +
-    ACTIVE_HEADER_HEIGHT +
-    (project.tracks.length - 1) * LANE_HEIGHT;
-  const rowHeight = Math.max(
-    22,
-    Math.min(64, Math.floor((viewHeight - headerHeight) / instrument.keyCount)),
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const gridRef = useRef<HTMLDivElement>(null);
+  const ghostRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<DragState | null>(null);
+  const lastPadRef = useRef<number | null>(null);
+  const zoomAnchorRef = useRef<{ beat: number; offset: number } | null>(null);
+  const followHoldRef = useRef(0);
+
+  const activeTrack = project.tracks.find((track) => track.id === activeTrackId) ?? project.tracks[0];
+  const instrument = getInstrument(activeTrack.instrumentId);
+  const hold = instrument.supportsHold;
+  const minimized = minimizedId === activeTrack.id;
+  const keyCount = instrument.keyCount;
+  const cols = instrument.padLayout.cols;
+  const beatsPerBar = beatsPerMeasure(project.timeSignature);
+  const contentEnd = Math.max(projectEndBeat(project), project.loop.endBeat);
+  const totalBeats =
+    Math.ceil(Math.max(contentEnd + beatsPerBar * 4, viewWidth / px) / beatsPerBar) * beatsPerBar;
+
+  const openRows = minimized ? 0 : ACTIVE_HEADER_HEIGHT;
+  const chrome =
+    RULER_HEIGHT +
+    (project.loop.enabled ? LOOP_HEIGHT : 0) +
+    openRows +
+    (project.tracks.length - (minimized ? 0 : 1)) * LANE_HEIGHT +
+    ADD_ROW_HEIGHT;
+  const rowHeight = Math.max(MIN_ROW, Math.min(MAX_ROW, Math.floor((viewHeight - chrome) / keyCount)));
+  const rollHeight = keyCount * rowHeight;
+  const noteSize = Math.min(NOTE_SIZE, rowHeight - 4);
+  // Zoomed far out, dots would overlap into a blur, so notes become slim unlabelled marks.
+  const compact = px < COMPACT_ZOOM;
+  const shotWidth = compact ? Math.max(4, px * 0.8) : noteSize;
+
+  const padNames = useMemo(
+    () =>
+      Array.from({ length: keyCount }, (_, pad) => {
+        const resolved = resolvePad(instrument, project.key, pad);
+        const full = resolved.noteName ?? resolved.label;
+        return { full, short: resolved.pitched ? full.replace(/\d/, '') : '', pitched: resolved.pitched, degree: resolved.degree };
+      }),
+    [instrument, keyCount, project.key],
   );
-  const rollHeight = instrument.padLayout.rows * instrument.padLayout.cols * rowHeight;
+  const selectedSet = useMemo(() => new Set(selectedNoteIds), [selectedNoteIds]);
 
+  const longest = useMemo(
+    () => (hold ? activeTrack.notes.reduce((max, note) => Math.max(max, note.durationBeats), 0) : 0),
+    [activeTrack.notes, hold],
+  );
+  const visibleNotes = useMemo(() => {
+    const from = (windowStart - OVERSCAN) / px - longest - 1;
+    const to = (windowStart + viewWidth + OVERSCAN + WINDOW_STEP) / px;
+    const notes: Note[] = [];
+    for (let index = firstNoteAt(activeTrack.notes, from); index < activeTrack.notes.length; index++) {
+      const note = activeTrack.notes[index];
+      if (note.startBeat > to) break;
+      notes.push(note);
+    }
+    return notes;
+  }, [activeTrack.notes, windowStart, viewWidth, px, longest]);
+
+  useEffect(() => {
+    useViewStore.setState({ totalBeats });
+  }, [totalBeats]);
+
+  // Scroll and size tracking.
   useEffect(() => {
     const scroll = scrollRef.current;
     if (!scroll) return;
-    const observer = new ResizeObserver(() => setViewHeight(scroll.clientHeight));
+    const measure = () => {
+      setViewHeight(scroll.clientHeight);
+      const width = Math.max(120, scroll.clientWidth - LABEL_WIDTH);
+      setViewWidth(width);
+      useViewStore.setState({ viewWidth: width });
+    };
+    const onScroll = () => {
+      useViewStore.setState({ scrollLeft: scroll.scrollLeft });
+      setWindowStart(Math.floor(scroll.scrollLeft / WINDOW_STEP) * WINDOW_STEP);
+    };
+    const observer = new ResizeObserver(measure);
     observer.observe(scroll);
-    return () => observer.disconnect();
+    measure();
+    scroll.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      observer.disconnect();
+      scroll.removeEventListener('scroll', onScroll);
+    };
   }, []);
 
+  // Ctrl+wheel and pinch zoom around the pointer; a plain wheel scrolls sideways when nothing overflows vertically.
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+    const onWheel = (event: WheelEvent) => {
+      followHoldRef.current = performance.now() + USER_SCROLL_HOLD_MS;
+      if (event.ctrlKey || event.metaKey) {
+        event.preventDefault();
+        const { zoom } = useAppStore.getState().preferences;
+        useViewStore.getState().navigation?.zoomTo(zoom * Math.exp(-event.deltaY * 0.0022), event.clientX);
+      } else if (!event.shiftKey && scroll.scrollHeight <= scroll.clientHeight) {
+        event.preventDefault();
+        scroll.scrollLeft += event.deltaY;
+      }
+    };
+    scroll.addEventListener('wheel', onWheel, { passive: false });
+    return () => scroll.removeEventListener('wheel', onWheel);
+  }, []);
+
+  // Keeps the beat under the pointer in place across a zoom.
+  useLayoutEffect(() => {
+    const scroll = scrollRef.current;
+    const anchor = zoomAnchorRef.current;
+    if (!scroll || !anchor) return;
+    zoomAnchorRef.current = null;
+    scroll.scrollLeft = Math.max(0, anchor.beat * px - anchor.offset);
+  }, [px]);
+
+  useEffect(() => {
+    useViewStore.setState({
+      navigation: {
+        zoomTo: (next, anchorClientX) => {
+          const scroll = scrollRef.current;
+          if (!scroll) return;
+          const current = useAppStore.getState().preferences.zoom;
+          const value = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(next * 100) / 100));
+          if (value === current) return;
+          const left = scroll.getBoundingClientRect().left + LABEL_WIDTH;
+          const offset = anchorClientX !== undefined ? Math.max(0, anchorClientX - left) : scroll.clientWidth / 3;
+          zoomAnchorRef.current = { beat: (scroll.scrollLeft + offset) / current, offset };
+          useAppStore.getState().setPreferences({ zoom: value });
+        },
+        zoomToFit: () => {
+          const { project: song } = useAppStore.getState();
+          const scroll = scrollRef.current;
+          if (!scroll) return;
+          const width = scroll.clientWidth - LABEL_WIDTH - 24;
+          const value = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.floor((width / projectEndBeat(song)) * 100) / 100));
+          zoomAnchorRef.current = { beat: 0, offset: 0 };
+          useAppStore.getState().setPreferences({ zoom: value });
+          scroll.scrollLeft = 0;
+        },
+        scrollToBeat: (beat) => {
+          const scroll = scrollRef.current;
+          if (!scroll) return;
+          followHoldRef.current = performance.now() + USER_SCROLL_HOLD_MS;
+          scroll.scrollLeft = Math.max(0, beat * useAppStore.getState().preferences.zoom);
+        },
+      },
+    });
+  }, []);
+
+  // Keeps the cursor in view. During playback it glides, holding about two thirds across.
   useEffect(() => {
     return useClockStore.subscribe((state) => {
-      if (!useAppStore.getState().isPlaying) return;
       const scroll = scrollRef.current;
-      if (!scroll) return;
+      if (!scroll || dragRef.current || performance.now() < followHoldRef.current) return;
+      const width = scroll.clientWidth - LABEL_WIDTH;
       const x = state.playhead * px;
-      const start = scroll.scrollLeft + 40;
-      const end = scroll.scrollLeft + scroll.clientWidth - 120;
-      if (x < start || x > end) {
-        scroll.scrollLeft = Math.max(0, x - 120);
+      const left = scroll.scrollLeft;
+      if (x < left) scroll.scrollLeft = Math.max(0, x - width * 0.1);
+      else if (x > left + width * 0.68) {
+        if (useAppStore.getState().isPlaying) scroll.scrollLeft = x - width * 0.68;
+        else if (x > left + width) scroll.scrollLeft = x - width * 0.5;
       }
     });
   }, [px]);
 
-  const commitLoopFromSelection = () => {
-    const state = useAppStore.getState();
-    const track = state.activeTrack();
-    const selected = track.notes.filter((note) => state.selectedNoteIds.includes(note.id));
-    if (selected.length === 0) {
-      notify('Select notes first to build a loop from them.', 'info');
-      return;
-    }
-    const start = Math.min(...selected.map((note) => note.startBeat));
-    const end = Math.max(...selected.map((note) => note.startBeat + note.durationBeats));
-    const roundedStart = Math.max(0, Math.floor(start));
-    const roundedEnd = Math.max(roundedStart + 1, Math.ceil(end));
-    setLoop({ enabled: true, startBeat: roundedStart, endBeat: roundedEnd });
-    notify(`Loop set to bars ${formatBarBeat(roundedStart, state.project.timeSignature)} – ${formatBarBeat(
-      roundedEnd,
-      state.project.timeSignature,
-    )}.`, 'success');
+  const pointerPosition = useCallback(
+    (clientX: number, clientY: number) => {
+      const rect = gridRef.current?.getBoundingClientRect();
+      if (!rect) return null;
+      const beat = Math.max(0, (clientX - rect.left) / px);
+      const pad = Math.min(keyCount - 1, Math.max(0, Math.floor((clientY - rect.top) / rowHeight)));
+      return { beat, pad, snapped: snap > 0 ? snapBeat(beat, snap) : beat, x: clientX - rect.left, y: clientY - rect.top };
+    },
+    [px, keyCount, rowHeight, snap],
+  );
+
+  const contentX = (clientX: number) => clientX + (scrollRef.current?.scrollLeft ?? 0);
+
+  const hideGhost = () => {
+    if (ghostRef.current) ghostRef.current.style.display = 'none';
+    useViewStore.setState({ hover: null });
   };
 
-  const quantize = () => {
-    if (!snap || snap <= 0) {
-      notify('Choose a snap subdivision before quantizing.', 'warning');
+  const onGridPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (dragRef.current) return;
+    const position = pointerPosition(event.clientX, event.clientY);
+    if (!position) return;
+    useViewStore.setState({ hover: { beat: position.snapped, pad: position.pad } });
+    const ghost = ghostRef.current;
+    if (!ghost) return;
+    const overNote = (event.target as HTMLElement).closest('.roll-note');
+    if (editTool !== 'draw' || overNote || event.shiftKey) {
+      ghost.style.display = 'none';
       return;
     }
-    quantizeSelection(snap, preferences.preserveOriginalTiming);
+    ghost.style.display = 'block';
+    ghost.style.transform = `translate3d(${position.snapped * px}px, ${position.pad * rowHeight + (rowHeight - noteSize) / 2}px, 0)`;
+    ghost.textContent = padNames[position.pad].short;
   };
 
-  const startMarquee = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const startMarquee = (event: ReactPointerEvent<HTMLDivElement>, x: number, y: number) => {
     event.preventDefault();
-    const rect = gridRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const x = event.clientX - rect.left;
-    const y = event.clientY - rect.top;
-    if (!event.shiftKey) clearSelection();
+    const state = useAppStore.getState();
+    if (!event.shiftKey) state.clearSelection();
     dragRef.current = { kind: 'marquee', x1: x, y1: y, additive: event.shiftKey };
     setMarquee({ left: x, top: y, width: 0, height: 0 });
     setDragging(true);
   };
 
-  const onGridPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    if ((event.target as HTMLElement).closest('.roll-note')) return;
-    const rect = gridRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const beat = Math.max(0, (event.clientX - rect.left) / px);
-    const pad = Math.min(
-      instrument.keyCount - 1,
-      Math.max(0, Math.floor((event.clientY - rect.top) / rowHeight)),
-    );
-    if (editTool === 'draw' || event.altKey) {
-      event.preventDefault();
-      const snapped = snap > 0 ? snapBeat(beat, snap) : beat;
-      const duration = instrument.supportsHold ? Math.max(1, snap || 0.5) : 0.5;
-      useAppStore.getState().beginGesture();
-      const id = addNote(pad, snapped, duration, { history: false });
-      if (id) {
-        dragRef.current = { kind: 'draw', startX: event.clientX, noteId: id, baseDuration: duration };
-        setDragging(true);
-      }
-      return;
-    }
-    startMarquee(event);
-  };
-
-  const onDoubleClick = (event: ReactMouseEvent<HTMLDivElement>) => {
-    if ((event.target as HTMLElement).closest('.roll-note')) return;
-    if (editTool === 'draw') return;
-    const rect = gridRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    const beat = Math.max(0, (event.clientX - rect.left) / px);
-    const pad = Math.min(
-      instrument.keyCount - 1,
-      Math.max(0, Math.floor((event.clientY - rect.top) / rowHeight)),
-    );
-    const snapped = snap > 0 ? snapBeat(beat, snap) : beat;
-    addNote(pad, snapped, instrument.supportsHold ? Math.max(1, snap || 0.5) : 0.5);
-  };
-
-  const onNotePointerDown = (event: ReactPointerEvent<HTMLDivElement>, note: Note) => {
-    if (event.button !== 0) return;
-    event.stopPropagation();
+  const startMove = (event: ReactPointerEvent, note: Note) => {
     const state = useAppStore.getState();
-    if (event.shiftKey || event.metaKey || event.ctrlKey) {
-      state.selectNotes([note.id], 'toggle');
-    } else if (!state.selectedNoteIds.includes(note.id)) {
-      state.selectNotes([note.id]);
-    }
-    const ids = useAppStore.getState().selectedNoteIds;
-    if (!ids.includes(note.id)) return;
-    const track = useAppStore.getState().activeTrack();
-    const originals: Record<string, { startBeat: number; pad: number }> = {};
-    for (const item of track.notes) {
-      if (ids.includes(item.id)) originals[item.id] = { startBeat: item.startBeat, pad: item.pad };
-    }
+    if (event.shiftKey || event.metaKey || event.ctrlKey) state.selectNotes([note.id], 'toggle');
+    else if (!state.selectedNoteIds.includes(note.id)) state.selectNotes([note.id]);
+    if (!useAppStore.getState().selectedNoteIds.includes(note.id)) return;
     useAppStore.getState().beginGesture();
-    dragRef.current = { kind: 'move', startX: event.clientX, startY: event.clientY, originals };
-    setDragging(true);
-  };
-
-  const onResizePointerDown = (event: ReactPointerEvent<HTMLButtonElement>, note: Note) => {
-    event.preventDefault();
-    event.stopPropagation();
-    if (!instrument.supportsHold) return;
-    useAppStore.getState().beginGesture();
+    if (event.altKey) useAppStore.getState().cloneSelectionInPlace();
+    const fresh = useAppStore.getState();
+    const ids = new Set(fresh.selectedNoteIds);
+    const originals: NoteOrigin = {};
+    for (const item of fresh.activeTrack().notes) {
+      if (ids.has(item.id)) originals[item.id] = { startBeat: item.startBeat, pad: item.pad };
+    }
+    void playback.previewPad(instrument.id, note.pad, note.velocity);
+    lastPadRef.current = note.pad;
     dragRef.current = {
-      kind: 'resize',
-      startX: event.clientX,
-      noteId: note.id,
-      originalDuration: note.durationBeats,
+      kind: 'move',
+      startX: contentX(event.clientX),
+      startY: event.clientY,
+      originals,
+      anchor: { startBeat: note.startBeat, pad: note.pad },
     };
     setDragging(true);
   };
 
+  const onGridPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+    if (event.button !== 0) return;
+    const target = event.target as HTMLElement;
+    const noteElement = target.closest<HTMLElement>('[data-note-id]');
+    const position = pointerPosition(event.clientX, event.clientY);
+    if (!position) return;
+    if (noteElement) {
+      event.preventDefault();
+      const note = activeTrack.notes.find((item) => item.id === noteElement.dataset.noteId);
+      if (!note) return;
+      if (target.closest('.note-resize')) {
+        useAppStore.getState().selectNotes([note.id]);
+        useAppStore.getState().beginGesture();
+        dragRef.current = { kind: 'resize', startX: contentX(event.clientX), noteId: note.id, originalDuration: note.durationBeats };
+        setDragging(true);
+      } else {
+        startMove(event, note);
+      }
+      return;
+    }
+    if ((editTool === 'draw' && !event.shiftKey) || event.altKey) {
+      event.preventDefault();
+      const duration = hold ? Math.max(1, snap || 0.5) : 0.5;
+      const state = useAppStore.getState();
+      state.beginGesture();
+      const id = state.addNote(position.pad, position.snapped, duration, { history: false });
+      if (!id) {
+        state.endGesture();
+        return;
+      }
+      void playback.previewPad(instrument.id, position.pad);
+      hideGhost();
+      const created = useAppStore.getState().activeTrack().notes.find((item) => item.id === id)!;
+      lastPadRef.current = position.pad;
+      // Dragging right after placing a held note sets its length; otherwise the note follows the pointer.
+      dragRef.current = hold
+        ? { kind: 'resize', startX: contentX(event.clientX), noteId: id, originalDuration: duration }
+        : {
+            kind: 'move',
+            startX: contentX(event.clientX),
+            startY: event.clientY,
+            originals: { [id]: { startBeat: created.startBeat, pad: created.pad } },
+            anchor: { startBeat: created.startBeat, pad: created.pad },
+          };
+      setDragging(true);
+      return;
+    }
+    startMarquee(event, position.x, position.y);
+  };
+
+  const noteFromEvent = (event: ReactMouseEvent) =>
+    (event.target as HTMLElement).closest<HTMLElement>('[data-note-id]')?.dataset.noteId;
+
+  const onDoubleClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    const noteId = noteFromEvent(event);
+    if (noteId) {
+      useAppStore.getState().deleteNotes([noteId]);
+      return;
+    }
+    if (editTool === 'draw') return;
+    const position = pointerPosition(event.clientX, event.clientY);
+    if (!position) return;
+    useAppStore.getState().addNote(position.pad, position.snapped, hold ? Math.max(1, snap || 0.5) : 0.5);
+    void playback.previewPad(instrument.id, position.pad);
+  };
+
+  const onContextMenu = (event: ReactMouseEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const noteId = noteFromEvent(event);
+    if (noteId) useAppStore.getState().deleteNotes([noteId]);
+  };
+
   useEffect(() => {
     if (!dragging) return;
+    const edgeScroll = (clientX: number) => {
+      const scroll = scrollRef.current;
+      if (!scroll) return;
+      const rect = scroll.getBoundingClientRect();
+      if (clientX > rect.right - EDGE_ZONE) scroll.scrollLeft += EDGE_SPEED;
+      else if (clientX < rect.left + LABEL_WIDTH + EDGE_ZONE) scroll.scrollLeft -= EDGE_SPEED;
+    };
     const move = (event: PointerEvent) => {
       const drag = dragRef.current;
       if (!drag) return;
+      edgeScroll(event.clientX);
+      const store = useAppStore.getState();
       if (drag.kind === 'move') {
-        const dxBeats = (event.clientX - drag.startX) / px;
-        const deltaBeats = snap > 0 ? Math.round(dxBeats / snap) * snap : dxBeats;
+        const target = drag.anchor.startBeat + (contentX(event.clientX) - drag.startX) / px;
+        // The grabbed note lands on the grid and the rest keep their spacing. Shift moves freely.
+        const landed = snap > 0 && !event.shiftKey ? snapBeat(target, snap) : target;
         const deltaPad = Math.round((event.clientY - drag.startY) / rowHeight);
-        useAppStore.getState().dragSelectedNotes(drag.originals, deltaBeats, deltaPad);
+        store.dragSelectedNotes(drag.originals, landed - drag.anchor.startBeat, deltaPad);
+        const pad = Math.max(0, Math.min(keyCount - 1, drag.anchor.pad + deltaPad));
+        useViewStore.setState({ hover: { beat: landed, pad } });
+        if (pad !== lastPadRef.current) {
+          lastPadRef.current = pad;
+          void playback.previewPad(instrument.id, pad);
+        }
       } else if (drag.kind === 'resize') {
-        const raw = drag.originalDuration + (event.clientX - drag.startX) / px;
+        const raw = drag.originalDuration + (contentX(event.clientX) - drag.startX) / px;
         const next = snap > 0 ? Math.max(snap, Math.round(raw / snap) * snap) : Math.max(0.1, raw);
-        useAppStore.getState().resizeNote(drag.noteId, next);
-      } else if (drag.kind === 'draw') {
-        const raw = drag.baseDuration + (event.clientX - drag.startX) / px;
-        const next = snap > 0 ? Math.max(snap, Math.round(raw / snap) * snap) : Math.max(0.1, raw);
-        useAppStore.getState().resizeNote(drag.noteId, next);
+        store.resizeNote(drag.noteId, next);
       } else {
         const rect = gridRef.current?.getBoundingClientRect();
         if (!rect) return;
-        const x = Math.min(Math.max(0, event.clientX - rect.left), totalBeats * px);
+        const x = Math.max(0, event.clientX - rect.left);
         const y = Math.min(Math.max(0, event.clientY - rect.top), rollHeight);
         setMarquee({
           left: Math.min(drag.x1, x),
@@ -452,163 +562,130 @@ export function Timeline() {
     };
     const up = () => {
       const drag = dragRef.current;
+      const store = useAppStore.getState();
       if (drag?.kind === 'marquee') {
-        const rect = gridRef.current?.getBoundingClientRect();
-        const box = marquee;
-        if (rect && box && (box.width > 3 || box.height > 3)) {
-          const beatMin = box.left / px;
-          const beatMax = (box.left + box.width) / px;
-          const padMin = Math.floor(box.top / rowHeight);
-          const padMax = Math.floor((box.top + box.height) / rowHeight);
-          const track = useAppStore.getState().activeTrack();
-          const ids = track.notes
-            .filter(
-              (note) =>
-                note.startBeat < beatMax &&
-                note.startBeat + note.durationBeats > beatMin &&
-                note.pad >= padMin &&
-                note.pad <= padMax,
-            )
-            .map((note) => note.id);
-          selectNotes(ids, drag.additive ? 'add' : 'replace');
-        }
+        setMarquee((box) => {
+          if (box && (box.width > 3 || box.height > 3)) {
+            const beatMin = box.left / px;
+            const beatMax = (box.left + box.width) / px;
+            const padMin = Math.floor(box.top / rowHeight);
+            const padMax = Math.floor((box.top + box.height) / rowHeight);
+            const reach = (note: Note) => (hold ? note.durationBeats : noteSize / px);
+            const ids = store
+              .activeTrack()
+              .notes.filter(
+                (note) =>
+                  note.startBeat < beatMax &&
+                  note.startBeat + reach(note) > beatMin &&
+                  note.pad >= padMin &&
+                  note.pad <= padMax,
+              )
+              .map((note) => note.id);
+            store.selectNotes(ids, drag.additive ? 'add' : 'replace');
+          }
+          return null;
+        });
       } else if (drag) {
-        useAppStore.getState().endGesture();
+        store.endGesture();
       }
       dragRef.current = null;
       setDragging(false);
-      setMarquee(null);
     };
     window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up, { once: true });
-    window.addEventListener('pointercancel', up, { once: true });
+    window.addEventListener('pointerup', up);
+    window.addEventListener('pointercancel', up);
     return () => {
       window.removeEventListener('pointermove', move);
       window.removeEventListener('pointerup', up);
       window.removeEventListener('pointercancel', up);
     };
-  }, [dragging, marquee, px, rowHeight, rollHeight, snap, totalBeats, selectNotes]);
+  }, [dragging, px, rowHeight, rollHeight, snap, keyCount, instrument.id, hold, noteSize]);
 
-  const seekRuler = (event: ReactPointerEvent<HTMLDivElement>) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    const raw = Math.max(0, (event.clientX - rect.left) / px);
-    const beat = snap > 0 ? snapBeat(raw, snap) : raw;
-    playback.seek(beat);
+  const selectTrack = (id: string) => {
+    setMinimizedId(null);
+    setActiveTrack(id);
   };
 
-  const onRulerPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
-    event.preventDefault();
-    seekRuler(event);
-    const target = event.currentTarget;
-    const move = (ev: PointerEvent) => {
-      const rect = target.getBoundingClientRect();
-      const raw = Math.max(0, (ev.clientX - rect.left) / px);
-      playback.seek(snap > 0 ? snapBeat(raw, snap) : raw);
-    };
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up, { once: true });
+  const loopFromSelection = () => {
+    const state = useAppStore.getState();
+    const ids = new Set(state.selectedNoteIds);
+    const selected = state.activeTrack().notes.filter((note) => ids.has(note.id));
+    if (selected.length === 0) return;
+    const startBeat = Math.floor(Math.min(...selected.map((note) => note.startBeat)));
+    const endBeat = Math.max(startBeat + 1, Math.ceil(Math.max(...selected.map((note) => note.startBeat + note.durationBeats))));
+    setLoop({ enabled: true, startBeat, endBeat });
   };
 
-  const loop = project.loop;
-  const loopWidth = Math.max(0, (loop.endBeat - loop.startBeat) * px);
-  const selectedCount = selectedNoteIds.length;
+  const quantize = () => {
+    if (snap <= 0) {
+      useAppStore.getState().notify('Choose a snap value before quantizing.', 'warning');
+      return;
+    }
+    useAppStore.getState().quantizeSelection(snap, preserveOriginal);
+  };
 
-  const activeRoll = (
-    <div className="piano-roll" data-testid="piano-roll">
+  const grid = gridBackground(px, project.timeSignature, snap);
+  const isGame = soundSourceInfo(instrument.id).kind === 'sample';
+
+  const openRoll = (
+    <div className="piano-roll">
       <div className="roll-labels" style={{ height: rollHeight }}>
-        {Array.from({ length: instrument.keyCount }, (_, padIndex) => {
-          const resolved = resolvePad(instrument, project.key, padIndex);
-          const isGroupStart = padIndex % instrument.padLayout.cols === 0;
-          const groupAlt = Math.floor(padIndex / instrument.padLayout.cols) % 2 === 1;
-          return (
-            <div
-              key={padIndex}
-              className={`roll-label ${isGroupStart ? 'group-start' : ''} ${groupAlt ? 'group-alt' : ''}`}
-              style={{ height: rowHeight }}
-            >
-              <span className="roll-pad-number">{padIndex + 1}</span>
-              <span className="roll-note-name">
-                {resolved.pitched ? resolved.noteName : resolved.label}
-              </span>
-            </div>
-          );
-        })}
+        {padNames.map((name, pad) => (
+          <button
+            type="button"
+            key={pad}
+            data-pad={pad}
+            className={`roll-label ${Math.floor(pad / cols) % 2 === 1 ? 'group-alt' : ''} ${name.degree && (name.degree - 1) % 7 === 0 ? 'is-tonic' : ''}`}
+            style={{ height: rowHeight }}
+            tabIndex={-1}
+            onPointerDown={() => void playback.previewPad(instrument.id, pad, 0.8, true)}
+            title={`Hear pad ${pad + 1}`}
+          >
+            <span className="roll-pad-number">{pad + 1}</span>
+            <span className="roll-note-name">{name.full}</span>
+          </button>
+        ))}
       </div>
       <div
-        className="roll-grid"
+        className={`roll-grid tool-${editTool} ${compact ? 'is-compact' : ''}`}
         ref={gridRef}
-        style={{
-          width: totalBeats * px,
-          height: rollHeight,
-          backgroundSize: `${px}px 100%, ${beatsPerBar * px}px 100%, 100% ${rowHeight}px`,
-        }}
+        style={{ width: totalBeats * px, height: rollHeight, ...grid }}
         onPointerDown={onGridPointerDown}
+        onPointerMove={onGridPointerMove}
+        onPointerLeave={hideGhost}
         onDoubleClick={onDoubleClick}
-        data-testid="grid"
+        onContextMenu={onContextMenu}
       >
-        {Array.from({ length: instrument.keyCount }, (_, padIndex) => (
+        {padNames.map((name, pad) => (
           <div
-            key={padIndex}
-            className={`roll-row-bg ${padIndex % instrument.padLayout.cols === 0 ? 'group-start' : ''} ${Math.floor(padIndex / instrument.padLayout.cols) % 2 === 1 ? 'group-alt' : ''}`}
-            style={{ top: padIndex * rowHeight, height: rowHeight }}
+            key={pad}
+            className={`roll-row-bg ${Math.floor(pad / cols) % 2 === 1 ? 'group-alt' : ''} ${name.degree && (name.degree - 1) % 7 === 0 ? 'is-tonic' : ''}`}
+            style={{ top: pad * rowHeight, height: rowHeight }}
             aria-hidden="true"
           />
         ))}
-        {activeTrack.notes.map((note) => {
-          const resolved = resolvePad(instrument, project.key, note.pad);
-          // One-shot instruments ring out whatever the length, so they draw as even dots.
-          const dot = Math.min(NOTE_DOT, rowHeight - 6);
-          const width = instrument.supportsHold ? Math.max(dot, note.durationBeats * px) : dot;
-          const label = resolved.pitched ? resolved.noteName?.replace(/\d/, '') : resolved.label;
-          const selected = selectedNoteIds.includes(note.id);
-          return (
-            <div
-              key={note.id}
-              className={`roll-note ${selected ? 'is-selected' : ''}`}
-              style={{
-                left: note.startBeat * px,
-                top: note.pad * rowHeight + (rowHeight - dot) / 2,
-                width,
-                height: dot,
-              }}
-              data-note-id={note.id}
-              data-testid="roll-note"
-              onPointerDown={(event) => onNotePointerDown(event, note)}
-              title={`Pad ${note.pad + 1} · ${resolved.noteName ?? resolved.label} · ${formatBarBeat(
-                note.startBeat,
-                project.timeSignature,
-              )} · ${note.durationBeats.toFixed(2)} beats`}
-            >
-              {resolved.pitched && <span className="roll-note-label">{label}</span>}
-              {instrument.supportsHold && (
-                <button
-                  type="button"
-                  className="note-resize"
-                  aria-label={`Resize note on pad ${note.pad + 1}`}
-                  onPointerDown={(event) => onResizePointerDown(event, note)}
-                />
-              )}
-            </div>
-          );
-        })}
-        {marquee && (
-          <div
-            className="marquee"
-            style={{ left: marquee.left, top: marquee.top, width: marquee.width, height: marquee.height }}
-            aria-hidden="true"
+        {visibleNotes.map((note) => (
+          <RollNote
+            key={note.id}
+            note={note}
+            left={note.startBeat * px}
+            top={note.pad * rowHeight + (rowHeight - noteSize) / 2}
+            width={hold ? Math.max(compact ? 4 : noteSize, note.durationBeats * px - 1) : shotWidth}
+            height={noteSize}
+            selected={selectedSet.has(note.id)}
+            hold={hold}
+            label={compact ? '' : padNames[note.pad]?.short ?? ''}
+            fullName={padNames[note.pad]?.full ?? ''}
+            position={formatBarBeat(note.startBeat, project.timeSignature)}
           />
-        )}
+        ))}
+        <div ref={ghostRef} className="roll-ghost" style={{ width: noteSize, height: noteSize, lineHeight: `${noteSize}px` }} aria-hidden="true" />
+        {marquee && <div className="marquee" style={marquee} aria-hidden="true" />}
         {activeTrack.notes.length === 0 && (
           <div className="roll-empty">
-            <StarIcon size={17} />
+            <strong>{editTool === 'draw' ? 'Click a row to place a note' : 'Double-click to place a note'}</strong>
             <span>
-              {editTool === 'draw'
-                ? 'Tap anywhere here to add your first note.'
-                : 'Double-click to add a note, or drag to select.'}
+              {hold ? `${instrument.displayName} holds notes: drag right while placing to set the length.` : `${instrument.displayName} plays one-shot notes that ring out on their own.`}
             </span>
           </div>
         )}
@@ -617,121 +694,95 @@ export function Timeline() {
   );
 
   return (
-    <section
-      className="timeline"
-      aria-label="Song editor"
-    >
-      {selectedCount > 0 && (
-        <div className="selection-bar" data-testid="selection-info">
-          <strong>{selectedCount} selected</strong>
-          <div className="selection-actions">
-            <button type="button" onClick={copySelection} aria-label="Copy selected notes" title="Copy (Ctrl/Cmd+C)">
-              <CopyIcon size={15} />
-            </button>
-            <button type="button" onClick={() => pasteClipboard(playback.position())} aria-label="Paste notes at playhead" title="Paste (Ctrl/Cmd+V)">
-              <PasteIcon size={15} />
-            </button>
-            <button type="button" onClick={duplicateSelection} aria-label="Duplicate selected notes" title="Duplicate (Ctrl/Cmd+D)">
-              <DuplicateIcon size={15} />
-            </button>
-            <button type="button" onClick={quantize} data-testid="quantize-button" title="Quantize to grid">
-              <CheckIcon size={15} /> <span>Quantize</span>
-            </button>
-            <button type="button" onClick={restoreOriginalTiming} title="Restore pre-quantize timing">
-              <RecordIcon size={13} /> <span>Restore</span>
-            </button>
-            <button type="button" onClick={commitLoopFromSelection} title="Set the loop region from selected notes">
-              <LoopIcon size={15} /> <span>Loop</span>
-            </button>
-            <button type="button" className="danger-text" onClick={deleteSelectedNotes} aria-label="Delete selected notes" title="Delete">
-              <TrashIcon size={15} />
-            </button>
-            <button type="button" onClick={clearSelection} aria-label="Clear selection" title="Clear selection">
-              Done
-            </button>
-          </div>
-        </div>
-      )}
-
+    <section className="timeline" aria-label="Song editor">
+      <SelectionBar onLoop={loopFromSelection} onQuantize={quantize} />
       <div className="timeline-scroll" ref={scrollRef}>
-        <div className="timeline-content" style={{ width: labelWidth + totalBeats * px, ['--label-width' as string]: `${labelWidth}px`, ['--beat-size' as string]: `${px}px`, ['--bar-size' as string]: `${beatsPerBar * px}px` }}>
+        <div
+          className="timeline-content"
+          style={{ width: LABEL_WIDTH + totalBeats * px, ['--label-width' as string]: `${LABEL_WIDTH}px` }}
+        >
           <div className="ruler-wrap">
             <div className="ruler-row">
-              <div className="ruler-corner">
-                <span>Bars</span>
-              </div>
-              <div
-                className="ruler"
-                style={{ width: totalBeats * px }}
-                onPointerDown={onRulerPointerDown}
-                role="slider"
-                aria-label="Timeline position"
-                aria-valuemin={0}
-                aria-valuemax={totalBeats}
-                tabIndex={0}
-                data-testid="ruler"
-                onKeyDown={(event) => {
-                  if (event.key === 'ArrowRight') playback.seek(playback.position() + (snap || 0.25));
-                  if (event.key === 'ArrowLeft') playback.seek(Math.max(0, playback.position() - (snap || 0.25)));
-                }}
-              >
-                {Array.from({ length: Math.ceil(totalBeats / beatsPerBar) + 1 }, (_, index) => (
-                  <span
-                    key={index}
-                    className="measure-label"
-                    style={{ left: index * beatsPerBar * px }}
-                  >
-                    {index + 1}
-                  </span>
-                ))}
-                <RulerPlayhead px={px} />
-              </div>
+              <div className="ruler-corner">Bars</div>
+              <Ruler
+                px={px}
+                totalBeats={totalBeats}
+                meter={project.timeSignature}
+                snap={snap}
+                windowStart={Math.max(0, windowStart - OVERSCAN)}
+                windowEnd={windowStart + viewWidth + OVERSCAN + WINDOW_STEP}
+              />
             </div>
-            {loop.enabled && (
-              <LoopLane totalBeats={totalBeats} px={px} loop={loop} meter={project.timeSignature} onChange={setLoop} />
+            {project.loop.enabled && (
+              <LoopLane totalBeats={totalBeats} px={px} loop={project.loop} meter={project.timeSignature} snap={snap} onChange={setLoop} />
             )}
           </div>
 
-          <div
-            className="timeline-body"
-            style={{
-              backgroundSize: `${px}px 100%, ${beatsPerBar * px}px 100%`,
-            }}
-          >
-            {loop.enabled && (
+          <div className="timeline-body">
+            {project.loop.enabled && (
               <div
                 className="loop-band"
-                style={{ left: labelWidth + loop.startBeat * px, width: loopWidth }}
+                style={{ left: LABEL_WIDTH + project.loop.startBeat * px, width: (project.loop.endBeat - project.loop.startBeat) * px }}
                 aria-hidden="true"
               />
             )}
-
             {project.tracks.map((track) =>
-              track.id === activeTrack.id ? (
-                <div
-                  key={track.id}
-                  className="track-active"
-                  style={{ ['--track-color' as string]: track.color }}
-                >
+              track.id === activeTrack.id && !minimized ? (
+                <div key={track.id} className="track-active" style={{ ['--track-color' as string]: track.color }}>
                   <div className="track-active-head" style={{ height: ACTIVE_HEADER_HEIGHT }}>
                     <button
                       type="button"
-                      className="track-chip is-active"
-                      data-testid="track-chip"
+                      className="instrument-pick"
                       data-track-id={track.id}
                       data-instrument-id={track.instrumentId}
+                      onClick={() => onOpenCatalog({ mode: 'change', trackId: track.id })}
+                      aria-label={`Change instrument for ${track.name}`}
+                      title="Change instrument"
                     >
-                      <InstrumentIcon instrumentId={track.instrumentId} size={24} />
-                      <span className="track-chip-name">{track.name}</span>
+                      <InstrumentIcon instrumentId={track.instrumentId} size={22} />
+                      <span>{track.name}</span>
+                      <ChevronDownIcon size={13} />
+                    </button>
+                    <span className="track-facts">
+                      <em className={`sound-source ${isGame ? 'is-game' : ''}`}>{isGame ? 'Game' : 'Synth'}</em>
+                      <span>{hold ? 'Held notes' : 'One-shot'}</span>
+                      <span>{track.notes.length} notes</span>
+                    </span>
+                    <TrackMixButtons track={track} />
+                    <ActiveVolume trackId={track.id} volume={track.volume} name={track.name} />
+                    <button
+                      type="button"
+                      className="track-minimize"
+                      onClick={() => {
+                        useAppStore.getState().clearSelection();
+                        setMinimizedId(track.id);
+                      }}
+                      aria-label={`Minimize ${track.name}`}
+                      title="Collapse to a lane"
+                    >
+                      <ChevronDownIcon size={15} />
                     </button>
                   </div>
-                  {activeRoll}
+                  {openRoll}
                 </div>
               ) : (
-                <TrackLane key={track.id} track={track} px={px} totalBeats={totalBeats} onSelect={setActiveTrack} />
+                <TrackLane
+                  key={track.id}
+                  track={track}
+                  px={px}
+                  totalBeats={totalBeats}
+                  silent={!isTrackAudible(project, track)}
+                  onSelect={selectTrack}
+                />
               ),
             )}
-            <PlayheadLine px={px} height={0} labelWidth={labelWidth} />
+            <div className="add-track-row" style={{ height: ADD_ROW_HEIGHT }}>
+              <button type="button" className="add-track-button" onClick={() => onOpenCatalog({ mode: 'add' })}>
+                <PlusIcon size={15} />
+                <span>Add instrument</span>
+              </button>
+            </div>
+            <PlayheadLine px={px} />
           </div>
         </div>
       </div>
