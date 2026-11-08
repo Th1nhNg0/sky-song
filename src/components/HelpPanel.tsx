@@ -40,7 +40,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <Shortcut keys="Space" label="Play or pause from the cursor" />
             <Shortcut keys="Shift+Space" label="Stop and return to the start" />
             <Shortcut keys="Home" label="Cursor to the start" />
-            <Shortcut keys="End" label="Cursor to the last note" />
+            <Shortcut keys="End" label="Cursor to the end of the song" />
             <Shortcut keys="1" label="Add note tool" />
             <Shortcut keys="2" label="Edit tool" />
             <Shortcut keys="K" label="Show or hide the keys" />
@@ -92,8 +92,8 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
         <section className="help-card">
           <h3><DownloadIcon size={16} /> Saving &amp; loading</h3>
           <p>
-            Songs autosave to My songs. Export downloads a <code>.skymusic.json</code> project file, and Import in
-            My songs loads it back; nothing is uploaded.
+            Songs save to My songs as you edit. Export can save a <code>.skymusic.json</code> song file. To open a song
+            file or a MIDI file, use Import in the top bar or drop the file anywhere on the window. Nothing is uploaded.
           </p>
           <p>
             MIDI is a Type-1 file with tempo, key signature, named tracks, GM programs and channel-10 percussion. MIDI timbres

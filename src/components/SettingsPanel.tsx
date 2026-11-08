@@ -26,11 +26,11 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
                   ? 'Starting audio…'
                   : audioStatus === 'error'
                     ? audioMessage ?? 'Audio could not start.'
-                    : 'Audio is locked until you tap Enable.'}
+                    : 'Sound starts the first time you press Play or the button below.'}
             </span>
           </div>
           <button type="button" className="btn primary" onClick={() => void playback.enableAudio()}>
-            Enable / test audio
+            Turn on sound
           </button>
           <label className="slider-field">
             <div><span>Master volume</span><strong>{Math.round(preferences.masterVolume * 100)}%</strong></div>
@@ -51,7 +51,6 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           </p>
         </section>
 
-        <SoundsPanel />
         <section className="settings-card">
           <h3>Playback</h3>
           <label className="toggle-row">
@@ -69,10 +68,11 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             </select>
           </label>
           <p className="fine-print">
-            Quantize stores the pre-quantize timing on each note. Use “Restore timing” in the timeline toolbar to undo it.
+            Quantize stores each note's timing from before. Select the notes and press Restore in the selection bar to go back.
             Sky’s exact sustain duration caps are undocumented, so the app only enforces its own 16-beat safety limit.
           </p>
         </section>
+        <SoundsPanel />
 
         <section className="settings-card wide">
           <h3>Project &amp; storage</h3>

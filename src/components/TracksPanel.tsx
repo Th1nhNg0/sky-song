@@ -12,11 +12,11 @@ export function TracksPanel({
 }) {
   return (
     <Modal
-      title="Performers"
+      title="Tracks & mix"
       onClose={onClose}
       size="medium"
     >
-      <p className="panel-hint">Pick a track to edit it. Mix and instrument options stay here.</p>
+      <p className="panel-hint">Set each instrument's volume, mute (M) or solo (S) it, and rename or reorder tracks. Click a track to edit its notes.</p>
       <div className="tracks-panel-body">
         <TrackList onOpenCatalog={onOpenCatalog} />
       </div>

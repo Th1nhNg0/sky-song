@@ -150,6 +150,14 @@ function sanitizeName(value: string, fallback: string, max = 120): string {
   return (trimmed || fallback).slice(0, max);
 }
 
+/** "Untitled Song", or "Untitled Song 2", 3… when My songs already has one. */
+function freeUntitledName(taken: string[]): string {
+  const used = new Set(taken);
+  let name = 'Untitled Song';
+  for (let number = 2; used.has(name); number++) name = `Untitled Song ${number}`;
+  return name;
+}
+
 function findTrack(project: Project, id: string): Track | undefined {
   return project.tracks.find((track) => track.id === id);
 }
@@ -283,11 +291,12 @@ export const useAppStore = create<AppState>()((set, get) => {
     let project: Project;
     if (options.demo) project = createDemoProject();
     else if (options.starter) project = createStarterProject();
-    else project = createProject({ title: 'Untitled Song', key: 0 });
+    else project = createProject({ title: freeUntitledName(get().library.map((entry) => entry.title)), key: 0 });
     get().setProject(project);
     set({ panel: null });
     get().notify(options.demo ? 'Loaded the demo piece “Lanterns Over the Valley”.' : 'New song created.', 'success');
-    void get().saveNow();
+    // A blank song joins My songs with its first edit, so trying “New song” leaves no empty entries behind.
+    if (options.demo || options.starter) void get().saveNow();
     void get().refreshLibrary();
   },
 

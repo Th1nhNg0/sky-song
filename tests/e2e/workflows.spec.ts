@@ -203,7 +203,7 @@ test('6: MIDI export and import through the real file controls', async ({ page }
   const file = await (await download).path();
   await page.keyboard.press('Escape');
 
-  await page.setInputFiles('input[aria-label="Import MIDI"]', {
+  await page.setInputFiles('input[aria-label="Import song or MIDI"]', {
     name: 'round-trip.mid',
     mimeType: 'audio/midi',
     buffer: readFileSync(file),
@@ -422,13 +422,19 @@ test('instrument lines can be removed directly and restored with undo', async ({
   await page.keyboard.press('Control+z');
   expect(await store<number[]>(page, 's.project.tracks.map((track) => track.notes.length)')).toEqual([1, 1, 1]);
 
-  const collapsed = page.locator('.track-lane').filter({ has: page.getByRole('button', { name: `Remove ${names[0]}`, exact: true }) });
+  // A collapsed lane shows its remove button on hover, leaving room for the name.
+  const collapsed = page.locator('.track-lane').filter({ has: page.getByRole('button', { name: `Mute ${names[0]}`, exact: true }) });
+  await expect(collapsed.getByRole('button', { name: `Remove ${names[0]}`, exact: true })).toBeHidden();
+  await collapsed.hover();
   await collapsed.getByRole('button', { name: `Remove ${names[0]}`, exact: true }).click();
   expect(await store<number>(page, 's.project.tracks.length')).toBe(2);
   await page.keyboard.press('Control+z');
   expect(await store<number[]>(page, 's.project.tracks.map((track) => track.notes.length)')).toEqual([1, 1, 1]);
 
+  const lane = (name: string) => page.locator('.track-lane').filter({ has: page.getByRole('button', { name: `Mute ${name}`, exact: true }) });
+  await lane(names[2]).hover();
   await page.getByRole('button', { name: `Remove ${names[2]}`, exact: true }).click();
+  await lane(names[0]).hover();
   await page.getByRole('button', { name: `Remove ${names[0]}`, exact: true }).click();
   await expect(page.getByRole('button', { name: `Remove ${names[1]}`, exact: true })).toBeDisabled();
   expect(await store<number>(page, 's.project.tracks.length')).toBe(1);
@@ -535,5 +541,47 @@ test('dropping a MIDI or project file on the window opens it', async ({ page }) 
   await drop('photo.png', 'image/png', [1, 2, 3]);
   await expect(page.locator('.toast')).toContainText('not a song file');
   await expect(page.locator('.project-title')).toHaveValue('Lanterns Over the Valley');
+  expect(errors).toEqual([]);
+});
+
+test('Import in the top bar opens a saved song as well as MIDI', async ({ page }) => {
+  const errors = await boot(page);
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  const json = await store<string>(page, 's.exportProjectJson()');
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject());
+  await page.setInputFiles('input[aria-label="Import song or MIDI"]', {
+    name: 'lanterns.skymusic.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(json),
+  });
+  await expect(page.locator('.project-title')).toHaveValue('Lanterns Over the Valley');
+  expect(await store<number>(page, 's.project.tracks.length')).toBe(6);
+  expect(errors).toEqual([]);
+});
+
+test('the selection bar shows every action, and a blank new song waits for an edit before saving', async ({ page }) => {
+  const errors = await boot(page);
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  await page.keyboard.press('2');
+  await page.keyboard.press('Control+a');
+  const done = page.locator('.selection-bar').getByRole('button', { name: 'Clear selection' });
+  await expect(done).toBeVisible();
+  const [bar, button] = await Promise.all([page.locator('.selection-bar').boundingBox(), done.boundingBox()]);
+  expect(button!.x + button!.width).toBeLessThanOrEqual(bar!.x + bar!.width);
+
+  const titles = async () => {
+    await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().refreshLibrary());
+    return (await store<string[]>(page, 's.library.map((entry) => entry.title)')).sort();
+  };
+  await expect.poll(titles).toEqual(['Lanterns Over the Valley']);
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject());
+  await page.waitForTimeout(1200);
+  expect(await titles()).toEqual(['Lanterns Over the Valley']);
+  await page.keyboard.press('1');
+  await clickCell(page, 0, 0);
+  expect(await noteCount(page)).toBe(1);
+  await expect.poll(titles).toEqual(['Lanterns Over the Valley', 'Untitled Song']);
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject());
+  await expect(page.locator('.project-title')).toHaveValue('Untitled Song 2');
   expect(errors).toEqual([]);
 });

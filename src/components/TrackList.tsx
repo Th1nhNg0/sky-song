@@ -148,6 +148,7 @@ function TrackRow({
               if (event.key.startsWith('Arrow') || event.key === 'Home' || event.key === 'End') endGesture();
             }}
           />
+          <output className="volume-value">{Math.round(track.volume * 100)}%</output>
         </label>
         <button
           type="button"

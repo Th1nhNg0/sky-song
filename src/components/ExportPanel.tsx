@@ -15,14 +15,14 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
   const exportProject = () => {
     downloadProjectFile(project);
     setResult({
-      title: 'Project JSON downloaded',
+      title: 'Song file downloaded',
       lines: [
         `File: ${sanitizeFilename(project.title)}.skymusic.json`,
         `Size: ${formatBytes(estimateProjectJsonSize(project))} · schema v1 · ${project.tracks.length} tracks · ${noteCount} notes`,
-        'This is the complete native project: import it back to restore every track, pad, timing and preference stored in the project.',
+        'It keeps everything in the song. Open it again with Import, or drop it on the window.',
       ],
     });
-    notify('Project JSON downloaded.', 'success');
+    notify('Song file downloaded.', 'success');
   };
 
   const exportMidi = () => {
@@ -65,21 +65,21 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Export" eyebrow="Project file · multitrack MIDI · sky-mod" onClose={onClose} size="large">
+    <Modal title="Export" eyebrow="Song file · MIDI · sky-mod" onClose={onClose} size="large">
       <div className="export-panel">
         <div className="export-grid">
           <article className="export-card">
             <div className="export-icon"><SparkIcon size={18} /></div>
-            <h3>Project JSON</h3>
-            <p>Native versioned <code>.skymusic.json</code> with every track, pad, timing and project setting. Load it back from the Library.</p>
+            <h3>Song file</h3>
+            <p>A <code>.skymusic.json</code> backup of the whole song. Open it again with Import, or drop it on the window.</p>
             <button type="button" className="btn primary" onClick={exportProject}>
-              Export project
+              Save song file
             </button>
           </article>
           <article className="export-card">
             <div className="export-icon"><DownloadIcon size={18} /></div>
-            <h3>Multitrack MIDI</h3>
-            <p>Type-1 file with tempo, meter, key signature, track names, GM programs and percussion on channel 10.</p>
+            <h3>MIDI</h3>
+            <p>One MIDI track per instrument, with the tempo and meter, for music apps and DAWs. Sounds will differ from the app.</p>
             <button type="button" className="btn primary" onClick={exportMidi}>
               Export MIDI
             </button>
@@ -87,7 +87,7 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
           <article className="export-card">
             <div className="export-icon"><DownloadIcon size={18} /></div>
             <h3>sky-mod song</h3>
-            <p>One <code>.skymod.json</code> with every track on a shared count-in, for recording layers in Shared Memory Duets.</p>
+            <p>A <code>.skymod.json</code> for the separate sky-mod tool, which plays it in the game. Every track shares one count-in.</p>
             <button type="button" className="btn primary" onClick={exportSkyMod}>
               Export for sky-mod
             </button>

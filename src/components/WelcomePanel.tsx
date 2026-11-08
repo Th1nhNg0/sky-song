@@ -1,5 +1,7 @@
+import type { ChangeEvent } from 'react';
+import { importSongFile, SONG_FILE_ACCEPT } from '../state/importFile';
 import { useAppStore } from '../state/store';
-import { CloseIcon, LibraryIcon, MusicIcon, PlayIcon, SparkIcon } from './Icons';
+import { CloseIcon, LibraryIcon, MusicIcon, PlayIcon, SparkIcon, UploadIcon } from './Icons';
 
 export function WelcomePanel() {
   const newProject = useAppStore((state) => state.newProject);
@@ -11,6 +13,12 @@ export function WelcomePanel() {
   const dismiss = () => {
     finishOnboarding();
     setWelcomeOpen(false);
+  };
+
+  const openFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (file && (await importSongFile(file))) finishOnboarding();
   };
 
   const start = (options?: { demo?: boolean; starter?: boolean }) => {
@@ -52,6 +60,10 @@ export function WelcomePanel() {
           <button type="button" className="link-btn" onClick={() => start({ starter: true })}>
             Start with a simple loop
           </button>
+          <label className="link-btn">
+            <UploadIcon size={14} /> Open a MIDI or song file
+            <input type="file" accept={SONG_FILE_ACCEPT} aria-label="Open a MIDI or song file" hidden onChange={(event) => void openFile(event)} />
+          </label>
           {library.length > 0 && (
             <button
               type="button"
@@ -66,7 +78,7 @@ export function WelcomePanel() {
           )}
         </div>
 
-        <p className="welcome-note">Unofficial fan app</p>
+        <p className="welcome-note">You can also drop a MIDI or song file anywhere on this window · Unofficial fan app</p>
       </div>
     </div>
   );

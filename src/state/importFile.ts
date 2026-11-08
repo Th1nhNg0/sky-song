@@ -1,6 +1,9 @@
 import { readFileAsText } from '../export/exporters';
 import { useAppStore } from './store';
 
+/** For file pickers: MIDI files and saved songs. */
+export const SONG_FILE_ACCEPT = '.mid,.midi,.kar,audio/midi,audio/x-midi,.json,application/json';
+
 const MIDI_NAME = /\.(mid|midi|kar)$/i;
 const SONG_NAME = /\.json$/i;
 

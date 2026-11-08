@@ -36,7 +36,8 @@ export function CatalogPanel({ intent, onClose }: { intent: CatalogIntent; onClo
   useSoundBankVersion();
 
   const targetId = intent.mode === 'change' ? intent.trackId : activeTrackId;
-  const currentInstrument = project.tracks.find((track) => track.id === targetId)?.instrumentId;
+  const target = project.tracks.find((track) => track.id === targetId);
+  const currentInstrument = target?.instrumentId;
 
   const chooseInstrument = (instrumentId: string) => {
     if (intent.mode === 'add') addTrack(instrumentId);
@@ -46,7 +47,8 @@ export function CatalogPanel({ intent, onClose }: { intent: CatalogIntent; onClo
 
   return (
     <Modal
-      title={intent.mode === 'add' ? 'Add an instrument' : 'Choose an instrument'}
+      title={intent.mode === 'add' ? 'Add an instrument' : 'Change instrument'}
+      eyebrow={intent.mode === 'add' ? 'Adds a new track' : `For ${target?.name ?? 'this track'}`}
       onClose={onClose}
       size="wide"
     >
@@ -54,7 +56,7 @@ export function CatalogPanel({ intent, onClose }: { intent: CatalogIntent; onClo
         <input
           type="search"
           className="input search-input"
-          placeholder="Search instruments"
+          placeholder="Search instruments · press ▶ on one to hear it"
           aria-label="Search instruments"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
@@ -87,7 +89,7 @@ export function CatalogPanel({ intent, onClose }: { intent: CatalogIntent; onClo
               <InstrumentIcon instrumentId={instrument.id} size={44} />
               <span className="instrument-tile-name">{instrument.displayName}</span>
               <span className="instrument-tile-meta">
-                {instrument.keyCount} pads · {soundSourceInfo(instrument.id).kind === 'sample' ? 'Game' : 'Synth'}
+                {instrument.keyCount} pads · {soundSourceInfo(instrument.id).kind === 'sample' ? 'Game sound' : 'Synth sound'}
               </span>
             </button>
             <button

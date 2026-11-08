@@ -2,8 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { Modal } from './Modal';
 import { downloadProjectFile } from '../export/exporters';
-import { importSongFile } from '../state/importFile';
-import { keyShortLabel } from '../music/keys';
+import { importSongFile, SONG_FILE_ACCEPT } from '../state/importFile';
 import {
   CopyIcon,
   DownloadIcon,
@@ -12,6 +11,7 @@ import {
   PlusIcon,
   SparkIcon,
   TrashIcon,
+  UploadIcon,
 } from './Icons';
 
 function formatDate(iso: string): string {
@@ -56,7 +56,7 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Project library" eyebrow="Stored locally in this browser · no account, no server" onClose={onClose} size="large">
+    <Modal title="My songs" eyebrow="Saved in this browser · no account, nothing uploaded" onClose={onClose} size="large">
       <div className="library-toolbar">
         <div className="library-actions">
           <button type="button" className="btn primary" onClick={() => { newProject(); onClose(); }}>
@@ -71,15 +71,20 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
         </div>
         <div className="library-actions">
           <button type="button" className="btn" onClick={() => fileRef.current?.click()} disabled={importing}>
-            <DownloadIcon size={15} /> {importing ? 'Importing…' : 'Import song or MIDI'}
+            <UploadIcon size={15} /> {importing ? 'Opening…' : 'Import song or MIDI'}
           </button>
-          <button type="button" className="btn" onClick={() => downloadProjectFile(current)}>
-            Export current JSON
+          <button
+            type="button"
+            className="btn"
+            onClick={() => downloadProjectFile(current)}
+            title="Download the open song as a .skymusic.json file, as a backup or to share"
+          >
+            <DownloadIcon size={15} /> Save song to a file
           </button>
           <input
             ref={fileRef}
             type="file"
-            accept=".json,.skymusic.json,application/json,.mid,.midi,audio/midi"
+            accept={SONG_FILE_ACCEPT}
             className="file-input"
             onChange={(event) => void importFile(event.target.files?.[0] ?? null)}
           />
@@ -87,8 +92,7 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
       </div>
 
       <p className="library-note">
-        Projects autosave here after each edit; nothing is uploaded.
-        For large songs, use a project file instead of a URL.
+        Songs save here automatically as you edit. To open a MIDI file or a saved song, use Import or drop the file anywhere on the window.
       </p>
 
       {loading && <p className="loading-line">Reading local library…</p>}
@@ -100,23 +104,24 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
             <div className="library-card-main">
               <h3>{entry.title}</h3>
               <p>
-                {formatDate(entry.updatedAt)} · {entry.trackCount} performer{entry.trackCount === 1 ? '' : 's'} ·{' '}
-                {entry.noteCount} notes · {entry.bpm} BPM · {keyShortLabel(entry.key)} major
-              </p>
-              <p className="library-meta">
-                {Math.round(entry.sizeBytes / 1024)} KB · schema v1 · pads preserved
+                {formatDate(entry.updatedAt)} · {entry.trackCount} instrument{entry.trackCount === 1 ? '' : 's'} ·{' '}
+                {entry.noteCount} note{entry.noteCount === 1 ? '' : 's'} · {entry.bpm} BPM
               </p>
             </div>
             <div className="library-card-actions">
-              <button
-                type="button"
-                className="btn small"
-                onClick={async () => {
-                  if (await openProject(entry.id)) onClose();
-                }}
-              >
-                Open
-              </button>
+              {entry.id === current.id ? (
+                <span className="library-open-badge">Open now</span>
+              ) : (
+                <button
+                  type="button"
+                  className="btn small"
+                  onClick={async () => {
+                    if (await openProject(entry.id)) onClose();
+                  }}
+                >
+                  Open
+                </button>
+              )}
               <button
                 type="button"
                 className="mini-btn"
@@ -171,8 +176,7 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
 
       <div className="library-footnote">
         <span>
-          Saved in this browser. Clearing site data removes the library; export a
-          <code> .skymusic.json</code> file for a permanent backup.
+          Clearing this browser's site data deletes My songs. Use Save song to a file for a backup you keep.
         </span>
       </div>
     </Modal>
