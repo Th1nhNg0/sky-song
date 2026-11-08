@@ -67,6 +67,16 @@ export function createTrack(
   };
 }
 
+/**
+ * A track still named after its instrument ("Harp · Performer 2") follows an
+ * instrument change; a name the user typed is left alone.
+ */
+export function renameForInstrument(name: string, fromInstrumentId: string, toInstrumentId: string): string {
+  const prefix = `${getInstrument(fromInstrumentId).shortName} · `;
+  if (!name.startsWith(prefix)) return name;
+  return `${getInstrument(toInstrumentId).shortName} · ${name.slice(prefix.length)}`;
+}
+
 function defaultLoop(): LoopRegion {
   return { enabled: false, startBeat: 0, endBeat: 16 };
 }

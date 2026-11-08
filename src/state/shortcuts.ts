@@ -82,8 +82,9 @@ export function handleShortcut(event: KeyboardEvent): void {
     arrowup: () => arrow(event),
     arrowdown: () => arrow(event),
     home: () => playback.seek(0),
+    // Notes are sorted by start, so a long early note can end after the last one starts.
     end: () => playback.seek(useAppStore.getState().project.tracks.reduce(
-      (end, track) => Math.max(end, ...track.notes.slice(-1).map((note) => note.startBeat + note.durationBeats)),
+      (end, track) => track.notes.reduce((last, note) => Math.max(last, note.startBeat + note.durationBeats), end),
       0,
     )),
     1: () => state.setEditTool('draw'),

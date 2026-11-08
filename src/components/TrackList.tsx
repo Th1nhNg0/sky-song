@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { getInstrument } from '../music/instruments';
 import { TRACK_COLORS } from '../music/project';
@@ -19,6 +19,8 @@ import {
 function TrackNameInput({ track }: { track: Track }) {
   const renameTrack = useAppStore((state) => state.renameTrack);
   const [name, setName] = useState(track.name);
+  // Escape blurs the field too; the blur must not save the text being thrown away.
+  const cancelledRef = useRef(false);
   useEffect(() => setName(track.name), [track.name]);
   return (
     <input
@@ -27,13 +29,18 @@ function TrackNameInput({ track }: { track: Track }) {
       aria-label={`Rename ${track.name}`}
       onChange={(event) => setName(event.target.value.slice(0, 60))}
       onBlur={() => {
+        if (cancelledRef.current) {
+          cancelledRef.current = false;
+          setName(track.name);
+          return;
+        }
         if (name.trim() && name.trim() !== track.name) renameTrack(track.id, name);
         else setName(track.name);
       }}
       onKeyDown={(event) => {
         if (event.key === 'Enter') event.currentTarget.blur();
         if (event.key === 'Escape') {
-          setName(track.name);
+          cancelledRef.current = true;
           event.currentTarget.blur();
         }
       }}
@@ -61,6 +68,7 @@ function TrackRow({
   const duplicateTrack = useAppStore((state) => state.duplicateTrack);
   const removeTrack = useAppStore((state) => state.removeTrack);
   const moveTrack = useAppStore((state) => state.moveTrack);
+  const trackCount = useAppStore((state) => state.project.tracks.length);
   const instrument = getInstrument(track.instrumentId);
   const isActive = track.id === activeTrackId;
 
@@ -134,7 +142,7 @@ function TrackRow({
             onPointerUp={endGesture}
             onBlur={endGesture}
             onKeyDown={(event) => {
-              if (event.key.startsWith('Arrow') || event.key === 'Home' || event.key === 'End') beginGesture();
+              if (!event.repeat && (event.key.startsWith('Arrow') || event.key === 'Home' || event.key === 'End')) beginGesture();
             }}
             onKeyUp={(event) => {
               if (event.key.startsWith('Arrow') || event.key === 'Home' || event.key === 'End') endGesture();
@@ -176,7 +184,7 @@ function TrackRow({
           >
             <ArrowUpIcon size={14} /> Up
           </button>
-          <button type="button" onClick={() => moveTrack(track.id, 1)} aria-label="Move track down">
+          <button type="button" onClick={() => moveTrack(track.id, 1)} aria-label="Move track down" disabled={index === trackCount - 1}>
             <ArrowDownIcon size={14} /> Down
           </button>
           <button

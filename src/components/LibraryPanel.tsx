@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { Modal } from './Modal';
-import { downloadProjectFile, readFileAsText } from '../export/exporters';
+import { downloadProjectFile } from '../export/exporters';
+import { importSongFile } from '../state/importFile';
 import { keyShortLabel } from '../music/keys';
 import {
   CopyIcon,
@@ -35,9 +36,6 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
   const deleteProject = useAppStore((state) => state.deleteLibraryProject);
   const duplicateProject = useAppStore((state) => state.duplicateLibraryProject);
   const newProject = useAppStore((state) => state.newProject);
-  const importProject = useAppStore((state) => state.importProjectJson);
-  const importMidi = useAppStore((state) => state.importMidi);
-  const notify = useAppStore((state) => state.notify);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -50,14 +48,7 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
     if (!file) return;
     setImporting(true);
     try {
-      if (/\.midi?$/i.test(file.name)) {
-        await importMidi(await file.arrayBuffer(), file.name.replace(/\.midi?$/i, ''));
-      } else {
-        const text = await readFileAsText(file);
-        if (importProject(text)) onClose();
-      }
-    } catch (error) {
-      notify(error instanceof Error ? error.message : 'Could not read that project file.', 'error');
+      if (await importSongFile(file)) onClose();
     } finally {
       setImporting(false);
       if (fileRef.current) fileRef.current.value = '';

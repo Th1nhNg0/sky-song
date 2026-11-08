@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createDemoProject, createStarterProject } from '../music/demo';
 import { getInstrument, hasInstrument } from '../music/instruments';
-import { createNote, createProject, createTrack, nowIso, sortNotes, TRACK_COLORS } from '../music/project';
+import { createNote, createProject, createTrack, nowIso, renameForInstrument, sortNotes, TRACK_COLORS } from '../music/project';
 import { snapBeat } from '../music/time';
 import type { LoopRegion, Note, Project, Track, ValidationIssue } from '../music/types';
 import { parseProjectJson, ProjectImportError } from '../music/validation';
@@ -59,6 +59,8 @@ interface AppState {
   library: LibraryEntry[];
   libraryLoading: boolean;
   lastWarnings: ValidationIssue[];
+  /** Goes up each time a different song is opened, so playback can start it from the top. */
+  songLoads: number;
 
   initialize(): Promise<void>;
   refreshLibrary(): Promise<void>;
@@ -220,6 +222,7 @@ export const useAppStore = create<AppState>()((set, get) => {
   library: [],
   libraryLoading: false,
   lastWarnings: [],
+  songLoads: 0,
 
   initialize: async () => {
     await get().refreshLibrary();
@@ -272,6 +275,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       lastWarnings: [],
       gesture: null,
       welcomeOpen: false,
+      songLoads: get().songLoads + 1,
     });
   },
 
@@ -502,7 +506,8 @@ export const useAppStore = create<AppState>()((set, get) => {
     const notes = track.notes.filter((note) => note.pad < instrument.keyCount);
     const removed = track.notes.length - notes.length;
     const kept = new Set(notes.map((note) => note.id));
-    commit(replaceTrack(project, id, (item) => ({ ...item, instrumentId, notes })), {
+    const name = renameForInstrument(track.name, track.instrumentId, instrumentId);
+    commit(replaceTrack(project, id, (item) => ({ ...item, instrumentId, name, notes })), {
       selectedNoteIds: get().selectedNoteIds.filter((noteId) => kept.has(noteId)),
     });
     if (removed > 0) {
@@ -524,7 +529,8 @@ export const useAppStore = create<AppState>()((set, get) => {
   },
   setTrackVolume: (id, volume) => {
     const value = Math.min(1.5, Math.max(0, volume));
-    commit(replaceTrack(get().project, id, (track) => ({ ...track, volume: value })), {}, false);
+    // A drag is one undo step (its gesture records it); a key press is a step of its own.
+    commit(replaceTrack(get().project, id, (track) => ({ ...track, volume: value })), {}, get().gesture === null);
   },
 
   selectNotes: (ids, mode = 'replace') => {
@@ -620,7 +626,7 @@ export const useAppStore = create<AppState>()((set, get) => {
         notes: track.notes.map((note) => (ids.has(note.id) ? { ...note, velocity: value } : note)),
       })),
       {},
-      false,
+      state.gesture === null,
     );
   },
   dragSelectedNotes: (originals, deltaBeats, deltaPad) => {

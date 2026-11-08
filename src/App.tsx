@@ -7,6 +7,7 @@ import { KeyPanel, NoteFlash } from './components/KeyPanel';
 import { StatusBar } from './components/StatusBar';
 import { Timeline } from './components/Timeline';
 import { Toast } from './components/Toast';
+import { FileDrop } from './components/FileDrop';
 import { WelcomePanel } from './components/WelcomePanel';
 import { CatalogPanel, type CatalogIntent } from './components/CatalogPanel';
 import { LibraryPanel } from './components/LibraryPanel';
@@ -133,6 +134,7 @@ export default function App() {
         )}
 
         {welcomeOpen && <WelcomePanel />}
+        <FileDrop />
         <Toast />
 
         <span className="sr-only" aria-live="polite">

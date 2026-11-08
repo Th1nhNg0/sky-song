@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useAppStore } from '../../src/state/store';
-import { createNote, createProject } from '../../src/music/project';
-import { snapBeat } from '../../src/music/time';
+import { createNote, createProject, renameForInstrument } from '../../src/music/project';
+import { formatBarBeat, snapBeat } from '../../src/music/time';
 
 const store = () => useAppStore.getState();
 const notes = () => store().activeTrack().notes;
@@ -95,5 +95,55 @@ describe('editing', () => {
 
   it('snaps to triplets without drifting', () => {
     expect(snapBeat(0.34, 1 / 3)).toBeCloseTo(1 / 3, 10);
+  });
+});
+
+describe('fixes', () => {
+  it('renames a track that still carries its instrument name, and keeps a typed name', () => {
+    const id = store().project.tracks[0].id;
+    expect(store().project.tracks[0].name).toBe('Harp · Performer');
+    store().setTrackInstrument(id, 'cello');
+    expect(store().project.tracks[0].name).toBe('Cello · Performer');
+    store().undo();
+    expect(store().project.tracks[0].name).toBe('Harp · Performer');
+
+    store().renameTrack(id, 'My lead');
+    store().setTrackInstrument(id, 'cello');
+    expect(store().project.tracks[0].name).toBe('My lead');
+  });
+
+  it('keeps the role after the dot, as in the demo and numbered performers', () => {
+    expect(renameForInstrument('Piano · Accompaniment', 'piano', 'violin')).toBe('Violin · Accompaniment');
+    expect(renameForInstrument('Harp · Performer 3', 'harp', 'flute')).toBe('Flute · Performer 3');
+    expect(renameForInstrument('Harpsichord idea', 'harp', 'flute')).toBe('Harpsichord idea');
+  });
+
+  it('makes each keyboard step on a slider undoable, and a whole drag one step', () => {
+    const id = store().project.tracks[0].id;
+    store().setTrackVolume(id, 0.5);
+    store().setTrackVolume(id, 0.4);
+    expect(store().history.past).toHaveLength(2);
+    store().beginGesture();
+    store().setTrackVolume(id, 0.3);
+    store().setTrackVolume(id, 0.2);
+    store().endGesture();
+    expect(store().history.past).toHaveLength(3);
+    store().undo();
+    expect(store().project.tracks[0].volume).toBe(0.4);
+
+    store().selectAllNotes();
+    store().setSelectionVelocity(0.3);
+    store().undo();
+    expect(notes().every((note) => note.velocity === 0.85)).toBe(true);
+  });
+
+  it('counts each song that is opened', () => {
+    const before = store().songLoads;
+    store().setProject(createProject({ title: 'Other' }));
+    expect(store().songLoads).toBe(before + 1);
+  });
+
+  it('shows a triplet note on the bar line as the next bar', () => {
+    expect(formatBarBeat(snapBeat(4.01, 1 / 3), [4, 4])).toBe('2:1');
   });
 });

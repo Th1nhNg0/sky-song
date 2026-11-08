@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { playback } from '../state/playback';
 import { useClockStore } from '../state/clock';
@@ -97,15 +97,22 @@ export function SongFields() {
   const setBpm = useAppStore((state) => state.setBpm);
   const setMeter = useAppStore((state) => state.setMeter);
   const [bpmDraft, setBpmDraft] = useState(String(project.bpm));
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
     setBpmDraft(String(project.bpm));
   }, [project.bpm]);
 
   const commitBpm = () => {
-    const value = Number(bpmDraft);
+    if (cancelledRef.current) {
+      cancelledRef.current = false;
+      setBpmDraft(String(project.bpm));
+      return;
+    }
+    // An emptied field is a cancelled edit, not a tempo of 0 (which would clamp to 40).
+    const value = bpmDraft.trim() === '' ? NaN : Number(bpmDraft);
     if (Number.isFinite(value)) setBpm(value);
-    else setBpmDraft(String(project.bpm));
+    setBpmDraft(String(Number.isFinite(value) ? Math.round(Math.min(240, Math.max(40, value))) : project.bpm));
   };
 
   return (
@@ -123,6 +130,10 @@ export function SongFields() {
           onBlur={commitBpm}
           onKeyDown={(event) => {
             if (event.key === 'Enter') event.currentTarget.blur();
+            if (event.key === 'Escape') {
+              cancelledRef.current = true;
+              event.currentTarget.blur();
+            }
           }}
           aria-label="Tempo in beats per minute"
         />

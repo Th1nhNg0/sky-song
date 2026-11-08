@@ -1,4 +1,5 @@
 import type { ChangeEvent } from 'react';
+import { importSongFile } from '../state/importFile';
 import { useAppStore } from '../state/store';
 import { DownloadIcon, LibraryIcon, UploadIcon } from './Icons';
 
@@ -10,7 +11,7 @@ export function QuickActions() {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    await useAppStore.getState().importMidi(await file.arrayBuffer(), file.name.replace(/\.midi?$/i, ''));
+    await importSongFile(file);
   };
 
   return (
@@ -25,7 +26,7 @@ export function QuickActions() {
         <LibraryIcon size={17} />
         <span>My songs</span>
       </button>
-      <label className="quick-action" title="Import a MIDI file">
+      <label className="quick-action" title="Import a MIDI file (or drop one on the window)">
         <UploadIcon size={17} />
         <span>Import MIDI</span>
         <input

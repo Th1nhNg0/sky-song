@@ -26,7 +26,8 @@ interface BarBeat {
 
 function beatsToBarBeat(beats: number, timeSignature: [number, number]): BarBeat {
   const perMeasure = beatsPerMeasure(timeSignature);
-  const safe = Math.max(0, beats);
+  // Triplet grids land a hair under the bar line (3.9999999999999996), which would read as "1:5".
+  const safe = Math.max(0, Math.round(beats * 1e6) / 1e6);
   const bar = Math.floor(safe / perMeasure) + 1;
   const beat = safe % perMeasure;
   return { bar, beat };

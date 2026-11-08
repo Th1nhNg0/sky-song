@@ -23,6 +23,8 @@ export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
   const [title, setTitle] = useState(project.title);
   const [editingTitle, setEditingTitle] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Escape blurs the field too; the blur must not save the text being thrown away.
+  const cancelledRef = useRef(false);
 
   useEffect(() => {
     if (!editingTitle) setTitle(project.title);
@@ -30,6 +32,11 @@ export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
 
   const commitTitle = () => {
     setEditingTitle(false);
+    if (cancelledRef.current) {
+      cancelledRef.current = false;
+      setTitle(project.title);
+      return;
+    }
     if (title.trim() && title.trim() !== project.title) setProjectTitle(title.trim());
     else setProjectTitle(project.title);
   };
@@ -55,8 +62,7 @@ export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
               inputRef.current?.blur();
             }
             if (event.key === 'Escape') {
-              setTitle(project.title);
-              setEditingTitle(false);
+              cancelledRef.current = true;
               inputRef.current?.blur();
             }
           }}

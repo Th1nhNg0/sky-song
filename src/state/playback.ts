@@ -31,6 +31,9 @@ class PlaybackController {
   private starting: Promise<boolean> | null = null;
   private smoother = new PlayheadSmoother();
   private lastPreview = { key: '', at: 0 };
+  /** Counts play requests, so a Pause pressed while sound is still starting can call off the start. */
+  private startRequest = 0;
+  private startPending = false;
 
   constructor() {
     this.engine = new AudioEngine();
@@ -51,6 +54,12 @@ class PlaybackController {
     this.engine.setReverbAmount(app.preferences.reverbAmount);
     this.engine.setMasterVolume(app.preferences.masterVolume);
     this.unsubscribe = useAppStore.subscribe((state, previous) => {
+      // Another song was opened: stop the old one and put the cursor back at its start.
+      if (state.songLoads !== previous.songLoads) {
+        this.cancelPendingStart();
+        this.transport.setProject(state.project);
+        this.stop();
+      }
       if (state.project !== previous.project) {
         this.transport.setProject(state.project);
         if (mixChanged(state.project, previous.project)) this.engine.syncTracks(state.project);
@@ -134,8 +143,18 @@ class PlaybackController {
     }
   }
 
+  private cancelPendingStart(): void {
+    this.startRequest++;
+    this.startPending = false;
+  }
+
   async play(): Promise<void> {
+    const request = ++this.startRequest;
+    this.startPending = true;
     const ok = await this.ensureAudio();
+    // The first start waits for the sound packs; a stop, pause or new song meanwhile wins.
+    if (request !== this.startRequest) return;
+    this.startPending = false;
     if (!ok) return;
     this.engine.syncTracks(useAppStore.getState().project);
     this.transport.play();
@@ -143,19 +162,21 @@ class PlaybackController {
   }
 
   pause(): void {
+    this.cancelPendingStart();
     this.transport.pause();
     this.stopFrameLoop();
     useClockStore.getState().setPlayhead(this.transport.positionBeats());
   }
 
   stop(): void {
+    this.cancelPendingStart();
     this.transport.stop();
     this.stopFrameLoop();
     useClockStore.getState().setPlayhead(this.transport.positionBeats());
   }
 
   async togglePlay(): Promise<void> {
-    if (this.transport.currentState === 'playing') this.pause();
+    if (this.transport.currentState === 'playing' || this.startPending) this.pause();
     else await this.play();
   }
 

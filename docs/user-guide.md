@@ -27,6 +27,8 @@ MIDI.
 - The Tuned Krill Horn is an unusual **8-pad pitched** instrument with sustain.
 - The app is always strict: there is no chromatic mode and no extra octave. The grid
   shows only pads the selected instrument can actually play.
+- Changing a track's instrument renames it when it still has the instrument's name
+  (“Harp · Performer” becomes “Cello · Performer”); a name you typed is kept.
 - Changing an instrument to one with fewer pads removes notes outside the new grid.
   The app warns you and you can undo.
 - The catalog shows the native sheet part (Melody / Sub-Wind / Bass / Percussion),
@@ -110,6 +112,8 @@ MIDI.
 - **More → My songs** lists every local project; open, duplicate, delete (two-step confirm),
   start a new song, load the demo/starter, import a project file, or export the
   current project.
+- **Drag and drop:** drop a MIDI file (`.mid`) or a `.skymusic.json` project anywhere
+  on the window to open it. Your current song is already autosaved in My songs.
 - Supported import is the app's native `.skymusic.json` (schema v1). Malformed,
   oversized, out-of-grid or unknown-instrument projects are rejected with an error
   toast; the current project is not modified.

@@ -448,3 +448,92 @@ test('instrument pictures load from the app itself in a production build', async
   }
   expect(responses.filter((item) => item.url.includes('__local-packs'))).toEqual([]);
 });
+
+test('Escape cancels editing the title, a track name and the tempo', async ({ page }) => {
+  const errors = await boot(page);
+  const title = page.locator('.project-title');
+  await title.fill('Thrown away');
+  await title.press('Escape');
+  await expect(title).toHaveValue('Untitled Song');
+  expect(await store<string>(page, 's.project.title')).toBe('Untitled Song');
+
+  const bpm = page.getByLabel('Tempo in beats per minute');
+  await bpm.fill('150');
+  await bpm.press('Escape');
+  await bpm.fill('');
+  await bpm.press('Enter');
+  await expect(bpm).toHaveValue('90');
+  expect(await store<number>(page, 's.project.bpm')).toBe(90);
+
+  await page.getByRole('button', { name: 'Mix' }).click();
+  const name = page.locator('.track-name-input').first();
+  await name.fill('Thrown away');
+  await name.press('Escape');
+  await expect(name).toHaveValue('Harp · Performer');
+  expect(await store<string>(page, 's.project.tracks[0].name')).toBe('Harp · Performer');
+  expect(errors).toEqual([]);
+});
+
+test('End goes to the end of the longest note, and a new song starts from the top', async ({ page }) => {
+  const errors = await boot(page);
+  await page.evaluate(() => {
+    const state = window.__SKY_MUSIC_STUDIO__!.store.getState();
+    state.setTrackInstrument(state.project.tracks[0].id, 'cello');
+    state.addNote(0, 0, 12);
+    state.addNote(1, 4, 1);
+    state.clearSelection();
+  });
+  await expect(page.locator('.instrument-pick')).toContainText('Cello · Performer');
+  await page.keyboard.press('End');
+  const position = () => page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.playback.position());
+  expect(await position()).toBe(12);
+
+  await page.keyboard.press('Home');
+  await page.keyboard.press('Space');
+  await expect.poll(() => store<boolean>(page, 's.isPlaying')).toBe(true);
+  await expect.poll(position).toBeGreaterThan(1);
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  expect(await store<boolean>(page, 's.isPlaying')).toBe(false);
+  expect(await position()).toBe(0);
+  await expect(page.locator('.time-readout .clock')).toHaveText('0:00');
+  expect(errors).toEqual([]);
+});
+
+test('dropping a MIDI or project file on the window opens it', async ({ page }) => {
+  const errors = await boot(page);
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  const demo = await store<number[]>(page, 's.project.tracks.map((t) => t.notes.length)');
+  await page.getByRole('button', { name: 'Export' }).click();
+  const download = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Export MIDI' }).click();
+  const midi = readFileSync(await (await download).path());
+  await page.keyboard.press('Escape');
+  const json = await store<string>(page, 's.exportProjectJson()');
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject());
+
+  const drop = async (name: string, type: string, bytes: number[]) => {
+    const transfer = await page.evaluateHandle(({ name, type, bytes }) => {
+      const data = new DataTransfer();
+      data.items.add(new File([new Uint8Array(bytes)], name, { type }));
+      return data;
+    }, { name, type, bytes });
+    await page.dispatchEvent('.timeline', 'dragenter', { dataTransfer: transfer });
+    await expect(page.locator('.file-drop')).toBeVisible();
+    await page.dispatchEvent('.timeline', 'dragover', { dataTransfer: transfer });
+    await page.dispatchEvent('.timeline', 'drop', { dataTransfer: transfer });
+    await expect(page.locator('.file-drop')).toHaveCount(0);
+  };
+
+  await drop('dropped tune.mid', 'audio/midi', [...midi]);
+  await expect(page.locator('.project-title')).toHaveValue('dropped tune');
+  expect(await store<number[]>(page, 's.project.tracks.map((t) => t.notes.length)')).toEqual(demo);
+
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject());
+  await drop('Lanterns.skymusic.json', 'application/json', [...Buffer.from(json)]);
+  await expect(page.locator('.project-title')).toHaveValue('Lanterns Over the Valley');
+
+  await drop('photo.png', 'image/png', [1, 2, 3]);
+  await expect(page.locator('.toast')).toContainText('not a song file');
+  await expect(page.locator('.project-title')).toHaveValue('Lanterns Over the Valley');
+  expect(errors).toEqual([]);
+});
