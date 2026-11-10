@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
+import { createDemoProject } from './fixtures/demoProject';
 
 declare global {
   interface Window {
@@ -9,6 +10,11 @@ declare global {
 
 const store = <T>(page: Page, read: string) =>
   page.evaluate(`(() => { const s = window.__SKY_MUSIC_STUDIO__.store.getState(); return ${read}; })()`) as Promise<T>;
+/** Opens a full six-track song, for tests that need more than an empty project. */
+const loadDemo = (page: Page) =>
+  page.evaluate((json) => {
+    window.__SKY_MUSIC_STUDIO__!.store.getState().importProjectJson(json);
+  }, JSON.stringify(createDemoProject()));
 const noteCount = (page: Page) => store<number>(page, 's.activeTrack().notes.length');
 
 async function boot(page: Page) {
@@ -146,7 +152,7 @@ test('3: the keys play, and step input writes notes that advance the cursor', as
 
 test('4: tracks play together, loop, and resume from the cursor', async ({ page }) => {
   const errors = await boot(page);
-  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  await loadDemo(page);
   await page.locator('.ruler').click({ position: { x: 300, y: 10 } });
   const cursor = await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.playback.position());
   expect(cursor).toBeGreaterThan(4);
@@ -189,10 +195,7 @@ test('4: tracks play together, loop, and resume from the cursor', async ({ page 
 
 test('6: MIDI export and import through the real file controls', async ({ page }) => {
   const errors = await boot(page);
-  await page.evaluate(() => {
-    const state = window.__SKY_MUSIC_STUDIO__!.store.getState();
-    state.newProject({ demo: true });
-  });
+  await loadDemo(page);
   const before = await store<{ instruments: string[]; counts: number[]; bpm: number }>(
     page,
     '({ instruments: s.project.tracks.map((t) => t.instrumentId), counts: s.project.tracks.map((t) => t.notes.length), bpm: s.project.bpm })',
@@ -305,7 +308,7 @@ for (const [width, height] of [[1920, 1080], [1440, 900], [1180, 720], [1024, 70
   test(`9: the editor fits at ${width}x${height}`, async ({ page }) => {
     await page.setViewportSize({ width, height });
     await boot(page);
-    await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+    await loadDemo(page);
     await expect(page.locator('.roll-note').first()).toBeVisible();
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(0);
@@ -370,7 +373,7 @@ test('3: Alt-drag copies notes and one undo removes the copy', async ({ page }) 
 
 test('8: wheel zoom holds the beat under the pointer, and playback follows the view', async ({ page }) => {
   const errors = await boot(page);
-  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  await loadDemo(page);
   await page.locator('.roll-note').first().waitFor();
   const grid = await page.locator('.timeline-scroll').boundingBox();
   const pointerX = grid!.x + 700;
@@ -445,7 +448,7 @@ test('instrument pictures load from the app itself in a production build', async
   const responses: { url: string; status: number }[] = [];
   page.on('response', (response) => responses.push({ url: response.url(), status: response.status() }));
   await boot(page);
-  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  await loadDemo(page);
   await expect(page.locator('.instrument-icon').first()).toBeVisible();
   await expect.poll(() => responses.filter((item) => item.url.includes('/instrument-icons/')).length).toBeGreaterThan(3);
   for (const item of responses.filter((entry) => entry.url.includes('/instrument-icons/'))) {
@@ -498,7 +501,7 @@ test('End goes to the end of the longest note, and a new song starts from the to
   await page.keyboard.press('Space');
   await expect.poll(() => store<boolean>(page, 's.isPlaying')).toBe(true);
   await expect.poll(position).toBeGreaterThan(1);
-  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  await loadDemo(page);
   expect(await store<boolean>(page, 's.isPlaying')).toBe(false);
   expect(await position()).toBe(0);
   await expect(page.locator('.time-readout .clock')).toHaveText('0:00');
@@ -507,7 +510,7 @@ test('End goes to the end of the longest note, and a new song starts from the to
 
 test('dropping a MIDI or project file on the window opens it', async ({ page }) => {
   const errors = await boot(page);
-  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  await loadDemo(page);
   const demo = await store<number[]>(page, 's.project.tracks.map((t) => t.notes.length)');
   await page.getByRole('button', { name: 'Export' }).click();
   const download = page.waitForEvent('download');
@@ -546,7 +549,7 @@ test('dropping a MIDI or project file on the window opens it', async ({ page }) 
 
 test('Import in the top bar opens a saved song as well as MIDI', async ({ page }) => {
   const errors = await boot(page);
-  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  await loadDemo(page);
   const json = await store<string>(page, 's.exportProjectJson()');
   await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject());
   await page.setInputFiles('input[aria-label="Import song or MIDI"]', {
@@ -561,7 +564,7 @@ test('Import in the top bar opens a saved song as well as MIDI', async ({ page }
 
 test('the selection bar shows every action, and a blank new song waits for an edit before saving', async ({ page }) => {
   const errors = await boot(page);
-  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().newProject({ demo: true }));
+  await loadDemo(page);
   await page.keyboard.press('2');
   await page.keyboard.press('Control+a');
   const done = page.locator('.selection-bar').getByRole('button', { name: 'Clear selection' });

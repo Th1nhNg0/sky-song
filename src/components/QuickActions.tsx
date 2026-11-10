@@ -1,7 +1,7 @@
 import type { ChangeEvent } from 'react';
 import { importSongFile, SONG_FILE_ACCEPT } from '../state/importFile';
 import { useAppStore } from '../state/store';
-import { DownloadIcon, LibraryIcon, UploadIcon } from './Icons';
+import { DownloadIcon, LibraryIcon, StarIcon, UploadIcon } from './Icons';
 
 /** The song-level actions used most often, kept one click away in the top bar. */
 export function QuickActions() {
@@ -16,6 +16,16 @@ export function QuickActions() {
 
   return (
     <div className="quick-actions">
+      <button
+        type="button"
+        className="quick-action"
+        onClick={() => setPanel('songs')}
+        aria-label="Song library"
+        title="Song library: ready-made songs to play or edit"
+      >
+        <StarIcon size={17} />
+        <span>Songs</span>
+      </button>
       <button
         type="button"
         className="quick-action"

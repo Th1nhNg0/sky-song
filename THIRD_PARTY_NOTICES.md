@@ -2,12 +2,21 @@
 
 Sky Music Studio's original source and documentation are MIT-licensed (see `LICENSE`).
 The app bundles the following third-party software and user-supplied game sound
-packs in `public/sound-packs/`. The MIT license for this project's original code
+packs in `public/sound-packs/`, and a song library in `public/songs/`. The MIT license for this project's original code
 and documentation does not grant a license to those third-party audio recordings.
 
 The instrument pictures in `public/instrument-icons/` come from *Sky: Children of
 the Light* and remain the work of thatgamecompany. The MIT license does not cover
 them.
+
+## Song library
+
+The ready-made songs in `public/songs/` are fan arrangements of copyrighted songs.
+They were converted with this project's MIDI importer from community-made MIDI
+transcriptions published on [BitMidi](https://bitmidi.com), then fitted to Sky's
+keys. The compositions remain the property of their songwriters and publishers.
+The MIT license does not cover them, and they are included for personal,
+non-commercial play and practice only.
 
 ## Runtime dependencies (shipped in the web bundle)
 

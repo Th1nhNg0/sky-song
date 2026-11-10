@@ -1,6 +1,6 @@
-import { createNote, createProject, createTrack, nowIso } from './project';
-import { CATALOG_VERSION, PROJECT_SCHEMA_VERSION } from './types';
-import type { Project, Track } from './types';
+import { createNote, createProject, createTrack, nowIso } from '../../../src/music/project';
+import { CATALOG_VERSION, PROJECT_SCHEMA_VERSION } from '../../../src/music/types';
+import type { Project, Track } from '../../../src/music/types';
 
 function addNotes(track: Track, notes: Array<[pad: number, start: number, duration: number, velocity?: number]>) {
   for (const [pad, start, duration, velocity] of notes) {
@@ -400,7 +400,7 @@ function drumPart(): NoteList {
  * “Lanterns Over the Valley” — an original two-minute piece in C major at 82 BPM
  * for six performers. A bare A minor verse climbs into a full chorus, the bridge
  * empties out, and the top Violin pad is saved for the final chorus.
- * No third-party melody is reproduced.
+ * No third-party melody is reproduced. The end-to-end tests use it as a full song.
  */
 export function createDemoProject(): Project {
   const base = createProject({ title: 'Lanterns Over the Valley', bpm: 82, key: 0 });
@@ -433,41 +433,5 @@ export function createDemoProject(): Project {
     loop: { enabled: false, startBeat: 0, endBeat: END_BEAT },
     updatedAt: nowIso(),
   };
-  return project;
-}
-
-/** A tiny, quick-start project used by “Try a taste” in the welcome panel. */
-export function createStarterProject(): Project {
-  const project = createProject({ title: 'First Light', bpm: 96, key: 0 });
-  const harp = project.tracks[0];
-  const notes: Array<[number, number, number]> = [
-    [8, 0, 0.5],
-    [10, 0.5, 0.5],
-    [12, 1, 0.5],
-    [15, 1.5, 1.5],
-    [13, 3, 0.5],
-    [12, 3.5, 0.5],
-    [10, 4, 0.5],
-    [8, 4.5, 0.5],
-    [6, 5, 0.5],
-    [8, 5.5, 1.5],
-  ];
-  notes.forEach(([pad, start, duration]) => {
-    harp.notes.push(createNote(pad - 1, start, duration, 0.8));
-  });
-  const flute = createTrack('flute', { name: 'Flute · Wind', color: '#cfe9ff', colorIndex: 1 });
-  const fluteNotes: Array<[number, number, number]> = [
-    [8, 0, 1],
-    [12, 1, 1],
-    [13, 2, 2],
-    [11, 4, 1],
-    [10, 5, 1],
-    [8, 6, 2],
-  ];
-  fluteNotes.forEach(([pad, start, duration]) => {
-    flute.notes.push(createNote(pad - 1, start, duration, 0.7));
-  });
-  project.tracks.push(flute);
-  project.loop = { enabled: false, startBeat: 0, endBeat: 8 };
   return project;
 }

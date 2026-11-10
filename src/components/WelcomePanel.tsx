@@ -1,7 +1,7 @@
 import type { ChangeEvent } from 'react';
 import { importSongFile, SONG_FILE_ACCEPT } from '../state/importFile';
 import { useAppStore } from '../state/store';
-import { CloseIcon, LibraryIcon, MusicIcon, PlayIcon, SparkIcon, UploadIcon } from './Icons';
+import { CloseIcon, LibraryIcon, MusicIcon, SparkIcon, StarIcon, UploadIcon } from './Icons';
 
 export function WelcomePanel() {
   const newProject = useAppStore((state) => state.newProject);
@@ -21,9 +21,14 @@ export function WelcomePanel() {
     if (file && (await importSongFile(file))) finishOnboarding();
   };
 
-  const start = (options?: { demo?: boolean; starter?: boolean }) => {
-    newProject(options);
+  const start = () => {
+    newProject();
     finishOnboarding();
+  };
+
+  const browseSongs = () => {
+    dismiss();
+    setPanel('songs');
   };
 
   return (
@@ -46,10 +51,10 @@ export function WelcomePanel() {
           <button
             type="button"
             className="welcome-primary"
-            onClick={() => start({ demo: true })}
+            onClick={browseSongs}
             autoFocus
           >
-            <PlayIcon size={18} /> Play the demo
+            <StarIcon size={18} /> Browse ready-made songs
           </button>
           <button type="button" className="welcome-secondary" onClick={() => start()}>
             <MusicIcon size={17} /> Start a new song
@@ -57,9 +62,6 @@ export function WelcomePanel() {
         </div>
 
         <div className="welcome-links">
-          <button type="button" className="link-btn" onClick={() => start({ starter: true })}>
-            Start with a simple loop
-          </button>
           <label className="link-btn">
             <UploadIcon size={14} /> Open a MIDI or song file
             <input type="file" accept={SONG_FILE_ACCEPT} aria-label="Open a MIDI or song file" hidden onChange={(event) => void openFile(event)} />

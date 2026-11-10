@@ -9,10 +9,9 @@ MIDI.
 ## 1. First run
 
 1. Open the app in a desktop browser.
-2. Choose **Play the demo** to hear the engine, **Start a new song**,
-   or **Starter loop**. The demo is original: *Lanterns Over the Valley*, about two
-   minutes in C major at 82 BPM: Violin melody over Piano and Drum, with Flute,
-   Cello and Harp.
+2. Choose **Browse ready-made songs** to open a finished song from the song
+   library, or **Start a new song**. An opened song is copied to My songs, so you
+   can edit it; the library's **Continue** button reopens your copy.
 3. Press **Play** once. The browser unlocks sound on that first press.
 4. The app autosaves into the browser's local project library. There is no account or
    upload.
@@ -110,7 +109,7 @@ MIDI.
 - Edits autosave locally after a short debounce. The small dot by the title shows
   saved / saving / unsaved / storage error on hover or focus.
 - **More → My songs** lists every local project; open, duplicate, delete (two-step confirm),
-  start a new song, load the demo/starter, import a project file, or export the
+  start a new song, open the song library, import a project file, or export the
   current project.
 - **Drag and drop:** drop a MIDI file (`.mid`) or a `.skymusic.json` project anywhere
   on the window to open it. Your current song is already autosaved in My songs.

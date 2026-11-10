@@ -1,5 +1,4 @@
 import { create } from 'zustand';
-import { createDemoProject, createStarterProject } from '../music/demo';
 import { getInstrument, hasInstrument } from '../music/instruments';
 import { createNote, createProject, createTrack, nowIso, renameForInstrument, sortNotes, TRACK_COLORS } from '../music/project';
 import { snapBeat } from '../music/time';
@@ -18,7 +17,7 @@ import { loadPreferences, savePreferences, type Preferences } from '../storage/p
 
 type SaveState = 'saved' | 'unsaved' | 'saving' | 'error';
 type EditTool = 'select' | 'draw';
-export type PanelKind = 'catalog' | 'library' | 'help' | 'settings' | 'export' | 'tracks' | null;
+export type PanelKind = 'catalog' | 'library' | 'songs' | 'help' | 'settings' | 'export' | 'tracks' | null;
 type ToastKind = 'info' | 'success' | 'warning' | 'error';
 
 interface Toast {
@@ -66,7 +65,7 @@ interface AppState {
   refreshLibrary(): Promise<void>;
   saveNow(): Promise<void>;
   setProject(project: Project, options?: { resetHistory?: boolean }): void;
-  newProject(options?: { starter?: boolean; demo?: boolean }): void;
+  newProject(): void;
   openLibraryProject(id: string): Promise<boolean>;
   deleteLibraryProject(id: string): Promise<void>;
   duplicateLibraryProject(id: string): Promise<void>;
@@ -287,16 +286,11 @@ export const useAppStore = create<AppState>()((set, get) => {
     });
   },
 
-  newProject: (options = {}) => {
-    let project: Project;
-    if (options.demo) project = createDemoProject();
-    else if (options.starter) project = createStarterProject();
-    else project = createProject({ title: freeUntitledName(get().library.map((entry) => entry.title)), key: 0 });
-    get().setProject(project);
+  newProject: () => {
+    get().setProject(createProject({ title: freeUntitledName(get().library.map((entry) => entry.title)), key: 0 }));
     set({ panel: null });
-    get().notify(options.demo ? 'Loaded the demo piece “Lanterns Over the Valley”.' : 'New song created.', 'success');
+    get().notify('New song created.', 'success');
     // A blank song joins My songs with its first edit, so trying “New song” leaves no empty entries behind.
-    if (options.demo || options.starter) void get().saveNow();
     void get().refreshLibrary();
   },
 

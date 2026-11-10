@@ -42,6 +42,10 @@ Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ri
 - Notes are stored as physical keys, and pitch comes from the instrument.
 - Only instruments that can sustain get held notes.
 
+**Play ready-made songs**
+- Open one of 23 well-known songs from the built-in song library, already arranged for several Sky instruments.
+- Search by song, artist or instrument, then edit your own copy.
+
 **Keep your work**
 - Songs save automatically in your browser. There's no account or server.
 - Import MIDI files, which are arranged onto real game keys.
@@ -60,7 +64,7 @@ npm install
 npm run dev
 ```
 
-Open <http://127.0.0.1:5173> and choose **Play the demo** or **Start a new song**. Your browser unlocks sound the first time you press Play.
+Open <http://127.0.0.1:5173> and choose **Browse ready-made songs** or **Start a new song**. Your browser unlocks sound the first time you press Play.
 
 The editor is designed for desktop browsers, in windows 1024 px wide or larger.
 

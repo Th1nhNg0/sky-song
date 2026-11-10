@@ -7,9 +7,9 @@ import {
   CopyIcon,
   DownloadIcon,
   LibraryIcon,
-  MusicIcon,
   PlusIcon,
   SparkIcon,
+  StarIcon,
   TrashIcon,
   UploadIcon,
 } from './Icons';
@@ -36,6 +36,7 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
   const deleteProject = useAppStore((state) => state.deleteLibraryProject);
   const duplicateProject = useAppStore((state) => state.duplicateLibraryProject);
   const newProject = useAppStore((state) => state.newProject);
+  const setPanel = useAppStore((state) => state.setPanel);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -62,11 +63,8 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
           <button type="button" className="btn primary" onClick={() => { newProject(); onClose(); }}>
             <PlusIcon size={15} /> New song
           </button>
-          <button type="button" className="btn" onClick={() => { newProject({ demo: true }); onClose(); }}>
-            <SparkIcon size={15} /> Load demo
-          </button>
-          <button type="button" className="btn" onClick={() => { newProject({ starter: true }); onClose(); }}>
-            <MusicIcon size={15} /> Starter loop
+          <button type="button" className="btn" onClick={() => setPanel('songs')}>
+            <StarIcon size={15} /> Song library
           </button>
         </div>
         <div className="library-actions">
@@ -166,10 +164,10 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
         <div className="empty-state library-empty">
           <SparkIcon size={26} />
           <h3>No local songs yet</h3>
-          <p>Start an empty song or load the original six-performer demo to hear how it sounds.</p>
+          <p>Start an empty song, or open a ready-made one from the song library.</p>
           <div className="library-actions center">
             <button type="button" className="btn primary" onClick={() => { newProject(); onClose(); }}>New song</button>
-            <button type="button" className="btn" onClick={() => { newProject({ demo: true }); onClose(); }}>Load demo</button>
+            <button type="button" className="btn" onClick={() => setPanel('songs')}>Song library</button>
           </div>
         </div>
       )}
