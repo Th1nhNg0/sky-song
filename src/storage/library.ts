@@ -1,6 +1,6 @@
 import type { Project } from '../music/types';
 import { parseProjectJson } from '../music/validation';
-import { projectToJson } from '../music/project';
+import { newId, nowIso, projectToJson } from '../music/project';
 
 const DB_NAME = 'sky-music-studio';
 const DB_VERSION = 1;
@@ -220,14 +220,10 @@ export async function duplicateProjectInLibrary(id: string): Promise<Project | n
   if (!project) return null;
   const copy: Project = {
     ...structuredClone(project),
-    id: `proj_${
-      typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-        ? crypto.randomUUID()
-        : Math.random().toString(36).slice(2) + Date.now().toString(36)
-    }`,
+    id: newId('proj'),
     title: `${project.title} (copy)`,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: nowIso(),
+    updatedAt: nowIso(),
   };
   await saveProjectToLibrary(copy);
   return copy;

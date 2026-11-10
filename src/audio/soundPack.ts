@@ -8,6 +8,8 @@
  * Everything here is pure data handling so it can be unit-tested in Node.
  */
 
+import { newId } from '../music/project';
+
 const SOUND_PACK_FORMAT = 'skymusic-soundpack';
 const SOUND_PACK_VERSION = 1;
 const MAX_PACK_SAMPLES = 128;
@@ -48,14 +50,6 @@ export interface SoundPack {
   samples: PackSample[];
 }
 
-function makePackId(prefix = 'pack'): string {
-  const random =
-    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
-      ? crypto.randomUUID()
-      : Math.random().toString(36).slice(2) + Date.now().toString(36);
-  return `${prefix}_${random}`;
-}
-
 export function createSoundPack(input: {
   id?: string;
   name: string;
@@ -68,7 +62,7 @@ export function createSoundPack(input: {
 }): SoundPack {
   const now = new Date().toISOString();
   return normalizePack({
-    id: input.id ?? makePackId(),
+    id: input.id ?? newId('pack'),
     name: input.name,
     instrumentId: input.instrumentId,
     enabled: input.enabled ?? true,
@@ -208,7 +202,7 @@ export function normalizeSlice(
   }, 0);
   const gain = peak > 0.0001 ? targetPeak / peak : 1;
   return {
-    id: makePackId('slice'),
+    id: newId('slice'),
     midi: null,
     padIndex: null,
     detectedMidi: null,
@@ -235,7 +229,7 @@ function normalizePack(pack: SoundPack): SoundPack {
     const frames = Math.min(channels[0].length, maxFrames);
     const trimmed = channels.map((channel) => channel.slice(0, frames));
     samples.push({
-      id: typeof raw.id === 'string' && raw.id ? raw.id : makePackId('slice'),
+      id: typeof raw.id === 'string' && raw.id ? raw.id : newId('slice'),
       midi: raw.midi === null || raw.midi === undefined ? null : clampInt(raw.midi, 0, 127),
       padIndex:
         raw.padIndex === null || raw.padIndex === undefined ? null : clampInt(raw.padIndex, 0, 63),
@@ -252,7 +246,7 @@ function normalizePack(pack: SoundPack): SoundPack {
     });
   }
   return {
-    id: typeof pack.id === 'string' && pack.id ? pack.id : makePackId(),
+    id: typeof pack.id === 'string' && pack.id ? pack.id : newId('pack'),
     name: (pack.name || 'Untitled pack').slice(0, 80),
     instrumentId: pack.instrumentId,
     enabled: Boolean(pack.enabled),
@@ -439,7 +433,7 @@ export function packFromJson(text: string): SoundPack {
     }
     const frames = Math.min(...channels.map((channel) => channel.length));
     return {
-      id: typeof sample.id === 'string' ? sample.id : makePackId('slice'),
+      id: typeof sample.id === 'string' ? sample.id : newId('slice'),
       midi: sample.midi === null || sample.midi === undefined ? null : clampInt(sample.midi, 0, 127),
       padIndex:
         sample.padIndex === null || sample.padIndex === undefined
@@ -458,7 +452,7 @@ export function packFromJson(text: string): SoundPack {
     };
   });
   return normalizePack({
-    id: typeof file.id === 'string' && file.id ? file.id : makePackId(),
+    id: typeof file.id === 'string' && file.id ? file.id : newId('pack'),
     name: typeof file.name === 'string' && file.name ? file.name : 'Imported pack',
     instrumentId: file.instrumentId,
     enabled: file.enabled !== false,

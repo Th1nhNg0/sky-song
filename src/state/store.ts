@@ -6,6 +6,7 @@ import {
   createTrack,
   DEFAULT_TITLE,
   DEFAULT_VELOCITY,
+  newId,
   nowIso,
   renameForInstrument,
   sortNotes,
@@ -465,9 +466,9 @@ export const useAppStore = create<AppState>()((set, get) => {
     }
     const copy: Track = {
       ...source,
-      id: createTrack(source.instrumentId, { colorIndex: project.tracks.length }).id,
+      id: newId('track'),
       name: sanitizeName(`${source.name} (copy)`, 'Copy', MAX_TRACK_NAME_LENGTH),
-      notes: source.notes.map((note) => ({ ...note, id: createNote(note.pad, 0, 0.5).id })),
+      notes: source.notes.map((note) => ({ ...note, id: newId('n') })),
     };
     const tracks = [...project.tracks];
     tracks.splice(tracks.indexOf(source) + 1, 0, copy);
