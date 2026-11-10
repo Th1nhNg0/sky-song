@@ -1,8 +1,9 @@
-import { padForKey, pressPad } from '../components/KeyPanel';
 import { getInstrument } from '../music/instruments';
+import { padForKey } from '../music/padKeys';
 import { lastNoteEnd } from '../music/project';
 import { beatsPerMeasure } from '../music/time';
 import { useViewStore } from './clock';
+import { pressPad } from './padInput';
 import { playback } from './playback';
 import { useAppStore } from './store';
 

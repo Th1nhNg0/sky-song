@@ -2,41 +2,12 @@ import { useEffect } from 'react';
 import { firstNoteAt } from '../music/grid';
 import { getInstrument } from '../music/instruments';
 import { isTonicDegree } from '../music/keys';
+import { padKey } from '../music/padKeys';
 import { resolvePad } from '../music/pitch';
-import { snapBeat } from '../music/time';
-import type { InstrumentDefinition } from '../music/types';
 import { useClockStore } from '../state/clock';
-import { playback } from '../state/playback';
+import { pressPad } from '../state/padInput';
 import { useAppStore } from '../state/store';
 import { RecordIcon } from './Icons';
-
-const KEY_ROWS = ['QWERT', 'ASDFG', 'ZXCVB'];
-
-/** The computer key for a pad, by its place on the instrument's physical grid. */
-export function padKey(instrument: InstrumentDefinition, pad: number): string | null {
-  const { row, col } = instrument.pads[pad];
-  return KEY_ROWS[row]?.[col] ?? null;
-}
-
-export function padForKey(instrument: InstrumentDefinition, key: string): number | null {
-  const upper = key.toUpperCase();
-  const pad = instrument.pads.find((item) => padKey(instrument, item.index) === upper);
-  return pad ? pad.index : null;
-}
-
-/** Sounds a pad and, with step input on, writes it into the song. */
-export function pressPad(pad: number): void {
-  const state = useAppStore.getState();
-  const track = state.activeTrack();
-  const instrument = getInstrument(track.instrumentId);
-  void playback.previewPad(instrument.id, pad, 0.85, !state.isPlaying);
-  if (!state.preferences.stepInput) return;
-  const step = state.preferences.snap || 0.25;
-  const cursor = playback.position();
-  const beat = snapBeat(cursor, step);
-  state.addNote(pad, beat, instrument.supportsHold ? Math.max(1, step) : 0.5, { select: false });
-  if (!state.isPlaying) playback.seek(beat + step);
-}
 
 /** Lights the pads and row labels of the open track as the playhead reaches each note. */
 function useNoteFlash() {

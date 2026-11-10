@@ -1,9 +1,9 @@
 import { memo, useId, type MouseEvent, type Ref } from 'react';
 import { isTonicDegree } from '../music/keys';
+import { padKey } from '../music/padKeys';
 import { resolvePad } from '../music/pitch';
 import type { SheetGeometry, SheetLine } from '../music/sheet';
 import type { InstrumentDefinition } from '../music/types';
-import { padKey } from './KeyPanel';
 
 export type SheetLabels = 'shapes' | 'notes' | 'keys';
 
