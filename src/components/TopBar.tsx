@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAppStore } from '../state/store';
+import { useAppStore, type SaveState } from '../state/store';
 import { useAudioStore } from '../state/clock';
 import { playback } from '../state/playback';
+import { MAX_TITLE_LENGTH } from '../music/validation';
 import { AudioIcon, SparkIcon } from './Icons';
 import { MoreMenu } from './MoreMenu';
 import { QuickActions } from './QuickActions';
 import { HistoryButtons, SongFields, TransportControls } from './Transport';
 
-const SAVE_LABEL: Record<string, string> = {
+const SAVE_LABEL: Record<SaveState, string> = {
   saved: 'Saved locally',
   saving: 'Saving…',
   unsaved: 'Unsaved changes',
@@ -54,7 +55,7 @@ export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
           value={title}
           aria-label="Project title"
           onFocus={() => setEditingTitle(true)}
-          onChange={(event) => setTitle(event.target.value.slice(0, 120))}
+          onChange={(event) => setTitle(event.target.value.slice(0, MAX_TITLE_LENGTH))}
           onBlur={commitTitle}
           onKeyDown={(event) => {
             if (event.key === 'Enter') {

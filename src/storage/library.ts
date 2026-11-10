@@ -7,6 +7,7 @@ const DB_VERSION = 1;
 const STORE = 'projects';
 const LS_PREFIX = 'sky-music-studio:project:';
 const LS_INDEX = 'sky-music-studio:project-index';
+const LS_LAST = 'sky-music-studio:last-project';
 
 export interface LibraryEntry {
   id: string;
@@ -146,7 +147,7 @@ export async function saveProjectToLibrary(project: Project): Promise<LibraryEnt
     }
   }
   try {
-    localStorage.setItem('sky-music-studio:last-project', project.id);
+    localStorage.setItem(LS_LAST, project.id);
   } catch {
     // Non-fatal.
   }
@@ -234,7 +235,7 @@ export async function duplicateProjectInLibrary(id: string): Promise<Project | n
 
 export function lastOpenedProjectId(): string | null {
   try {
-    return localStorage.getItem('sky-music-studio:last-project');
+    return localStorage.getItem(LS_LAST);
   } catch {
     return null;
   }

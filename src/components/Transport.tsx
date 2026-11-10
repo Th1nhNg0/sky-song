@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { playback } from '../state/playback';
 import { useClockStore } from '../state/clock';
-import { formatBarBeat, TIME_SIGNATURES } from '../music/time';
+import { formatBarBeat, MAX_BPM, MIN_BPM, TIME_SIGNATURES } from '../music/time';
 import {
   CursorIcon,
   PauseIcon,
@@ -112,7 +112,7 @@ export function SongFields() {
     // An emptied field is a cancelled edit, not a tempo of 0 (which would clamp to 40).
     const value = bpmDraft.trim() === '' ? NaN : Number(bpmDraft);
     if (Number.isFinite(value)) setBpm(value);
-    setBpmDraft(String(Number.isFinite(value) ? Math.round(Math.min(240, Math.max(40, value))) : project.bpm));
+    setBpmDraft(String(Number.isFinite(value) ? Math.round(Math.min(MAX_BPM, Math.max(MIN_BPM, value))) : project.bpm));
   };
 
   return (
@@ -122,8 +122,8 @@ export function SongFields() {
         <input
           className="bpm-input"
           type="number"
-          min={40}
-          max={240}
+          min={MIN_BPM}
+          max={MAX_BPM}
           step={1}
           value={bpmDraft}
           onChange={(event) => setBpmDraft(event.target.value)}

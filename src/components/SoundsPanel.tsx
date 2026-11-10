@@ -15,7 +15,7 @@ import {
   type ChangeEvent,
   type ReactNode,
 } from 'react';
-import { getInstrument, hasInstrument, selectableInstruments } from '../music/instruments';
+import { DEFAULT_INSTRUMENT_ID, getInstrument, hasInstrument, selectableInstruments } from '../music/instruments';
 import { getKey, midiToSpelledName } from '../music/keys';
 import { resolvePad } from '../music/pitch';
 import { useAppStore } from '../state/store';
@@ -114,7 +114,7 @@ export function SoundsPanel() {
   const notify = useAppStore((state) => state.notify);
   const activeTrack = project.tracks.find((track) => track.id === activeTrackId) ?? project.tracks[0];
   const instruments = useMemo(() => selectableInstruments(), []);
-  const [instrumentId, setInstrumentId] = useState(activeTrack?.instrumentId ?? 'harp');
+  const [instrumentId, setInstrumentId] = useState(activeTrack?.instrumentId ?? DEFAULT_INSTRUMENT_ID);
   const instrument = useMemo(() => getInstrument(instrumentId), [instrumentId]);
   const pitched = instrument.renderingMode === 'pitched';
   const keyIndex = project.key;

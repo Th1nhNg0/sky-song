@@ -2,16 +2,19 @@ import { getInstrument, hasInstrument } from './instruments';
 import { MAX_BPM, MIN_BPM, TIME_SIGNATURES } from './time';
 import { CATALOG_VERSION, PROJECT_SCHEMA_VERSION } from './types';
 import type { Note, Project, Track, ValidationIssue, ValidationResult } from './types';
-import { newId, nowIso } from './project';
+import { DEFAULT_TITLE, DEFAULT_TRACK_VOLUME, DEFAULT_VELOCITY, defaultLoop, newId, nowIso } from './project';
 
 export const MAX_PROJECT_NOTES = 20000;
+export const MAX_TRACKS = 24;
+export const MAX_TITLE_LENGTH = 120;
+export const MAX_TRACK_NAME_LENGTH = 60;
 
 const LIMITS = {
-  maxTracks: 24,
+  maxTracks: MAX_TRACKS,
   maxNotesPerTrack: MAX_PROJECT_NOTES,
   maxNotesTotal: MAX_PROJECT_NOTES,
-  maxTitleLength: 120,
-  maxTrackNameLength: 60,
+  maxTitleLength: MAX_TITLE_LENGTH,
+  maxTrackNameLength: MAX_TRACK_NAME_LENGTH,
   maxDurationBeats: 512,
   maxStartBeat: 100000,
   maxFileBytes: 5 * 1024 * 1024,
@@ -79,7 +82,7 @@ function migrateProject(raw: unknown): { value: unknown; notes: string[] } {
     });
   }
   if (migrated.loop === undefined) {
-    migrated.loop = { enabled: false, startBeat: 0, endBeat: 16 };
+    migrated.loop = defaultLoop();
     notes.push('Added default loop region.');
   }
   return { value: migrated, notes };
@@ -128,7 +131,7 @@ function validateNote(
     );
     durationBeats = LIMITS.maxDurationBeats;
   }
-  let velocity = finiteNumber(raw.velocity) ? raw.velocity : 0.85;
+  let velocity = finiteNumber(raw.velocity) ? raw.velocity : DEFAULT_VELOCITY;
   velocity = Math.min(1, Math.max(0.05, velocity));
   const note: Note = {
     id,
@@ -232,7 +235,7 @@ function validateProject(input: unknown): ValidationResult {
         typeof nameRaw === 'string' && nameRaw.trim()
           ? nameRaw.trim().slice(0, LIMITS.maxTrackNameLength)
           : `${instrument.shortName} · Performer`;
-      const volume = finiteNumber(trackRaw.volume) ? Math.min(1.5, Math.max(0, trackRaw.volume)) : 0.85;
+      const volume = finiteNumber(trackRaw.volume) ? Math.min(1.5, Math.max(0, trackRaw.volume)) : DEFAULT_TRACK_VOLUME;
       const color =
         typeof trackRaw.color === 'string' && /^#[0-9a-f]{6}$/i.test(trackRaw.color) ? trackRaw.color : '#8fd3ff';
       const notesRaw = trackRaw.notes;
@@ -282,7 +285,7 @@ function validateProject(input: unknown): ValidationResult {
     }
     trackIds.add(track.id);
   }
-  let loop = { enabled: false, startBeat: 0, endBeat: 16 };
+  let loop = defaultLoop();
   if (isRecord(raw.loop)) {
     const start = finiteNumber(raw.loop.startBeat) ? Math.max(0, raw.loop.startBeat) : 0;
     const end = finiteNumber(raw.loop.endBeat) ? Math.max(0, raw.loop.endBeat) : 16;
@@ -302,7 +305,7 @@ function validateProject(input: unknown): ValidationResult {
     app: 'sky-music-studio',
     catalogVersion: typeof raw.catalogVersion === 'string' ? raw.catalogVersion : CATALOG_VERSION,
     id: typeof raw.id === 'string' && raw.id ? raw.id : newId('proj'),
-    title: title || 'Untitled Song',
+    title: title || DEFAULT_TITLE,
     bpm: finiteNumber(bpm) ? Math.round(bpm) : 90,
     timeSignature,
     key: finiteNumber(key) && Number.isInteger(key) ? key : 0,

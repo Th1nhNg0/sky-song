@@ -3,7 +3,7 @@ import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent }
 import { firstNoteAt, gridBackground } from '../music/grid';
 import { getInstrument } from '../music/instruments';
 import { resolvePad } from '../music/pitch';
-import { isTrackAudible, projectEndBeat } from '../music/project';
+import { DEFAULT_VELOCITY, isTrackAudible, projectEndBeat } from '../music/project';
 import { beatsPerMeasure, formatBarBeat, snapBeat } from '../music/time';
 import type { Note } from '../music/types';
 import { getSoundBankVersion, soundSourceInfo, subscribeSoundBank } from '../audio/sampleBank';
@@ -126,7 +126,7 @@ function SelectionBar({ onLoop, onQuantize }: { onLoop: () => void; onQuantize: 
   const velocity = useAppStore((current) => {
     const ids = new Set(current.selectedNoteIds);
     const selected = current.activeTrack().notes.filter((note) => ids.has(note.id));
-    return selected.length ? selected.reduce((sum, note) => sum + note.velocity, 0) / selected.length : 0.85;
+    return selected.length ? selected.reduce((sum, note) => sum + note.velocity, 0) / selected.length : DEFAULT_VELOCITY;
   });
   if (count === 0) return null;
   return (

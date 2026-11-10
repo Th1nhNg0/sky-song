@@ -1,4 +1,5 @@
 import { StrictMode } from 'react';
+import { version } from '../package.json';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
@@ -24,7 +25,7 @@ declare global {
 window.__SKY_MUSIC_STUDIO__ = {
   store: useAppStore,
   playback,
-  version: '1.0.0',
+  version,
   instruments: INSTRUMENTS,
   getSampleVoiceCount,
   soundSourceInfo,

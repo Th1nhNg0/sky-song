@@ -1,9 +1,19 @@
 import { create } from 'zustand';
-import { getInstrument, hasInstrument } from '../music/instruments';
-import { createNote, createProject, createTrack, nowIso, renameForInstrument, sortNotes, TRACK_COLORS } from '../music/project';
-import { snapBeat } from '../music/time';
+import { DEFAULT_INSTRUMENT_ID, getInstrument, hasInstrument } from '../music/instruments';
+import {
+  createNote,
+  createProject,
+  createTrack,
+  DEFAULT_TITLE,
+  DEFAULT_VELOCITY,
+  nowIso,
+  renameForInstrument,
+  sortNotes,
+  TRACK_COLORS,
+} from '../music/project';
+import { MAX_BPM, MIN_BPM, snapBeat } from '../music/time';
 import type { LoopRegion, Note, Project, Track } from '../music/types';
-import { parseProjectJson, ProjectImportError } from '../music/validation';
+import { MAX_TITLE_LENGTH, MAX_TRACK_NAME_LENGTH, MAX_TRACKS, parseProjectJson, ProjectImportError } from '../music/validation';
 import {
   deleteProjectFromLibrary,
   duplicateProjectInLibrary,
@@ -15,7 +25,7 @@ import {
 import { midiToProject, trimToNoteLimit } from '../music/midiImport';
 import { loadPreferences, savePreferences, type Preferences } from '../storage/preferences';
 
-type SaveState = 'saved' | 'unsaved' | 'saving' | 'error';
+export type SaveState = 'saved' | 'unsaved' | 'saving' | 'error';
 type EditTool = 'select' | 'draw';
 export type PanelKind = 'catalog' | 'library' | 'songs' | 'sheet' | 'about' | 'help' | 'settings' | 'export' | 'tracks' | null;
 type ToastKind = 'info' | 'success' | 'warning' | 'error';
@@ -137,10 +147,12 @@ interface AppState {
   activeTrack(): Track;
 }
 
+const HISTORY_LIMIT = 80;
+
 let toastCounter = 0;
 let saveGeneration = 0;
 
-function sanitizeName(value: string, fallback: string, max = 120): string {
+function sanitizeName(value: string, fallback: string, max = MAX_TITLE_LENGTH): string {
   const trimmed = value.trim();
   return (trimmed || fallback).slice(0, max);
 }
@@ -148,8 +160,8 @@ function sanitizeName(value: string, fallback: string, max = 120): string {
 /** "Untitled Song", or "Untitled Song 2", 3… when My songs already has one. */
 function freeUntitledName(taken: string[]): string {
   const used = new Set(taken);
-  let name = 'Untitled Song';
-  for (let number = 2; used.has(name); number++) name = `Untitled Song ${number}`;
+  let name = DEFAULT_TITLE;
+  for (let number = 2; used.has(name); number++) name = `${DEFAULT_TITLE} ${number}`;
   return name;
 }
 
@@ -196,7 +208,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     set({
       project: markDirty(project),
       saveState: 'unsaved',
-      history: history ? { past: [...state.history.past, state.project].slice(-80), future: [] } : state.history,
+      history: history ? { past: [...state.history.past, state.project].slice(-HISTORY_LIMIT), future: [] } : state.history,
       ...extra,
     });
   };
@@ -385,12 +397,12 @@ export const useAppStore = create<AppState>()((set, get) => {
 
   setTitle: (title) => {
     const project = get().project;
-    const next = sanitizeName(title, 'Untitled Song');
+    const next = sanitizeName(title, DEFAULT_TITLE);
     if (next !== project.title) commit({ ...project, title: next });
   },
   setBpm: (bpm) => {
     if (!Number.isFinite(bpm)) return;
-    const value = Math.round(Math.min(240, Math.max(40, bpm)));
+    const value = Math.round(Math.min(MAX_BPM, Math.max(MIN_BPM, bpm)));
     if (get().project.bpm !== value) commit({ ...get().project, bpm: value });
   },
   setMeter: (meter) => {
@@ -422,11 +434,11 @@ export const useAppStore = create<AppState>()((set, get) => {
   },
   addTrack: (instrumentId) => {
     const project = get().project;
-    if (project.tracks.length >= 24) {
-      get().notify('A project can hold up to 24 performers.', 'warning');
+    if (project.tracks.length >= MAX_TRACKS) {
+      get().notify(`A project can hold up to ${MAX_TRACKS} performers.`, 'warning');
       return;
     }
-    const id = instrumentId && hasInstrument(instrumentId) ? instrumentId : 'harp';
+    const id = instrumentId && hasInstrument(instrumentId) ? instrumentId : DEFAULT_INSTRUMENT_ID;
     const track = createTrack(id, { colorIndex: project.tracks.length % TRACK_COLORS.length });
     if (!instrumentId) track.name = `${getInstrument(id).shortName} · Performer ${project.tracks.length + 1}`;
     commit({ ...project, tracks: [...project.tracks, track] }, { activeTrackId: track.id, selectedNoteIds: [] });
@@ -447,14 +459,14 @@ export const useAppStore = create<AppState>()((set, get) => {
     const project = get().project;
     const source = findTrack(project, id);
     if (!source) return;
-    if (project.tracks.length >= 24) {
-      get().notify('A project can hold up to 24 performers.', 'warning');
+    if (project.tracks.length >= MAX_TRACKS) {
+      get().notify(`A project can hold up to ${MAX_TRACKS} performers.`, 'warning');
       return;
     }
     const copy: Track = {
       ...source,
       id: createTrack(source.instrumentId, { colorIndex: project.tracks.length }).id,
-      name: sanitizeName(`${source.name} (copy)`, 'Copy', 60),
+      name: sanitizeName(`${source.name} (copy)`, 'Copy', MAX_TRACK_NAME_LENGTH),
       notes: source.notes.map((note) => ({ ...note, id: createNote(note.pad, 0, 0.5).id })),
     };
     const tracks = [...project.tracks];
@@ -465,7 +477,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     const project = get().project;
     const track = findTrack(project, id);
     if (!track) return;
-    const next = sanitizeName(name, track.name, 60);
+    const next = sanitizeName(name, track.name, MAX_TRACK_NAME_LENGTH);
     if (next !== track.name) commit(replaceTrack(project, id, (item) => ({ ...item, name: next })));
   },
   moveTrack: (id, direction) => {
@@ -549,7 +561,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       state.notify(`Pad ${pad + 1} is outside ${instrument.displayName}'s ${instrument.keyCount}-pad grid.`, 'warning');
       return null;
     }
-    const note = createNote(pad, Math.max(0, startBeat), Math.max(0.05, durationBeats), options.velocity ?? 0.85);
+    const note = createNote(pad, Math.max(0, startBeat), Math.max(0.05, durationBeats), options.velocity ?? DEFAULT_VELOCITY);
     commit(
       replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes([...item.notes, note]) })),
       { selectedNoteIds: options.select === false ? state.selectedNoteIds : [note.id] },
@@ -778,7 +790,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     const gesture = get().gesture;
     if (!gesture) return;
     if (gesture.project !== get().project) {
-      set({ history: { past: [...get().history.past, gesture.project].slice(-80), future: [] }, gesture: null });
+      set({ history: { past: [...get().history.past, gesture.project].slice(-HISTORY_LIMIT), future: [] }, gesture: null });
     } else {
       set({ gesture: null });
     }
@@ -790,7 +802,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     const project = past.pop()!;
     set({
       ...restored(project, get()),
-      history: { past, future: [get().project, ...history.future].slice(0, 80) },
+      history: { past, future: [get().project, ...history.future].slice(0, HISTORY_LIMIT) },
     });
   },
   redo: () => {
@@ -800,7 +812,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     const project = future.shift()!;
     set({
       ...restored(project, get()),
-      history: { past: [...history.past, get().project].slice(-80), future },
+      history: { past: [...history.past, get().project].slice(-HISTORY_LIMIT), future },
     });
   },
 

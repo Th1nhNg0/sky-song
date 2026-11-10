@@ -13,6 +13,10 @@ export const TRACK_COLORS = [
   '#d6f7a8',
 ];
 
+export const DEFAULT_TITLE = 'Untitled Song';
+export const DEFAULT_VELOCITY = 0.85;
+export const DEFAULT_TRACK_VOLUME = 0.85;
+
 const ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
 let idCounter = 0;
@@ -38,7 +42,7 @@ export function createNote(
   pad: number,
   startBeat: number,
   durationBeats: number,
-  velocity = 0.85,
+  velocity = DEFAULT_VELOCITY,
 ): Note {
   return {
     id: newId('n'),
@@ -60,7 +64,7 @@ export function createTrack(
     name: options.name ?? `${instrument.shortName} · Performer`,
     instrumentId: instrument.id,
     color: options.color ?? TRACK_COLORS[performerNumber % TRACK_COLORS.length],
-    volume: 0.85,
+    volume: DEFAULT_TRACK_VOLUME,
     muted: false,
     solo: false,
     notes: [],
@@ -77,7 +81,7 @@ export function renameForInstrument(name: string, fromInstrumentId: string, toIn
   return `${getInstrument(toInstrumentId).shortName} · ${name.slice(prefix.length)}`;
 }
 
-function defaultLoop(): LoopRegion {
+export function defaultLoop(): LoopRegion {
   return { enabled: false, startBeat: 0, endBeat: 16 };
 }
 
@@ -89,7 +93,7 @@ export function createProject(options: { title?: string; bpm?: number; key?: num
     app: 'sky-music-studio',
     catalogVersion: CATALOG_VERSION,
     id: newId('proj'),
-    title: options.title ?? 'Untitled Song',
+    title: options.title ?? DEFAULT_TITLE,
     bpm: options.bpm ?? 90,
     timeSignature: [4, 4],
     key: options.key ?? 0,

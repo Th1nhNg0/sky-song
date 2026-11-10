@@ -3,6 +3,7 @@ import { useAppStore } from '../state/store';
 import { getInstrument } from '../music/instruments';
 import { TRACK_COLORS } from '../music/project';
 import type { Track } from '../music/types';
+import { MAX_TRACK_NAME_LENGTH } from '../music/validation';
 import type { CatalogIntent } from './CatalogPanel';
 import {
   ArrowDownIcon,
@@ -27,7 +28,7 @@ function TrackNameInput({ track }: { track: Track }) {
       className="track-name-input"
       value={name}
       aria-label={`Rename ${track.name}`}
-      onChange={(event) => setName(event.target.value.slice(0, 60))}
+      onChange={(event) => setName(event.target.value.slice(0, MAX_TRACK_NAME_LENGTH))}
       onBlur={() => {
         if (cancelledRef.current) {
           cancelledRef.current = false;

@@ -5,7 +5,7 @@ import { resolvePad } from './pitch';
 import { createProject, createTrack, newId, sortNotes } from './project';
 import { MAX_BPM, MIN_BPM, TIME_SIGNATURES } from './time';
 import type { InstrumentDefinition, Note, Project } from './types';
-import { MAX_PROJECT_NOTES } from './validation';
+import { MAX_PROJECT_NOTES, MAX_TRACK_NAME_LENGTH } from './validation';
 
 interface SourceNote {
   midi: number;
@@ -375,7 +375,7 @@ function nativeProject(midi: Midi, title: string): Project | null {
     TIME_SIGNATURES.find((option) => option.value[0] === meter?.[0] && option.value[1] === meter?.[1])?.value ?? [4, 4];
   project.tracks = sources.map((source, index) => {
     const { name, instrument } = parts[index]!;
-    const track = createTrack(instrument.id, { name: name.slice(0, 60) || instrument.displayName, colorIndex: index });
+    const track = createTrack(instrument.id, { name: name.slice(0, MAX_TRACK_NAME_LENGTH) || instrument.displayName, colorIndex: index });
     const pitches = instrument.pads.map((_, pad) => {
       const resolved = resolvePad(instrument, 0, pad);
       return resolved.pitched ? resolved.midi : resolved.drumNote;

@@ -16,7 +16,7 @@ import { keyShortLabel } from '../src/music/keys';
 import { resolvePad } from '../src/music/pitch';
 import { projectEndBeat, projectToJson } from '../src/music/project';
 import { beatsPerMeasure, MAX_BPM, MIN_BPM } from '../src/music/time';
-import { parseProjectJson, ProjectImportError } from '../src/music/validation';
+import { MAX_TITLE_LENGTH, parseProjectJson, ProjectImportError } from '../src/music/validation';
 import type { Project, Track, ValidationIssue } from '../src/music/types';
 
 const USAGE = `sky-music-studio · MIDI → .skymusic.json
@@ -233,7 +233,7 @@ function main() {
     fail(error instanceof Error ? error.message : String(error));
   }
 
-  if (options.title) project.title = options.title.slice(0, 120);
+  if (options.title) project.title = options.title.slice(0, MAX_TITLE_LENGTH);
   if (options.bpm !== undefined) project.bpm = options.bpm;
   // Pads are physical, so the key only changes the pitch the same pads produce.
   if (options.key !== undefined) project.key = options.key;
