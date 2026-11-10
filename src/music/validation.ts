@@ -13,7 +13,7 @@ import {
   nowIso,
   sortNotes,
 } from './project';
-import { clamp } from '../util';
+import { clamp, plural } from '../util';
 
 export const MAX_PROJECT_NOTES = 20000;
 export const MAX_TRACKS = 24;
@@ -357,7 +357,7 @@ export function parseProjectJson(text: string): { project: Project; warnings: Va
   const result = validateProject(parsed);
   if (!result.ok || !result.project) {
     throw new ProjectImportError(
-      `Project import failed with ${result.errors.length} error${result.errors.length === 1 ? '' : 's'}.`,
+      `Project import failed with ${result.errors.length} error${plural(result.errors.length)}.`,
       result.errors,
       result.warnings,
     );

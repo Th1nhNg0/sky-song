@@ -9,3 +9,8 @@ export function clampNumber(value: unknown, min: number, max: number, fallback: 
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
   return clamp(value, min, max);
 }
+
+/** The "s" that turns a noun plural, for counts other than one. */
+export function plural(count: number): string {
+  return count === 1 ? '' : 's';
+}

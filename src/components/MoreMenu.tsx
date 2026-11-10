@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../state/store';
 import type { PanelKind } from '../state/store';
+import { plural } from '../util';
 import {
   HelpIcon,
   InfoIcon,
@@ -95,7 +96,7 @@ export function MoreMenu({ onOpenCatalog }: { onOpenCatalog: () => void }) {
               >
                 {[0, 1, 2, 4].map((value) => (
                   <option key={value} value={value}>
-                    {value === 0 ? 'Off' : `${value} bar${value === 1 ? '' : 's'}`}
+                    {value === 0 ? 'Off' : `${value} bar${plural(value)}`}
                   </option>
                 ))}
               </select>

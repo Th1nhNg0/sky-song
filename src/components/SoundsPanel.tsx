@@ -43,7 +43,7 @@ import {
 import { createSampleVoice } from '../audio/sampleVoice';
 import { getSoundPackStorage } from '../storage/soundPacks';
 import { downloadBlob } from '../export/exporters';
-import { clamp } from '../util';
+import { clamp, plural } from '../util';
 
 interface DecodedRecording {
   fileName: string;
@@ -215,7 +215,7 @@ export function SoundsPanel() {
         setNotice(
           samples.length === 0
             ? 'No note onsets were detected. Lower the threshold or increase the gap.'
-            : `${samples.length} slice${samples.length === 1 ? '' : 's'} detected from ${audio.fileName}. Check the notes below and correct any mistakes.`,
+            : `${samples.length} slice${plural(samples.length)} detected from ${audio.fileName}. Check the notes below and correct any mistakes.`,
         );
       } catch (caught) {
         setError(caught instanceof Error ? caught.message : 'Could not analyse the recording.');
@@ -259,7 +259,7 @@ export function SoundsPanel() {
       }
       setDraft(makeDraft(samples));
       setNotice(
-        `${samples.length} file${samples.length === 1 ? '' : 's'} loaded. ${
+        `${samples.length} file${plural(samples.length)} loaded. ${
           pitched ? 'Detected notes are shown; correct any octave errors.' : 'Assign each sample to a pad below.'
         }`,
       );
@@ -362,7 +362,7 @@ export function SoundsPanel() {
       setPacks([...getLoadedSoundPacks()]);
       setNotice(
         storage.persistent
-          ? `Saved “${pack.name}” for ${instrument.displayName}. ${pack.samples.length} sample${pack.samples.length === 1 ? '' : 's'}, stored only in this browser.`
+          ? `Saved “${pack.name}” for ${instrument.displayName}. ${pack.samples.length} sample${plural(pack.samples.length)}, stored only in this browser.`
           : `Saved “${pack.name}” for this session only — IndexedDB is unavailable, so it will be lost when the tab closes. Export a backup.`,
       );
       setDraft([]);
@@ -487,7 +487,7 @@ export function SoundsPanel() {
           </strong>
           <p>
             {activePack
-              ? `${activePack.samples.length} recorded note${activePack.samples.length === 1 ? '' : 's'}. Notes between recordings are pitch-shifted; notes that match a recording play at their original pitch.`
+              ? `${activePack.samples.length} recorded note${plural(activePack.samples.length)}. Notes between recordings are pitch-shifted; notes that match a recording play at their original pitch.`
               : 'No sample pack is active for this instrument. This app’s synth is original code, not a recording of Sky, and is labelled as an approximation throughout.'}
           </p>
         </div>
@@ -522,7 +522,7 @@ export function SoundsPanel() {
                 <div className="sounds-pack-info">
                   <strong>{pack.name}</strong>
                   <span>
-                    {pack.samples.length} sample{pack.samples.length === 1 ? '' : 's'} ·{' '}
+                    {pack.samples.length} sample{plural(pack.samples.length)} ·{' '}
                     {formatMb(packBytes(pack))} ·{' '}
                     {pack.samples.some((sample) => sample.midi !== null) ? 'pitched' : 'pad-mapped'} · updated{' '}
                     {new Date(pack.updatedAt).toLocaleDateString()}
@@ -662,7 +662,7 @@ export function SoundsPanel() {
         {hasDraft && (
           <div className="sounds-draft">
             <div className="sounds-block-head">
-              <h4>{draft.length} prepared sample{draft.length === 1 ? '' : 's'}</h4>
+              <h4>{draft.length} prepared sample{plural(draft.length)}</h4>
               <span className="mini-chip">{pitched ? 'auto-detected MIDI, editable' : 'assign to pads'}</span>
             </div>
             <div className="sounds-rows">

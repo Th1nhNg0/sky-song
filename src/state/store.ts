@@ -27,7 +27,7 @@ import {
 } from '../storage/library';
 import { midiToProject, trimToNoteLimit } from '../music/midiImport';
 import { loadPreferences, savePreferences, type Preferences } from '../storage/preferences';
-import { clamp } from '../util';
+import { clamp, plural } from '../util';
 
 export type SaveState = 'saved' | 'unsaved' | 'saving' | 'error';
 type EditTool = 'select' | 'draw';
@@ -513,7 +513,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     });
     if (removed > 0) {
       get().notify(
-        `${instrument.displayName} has ${instrument.keyCount} pads. Removed ${removed} note${removed === 1 ? '' : 's'} outside its grid — undo is available.`,
+        `${instrument.displayName} has ${instrument.keyCount} pads. Removed ${removed} note${plural(removed)} outside its grid — undo is available.`,
         'warning',
       );
     }
@@ -680,7 +680,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       })),
     };
     set({ clipboard });
-    state.notify(`Copied ${selected.length} note${selected.length === 1 ? '' : 's'}.`, 'info');
+    state.notify(`Copied ${selected.length} note${plural(selected.length)}.`, 'info');
   },
   cutSelection: () => {
     const state = get();
@@ -763,7 +763,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     });
     commit(replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes(notes) })));
     state.notify(
-      `Quantized ${count} note${count === 1 ? '' : 's'}${preserveOriginal ? ' · original timing preserved' : ''}.`,
+      `Quantized ${count} note${plural(count)}${preserveOriginal ? ' · original timing preserved' : ''}.`,
       'success',
     );
   },
@@ -784,7 +784,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       return;
     }
     commit(replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes(notes) })));
-    state.notify(`Restored original timing on ${restored} note${restored === 1 ? '' : 's'}.`, 'success');
+    state.notify(`Restored original timing on ${restored} note${plural(restored)}.`, 'success');
   },
 
   beginGesture: () => {

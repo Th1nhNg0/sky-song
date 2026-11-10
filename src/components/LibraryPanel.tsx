@@ -3,6 +3,7 @@ import { useAppStore } from '../state/store';
 import { Modal } from './Modal';
 import { downloadProjectFile } from '../export/exporters';
 import { importSongFile, SONG_FILE_ACCEPT } from '../state/importFile';
+import { plural } from '../util';
 import {
   CopyIcon,
   DownloadIcon,
@@ -102,8 +103,8 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
             <div className="library-card-main">
               <h3>{entry.title}</h3>
               <p>
-                {formatDate(entry.updatedAt)} · {entry.trackCount} instrument{entry.trackCount === 1 ? '' : 's'} ·{' '}
-                {entry.noteCount} note{entry.noteCount === 1 ? '' : 's'} · {entry.bpm} BPM
+                {formatDate(entry.updatedAt)} · {entry.trackCount} instrument{plural(entry.trackCount)} ·{' '}
+                {entry.noteCount} note{plural(entry.noteCount)} · {entry.bpm} BPM
               </p>
             </div>
             <div className="library-card-actions">

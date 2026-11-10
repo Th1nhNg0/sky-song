@@ -4,6 +4,7 @@ import { useAudioStore } from '../state/clock';
 import { Modal } from './Modal';
 import { SparkIcon } from './Icons';
 import { SoundsPanel } from './SoundsPanel';
+import { plural } from '../util';
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const preferences = useAppStore((state) => state.preferences);
@@ -64,7 +65,7 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
           <label className="field">
             <span className="field-label">Count-in measures</span>
             <select className="input select" value={preferences.countInMeasures} onChange={(event) => setPreferences({ countInMeasures: Number(event.target.value) })}>
-              {[0, 1, 2, 4].map((value) => <option key={value} value={value}>{value === 0 ? 'Off' : `${value} bar${value === 1 ? '' : 's'}`}</option>)}
+              {[0, 1, 2, 4].map((value) => <option key={value} value={value}>{value === 0 ? 'Off' : `${value} bar${plural(value)}`}</option>)}
             </select>
           </label>
           <p className="fine-print">
