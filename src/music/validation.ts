@@ -2,7 +2,7 @@ import { getInstrument, hasInstrument } from './instruments';
 import { MAX_BPM, MIN_BPM, TIME_SIGNATURES } from './time';
 import { CATALOG_VERSION, PROJECT_SCHEMA_VERSION } from './types';
 import type { Note, Project, Track, ValidationIssue, ValidationResult } from './types';
-import { DEFAULT_TITLE, DEFAULT_TRACK_VOLUME, DEFAULT_VELOCITY, defaultLoop, newId, nowIso } from './project';
+import { DEFAULT_TITLE, DEFAULT_TRACK_VOLUME, DEFAULT_VELOCITY, defaultLoop, newId, nowIso, sortNotes } from './project';
 
 export const MAX_PROJECT_NOTES = 20000;
 export const MAX_TRACKS = 24;
@@ -262,7 +262,6 @@ function validateProject(input: unknown): ValidationResult {
         seenIds.add(note.id);
         notes.push(note);
       });
-      notes.sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
       tracks.push({
         id: typeof trackRaw.id === 'string' && trackRaw.id ? trackRaw.id : newId('track'),
         name,
@@ -271,7 +270,7 @@ function validateProject(input: unknown): ValidationResult {
         volume,
         muted: Boolean(trackRaw.muted),
         solo: Boolean(trackRaw.solo),
-        notes,
+        notes: sortNotes(notes),
       });
     });
   }

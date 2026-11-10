@@ -1,4 +1,5 @@
 import { getInstrument } from '../music/instruments';
+import { sortNotes } from '../music/project';
 import { beatsPerMeasure, beatsToSeconds } from '../music/time';
 import type { Project } from '../music/types';
 
@@ -50,16 +51,14 @@ export function projectToSkyModSong(project: Project): SkyModSong {
     .filter((track) => track.notes.length > 0)
     .map((track): SkyModTrack => {
       const instrument = getInstrument(track.instrumentId);
-      const songNotes = [...track.notes]
-        .sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad)
-        .map((note) => {
-          const time = countInMs + beatsToSeconds(note.startBeat, project.bpm) * 1000;
-          const lengthMs = beatsToSeconds(note.durationBeats, project.bpm) * 1000;
-          durationMs = Math.max(durationMs, time + lengthMs);
-          const songNote: SkyModNote = { time: Math.round(time), key: `Key${note.pad}` };
-          if (instrument.supportsHold) songNote.duration = Math.round(lengthMs);
-          return songNote;
-        });
+      const songNotes = sortNotes(track.notes).map((note) => {
+        const time = countInMs + beatsToSeconds(note.startBeat, project.bpm) * 1000;
+        const lengthMs = beatsToSeconds(note.durationBeats, project.bpm) * 1000;
+        durationMs = Math.max(durationMs, time + lengthMs);
+        const songNote: SkyModNote = { time: Math.round(time), key: `Key${note.pad}` };
+        if (instrument.supportsHold) songNote.duration = Math.round(lengthMs);
+        return songNote;
+      });
       return { name: track.name, instrument: instrument.displayName, pads: instrument.keyCount, songNotes };
     });
 

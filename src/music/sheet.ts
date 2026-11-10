@@ -1,3 +1,4 @@
+import { sortNotes } from './project';
 import type { InstrumentDefinition, Note } from './types';
 
 /**
@@ -72,9 +73,8 @@ export function sheetGeometry(instrument: InstrumentDefinition, width: number): 
 }
 
 export function buildSheetFrames(notes: Note[], instrument: InstrumentDefinition, beatsPerBar: number): SheetFrame[] {
-  const sorted = [...notes].sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
   const frames: SheetFrame[] = [];
-  for (const note of sorted) {
+  for (const note of sortNotes(notes)) {
     if (note.pad < 0 || note.pad >= instrument.pads.length) continue;
     const last = frames[frames.length - 1];
     if (last && Math.abs(last.startBeat - note.startBeat) < SAME_MOMENT) {
