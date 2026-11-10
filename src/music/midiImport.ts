@@ -355,6 +355,11 @@ function songBpm(midi: Midi): number {
   return best;
 }
 
+/** The app's own copy of a file's meter, or 4/4 for one the app does not offer. */
+function knownMeter(meter: number[] | undefined): [number, number] {
+  return TIME_SIGNATURES.find((option) => option.value[0] === meter?.[0] && option.value[1] === meter?.[1])?.value ?? [4, 4];
+}
+
 /** Files this app exported name each track `<track> | <instrument> (<part>, <role>)`. */
 function nativeTrackParts(name: string): { name: string; instrument: InstrumentDefinition } | null {
   const match = /^(.*) \| (.+) \([^,]+, \w+\)$/.exec(name);
@@ -368,9 +373,7 @@ function nativeProject(midi: Midi, title: string): Project | null {
   const parts = sources.map((track) => nativeTrackParts(track.name));
   if (parts.length === 0 || parts.some((part) => !part)) return null;
   const project = createProject({ title, bpm: clampBpm(songBpm(midi)), key: 0 });
-  const meter = midi.header.timeSignatures[0]?.timeSignature;
-  project.timeSignature =
-    TIME_SIGNATURES.find((option) => option.value[0] === meter?.[0] && option.value[1] === meter?.[1])?.value ?? [4, 4];
+  project.timeSignature = knownMeter(midi.header.timeSignatures[0]?.timeSignature);
   project.tracks = sources.map((source, index) => {
     const { name, instrument } = parts[index]!;
     const track = createTrack(instrument.id, { name: name.slice(0, MAX_TRACK_NAME_LENGTH) || instrument.displayName, colorIndex: index });
@@ -459,12 +462,9 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   const grid = timingGrid(parts.flatMap((part) => part.notes));
 
   const shift = bestTranspose(parts.flatMap((part) => part.notes));
-  const known = TIME_SIGNATURES.find(
-    (option) => option.value[0] === meter?.timeSignature[0] && option.value[1] === meter?.timeSignature[1],
-  );
   const bpm = songBpm(midi) * (waltz ? 2 : 1);
   const project = createProject({ title, bpm: clampBpm(bpm), key: 0 });
-  project.timeSignature = waltz ? [3, 4] : known ? known.value : [4, 4];
+  project.timeSignature = waltz ? [3, 4] : knownMeter(meter?.timeSignature);
   project.tracks = clearClashes(reachNotes(parts, shift), grid).map((part, index) => {
     const track = createTrack(part.instrumentId, { name: part.name, colorIndex: index });
     track.volume = part.volume;
