@@ -8,7 +8,7 @@
  * detected note, so a failed onset is recoverable rather than silently wrong.
  */
 
-import { detectSlicePitch, type PitchResult } from './pitchDetect';
+import { detectPitch, type PitchResult } from './pitchDetect';
 import { normalizeSlice, type PackSample } from './soundPack';
 
 export interface OnsetDetectionOptions {
@@ -237,7 +237,7 @@ export function analyzeRecording(
     sample.sourceStartSeconds = slice.startSeconds;
     sample.durationSeconds = slice.durationSeconds;
     const pitch = config.detectPitches
-      ? detectSlicePitch(sample.channels, sampleRate, {
+      ? detectPitch(sample.channels, sampleRate, {
           minFrequency: 45,
           maxFrequency: 2600,
           minConfidence: 0.18,
@@ -263,7 +263,7 @@ export function analyzeFile(
   const sample = normalizeSlice(channels, sampleRate);
   sample.durationSeconds = sample.channels[0] ? sample.channels[0].length / sampleRate : 0;
   const pitch = detect
-    ? detectSlicePitch(sample.channels, sampleRate, {
+    ? detectPitch(sample.channels, sampleRate, {
         minFrequency: 45,
         maxFrequency: 2600,
         minConfidence: 0.18,

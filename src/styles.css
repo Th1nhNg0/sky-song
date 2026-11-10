@@ -585,35 +585,6 @@ input[type="range"]::-moz-range-thumb {
   grid-template-columns: repeat(auto-fill, minmax(318px, 1fr));
   gap: 10px;
 }
-.instrument-card {
-  position: relative;
-  border: 1px solid var(--line);
-  border-radius: 13px;
-  padding: 12px 13px;
-  background:
-    linear-gradient(160deg, color-mix(in srgb, var(--accent) 5%, transparent), rgba(255, 255, 255, 0.012) 55%);
-  display: flex;
-  flex-direction: column;
-  gap: 7px;
-  overflow: hidden;
-}
-.instrument-card::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: linear-gradient(90deg, var(--accent), transparent 80%);
-  opacity: 0.6;
-}
-.instrument-card.is-current {
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-  box-shadow: inset 0 0 30px color-mix(in srgb, var(--accent) 6%, transparent);
-}
-.instrument-card h3 {
-  font-size: 14px;
-}
 .mini-chip {
   font-size: 8.5px;
   color: var(--dim);
@@ -738,10 +709,6 @@ input[type="range"]::-moz-range-thumb {
   font-size: 9.5px;
   color: var(--dim);
   margin-top: 2px;
-}
-.library-meta {
-  font-family: var(--mono);
-  font-size: 8.5px !important;
 }
 .library-card-actions {
   display: flex;
@@ -1207,7 +1174,6 @@ input[type="range"]::-moz-range-thumb {
   .bar-beat { font-size: 13px; }
   .sidebar { display: none; }
   .timeline { border-radius: 14px; }
-  .selection-info { font-size: 9.5px; max-width: 46vw; }
   .modal-backdrop { padding: 8px; }
   .modal { max-height: 94dvh; border-radius: 16px; }
   .modal-head { padding: 13px 14px 10px; }
@@ -1436,23 +1402,6 @@ textarea {
   background: var(--panel);
   color: var(--ink-soft);
   font-size: 12px;
-}
-.zoom-buttons {
-  display: flex;
-  gap: 4px;
-}
-.zoom-buttons button {
-  width: 30px;
-  height: 30px;
-  border: 1px solid var(--line);
-  border-radius: 7px;
-  background: var(--panel);
-  color: var(--ink-soft);
-  font-size: 16px;
-}
-.zoom-buttons button:hover {
-  border-color: var(--line-strong);
-  background: rgba(255, 255, 255, 0.04);
 }
 .more-menu-footer {
   margin: 7px 4px 2px;
@@ -1889,8 +1838,7 @@ textarea {
 .transport-primary,
 .top-actions,
 .history-buttons,
-.song-fields,
-.track-tools {
+.song-fields {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -2217,19 +2165,6 @@ body {
   color: #2a1d10;
 }
 
-.more-menu-file {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px;
-  border-radius: 10px;
-  color: var(--ink-soft);
-  cursor: pointer;
-}
-.more-menu-file:hover {
-  background: rgba(255, 236, 205, 0.07);
-}
-
 .roll-note-label {
   justify-content: center;
   padding: 0;
@@ -2246,10 +2181,6 @@ body {
   width: 100%;
   height: 100%;
   pointer-events: none;
-}
-.track-lane.is-active .track-lane-label {
-  color: var(--ink);
-  box-shadow: inset 3px 0 0 var(--track-color);
 }
 .track-minimize {
   display: grid;

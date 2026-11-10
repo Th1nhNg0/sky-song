@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { getInstrument, hasInstrument } from '../music/instruments';
 import { createNote, createProject, createTrack, nowIso, renameForInstrument, sortNotes, TRACK_COLORS } from '../music/project';
 import { snapBeat } from '../music/time';
-import type { LoopRegion, Note, Project, Track, ValidationIssue } from '../music/types';
+import type { LoopRegion, Note, Project, Track } from '../music/types';
 import { parseProjectJson, ProjectImportError } from '../music/validation';
 import {
   deleteProjectFromLibrary,
@@ -42,7 +42,6 @@ interface AppState {
   project: Project;
   activeTrackId: string;
   selectedNoteIds: string[];
-  playhead: number;
   isPlaying: boolean;
   editTool: EditTool;
   panel: PanelKind;
@@ -57,7 +56,6 @@ interface AppState {
   toast: Toast | null;
   library: LibraryEntry[];
   libraryLoading: boolean;
-  lastWarnings: ValidationIssue[];
   /** Goes up each time a different song is opened, so playback can start it from the top. */
   songLoads: number;
 
@@ -82,11 +80,9 @@ interface AppState {
   setPreferences(patch: Partial<Preferences>): void;
 
   setPlaying(playing: boolean): void;
-  setPlayhead(beat: number): void;
 
   setTitle(title: string): void;
   setBpm(bpm: number): void;
-  setKey(key: number): void;
   setMeter(meter: [number, number]): void;
   setLoop(loop: LoopRegion): void;
   toggleLoop(): void;
@@ -174,10 +170,6 @@ function clampPadDelta(pads: number[], delta: number, keyCount: number): number 
   return Math.min(keyCount - 1 - Math.max(...pads), Math.max(-Math.min(...pads), delta));
 }
 
-function makeNote(pad: number, start: number, duration: number, velocity = 0.85): Note {
-  return createNote(pad, start, duration, velocity);
-}
-
 function markDirty(project: Project): Project {
   return { ...project, updatedAt: nowIso() };
 }
@@ -213,7 +205,6 @@ export const useAppStore = create<AppState>()((set, get) => {
   project: initialProject,
   activeTrackId: initialProject.tracks[0].id,
   selectedNoteIds: [],
-  playhead: 0,
   isPlaying: false,
   editTool: 'draw',
   panel: null,
@@ -228,7 +219,6 @@ export const useAppStore = create<AppState>()((set, get) => {
   toast: null,
   library: [],
   libraryLoading: false,
-  lastWarnings: [],
   songLoads: 0,
 
   initialize: async () => {
@@ -276,10 +266,8 @@ export const useAppStore = create<AppState>()((set, get) => {
       project,
       activeTrackId,
       selectedNoteIds: [],
-      playhead: 0,
       history: options.resetHistory === false ? get().history : { past: [], future: [] },
       saveState: 'saved',
-      lastWarnings: [],
       gesture: null,
       welcomeOpen: false,
       songLoads: get().songLoads + 1,
@@ -353,9 +341,9 @@ export const useAppStore = create<AppState>()((set, get) => {
   },
   importProjectJson: (text) => {
     try {
-      const { project, warnings } = parseProjectJson(text);
+      const { project } = parseProjectJson(text);
       get().setProject(project);
-      set({ lastWarnings: warnings, panel: null });
+      set({ panel: null });
       get().notify(`Imported “${project.title}” with ${project.tracks.length} tracks.`, 'success');
       void get().saveNow();
       return true;
@@ -394,7 +382,6 @@ export const useAppStore = create<AppState>()((set, get) => {
     set({ preferences });
   },
   setPlaying: (isPlaying) => set({ isPlaying }),
-  setPlayhead: (playhead) => set({ playhead: Math.max(0, playhead) }),
 
   setTitle: (title) => {
     const project = get().project;
@@ -405,11 +392,6 @@ export const useAppStore = create<AppState>()((set, get) => {
     if (!Number.isFinite(bpm)) return;
     const value = Math.round(Math.min(240, Math.max(40, bpm)));
     if (get().project.bpm !== value) commit({ ...get().project, bpm: value });
-  },
-  setKey: (key) => {
-    if (!Number.isInteger(key) || key < 0 || key > 11 || get().project.key === key) return;
-    commit({ ...get().project, key });
-    get().notify('Key changed. Every track is remapped to the same scale degrees.', 'info');
   },
   setMeter: (meter) => {
     const project = get().project;
@@ -567,7 +549,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       state.notify(`Pad ${pad + 1} is outside ${instrument.displayName}'s ${instrument.keyCount}-pad grid.`, 'warning');
       return null;
     }
-    const note = makeNote(pad, Math.max(0, startBeat), Math.max(0.05, durationBeats), options.velocity ?? 0.85);
+    const note = createNote(pad, Math.max(0, startBeat), Math.max(0.05, durationBeats), options.velocity ?? 0.85);
     commit(
       replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes([...item.notes, note]) })),
       { selectedNoteIds: options.select === false ? state.selectedNoteIds : [note.id] },
@@ -597,7 +579,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     const ids = new Set(state.selectedNoteIds);
     const copies = track.notes
       .filter((note) => ids.has(note.id))
-      .map((note) => makeNote(note.pad, note.startBeat, note.durationBeats, note.velocity));
+      .map((note) => createNote(note.pad, note.startBeat, note.durationBeats, note.velocity));
     if (copies.length === 0) return;
     commit(
       replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes([...item.notes, ...copies]) })),
@@ -705,7 +687,7 @@ export const useAppStore = create<AppState>()((set, get) => {
       return null;
     }
     const base = Math.max(0, atBeat);
-    const created = kept.map((note) => makeNote(note.pad, base + note.offsetBeat, note.durationBeats, note.velocity));
+    const created = kept.map((note) => createNote(note.pad, base + note.offsetBeat, note.durationBeats, note.velocity));
     commit(
       replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes([...item.notes, ...created]) })),
       { selectedNoteIds: created.map((note) => note.id) },
@@ -735,7 +717,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     const last = Math.max(...selected.map((note) => note.startBeat + (hold ? note.durationBeats : step)));
     const offset = Math.ceil((last - first) / step - 1e-6) * step;
     const created = selected.map((note) =>
-      makeNote(note.pad, note.startBeat + offset, note.durationBeats, note.velocity),
+      createNote(note.pad, note.startBeat + offset, note.durationBeats, note.velocity),
     );
     commit(
       replaceTrack(state.project, track.id, (item) => ({ ...item, notes: sortNotes([...item.notes, ...created]) })),

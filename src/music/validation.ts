@@ -23,15 +23,8 @@ const INSTRUMENT_ALIASES: Record<string, string> = {
   piano_keyboard: 'piano',
   winterpiano: 'winter-piano',
   grandpiano: 'grand-piano',
-  'light-guitar': 'light-guitar',
   lightguitar: 'light-guitar',
   aurora: 'aurora-voice',
-  'aurora-voice': 'aurora-voice',
-  contrabass: 'contrabass',
-  'duets-cello': 'duets-cello',
-  'small-bell': 'small-bell',
-  'large-bell': 'large-bell',
-  'fortune-drum': 'fortune-drum',
 };
 
 function issue(path: string, message: string, severity: 'error' | 'warning'): ValidationIssue {

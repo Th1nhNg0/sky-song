@@ -2,8 +2,8 @@ import { isTrackAudible } from '../music/project';
 import { getInstrument } from '../music/instruments';
 import type { InstrumentDefinition, Project } from '../music/types';
 import {
+  createBus,
   createMixGraph,
-  createTrackBus,
   reverbSendLevel,
   scheduleClick,
   type MixGraph,
@@ -202,7 +202,7 @@ export class AudioEngine implements PlaybackEngine {
       }
       return existing.bus;
     }
-    const bus = createTrackBus(this.ctx, this.graph, trackSendLevel(this.reverbAmount, instrument));
+    const bus = createBus(this.ctx, this.graph, trackSendLevel(this.reverbAmount, instrument));
     bus.trackGain.gain.value = 0.0001;
     this.buses.set(trackId, { bus, instrumentId });
     return bus;
@@ -390,13 +390,5 @@ export class AudioEngine implements PlaybackEngine {
       reverbAmount: this.reverbAmount,
       masterVolume: this.masterVolume,
     };
-  }
-
-  getTrackGain(trackId: string): number | null {
-    return this.buses.get(trackId)?.bus.trackGain.gain.value ?? null;
-  }
-
-  getTrackIds(): string[] {
-    return [...this.buses.keys()];
   }
 }

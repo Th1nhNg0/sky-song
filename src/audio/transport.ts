@@ -1,6 +1,6 @@
 import { getInstrument } from '../music/instruments';
 import { beatsPerMeasure, beatsToSeconds } from '../music/time';
-import type { LoopRegion, Project } from '../music/types';
+import type { Project } from '../music/types';
 import type { PlaybackEngine } from './engine';
 import { createTicker, type Ticker } from './ticker';
 
@@ -28,7 +28,6 @@ export interface TransportOptions {
   getProject: () => Project;
   getSettings: () => TransportSettings;
   onStateChange?: (state: TransportState) => void;
-  onLoopIteration?: (iteration: number) => void;
   lookaheadSeconds?: number;
   tickIntervalMs?: number;
   /** Tests inject a clock and disable the timer. */
@@ -49,7 +48,6 @@ export class Transport {
   private getProject: () => Project;
   private getSettings: () => TransportSettings;
   private onStateChange?: (state: TransportState) => void;
-  private onLoopIteration?: (iteration: number) => void;
   private lookaheadSeconds: number;
   private tickIntervalMs: number;
   private clock: () => number;
@@ -84,7 +82,6 @@ export class Transport {
     this.getProject = options.getProject;
     this.getSettings = options.getSettings;
     this.onStateChange = options.onStateChange;
-    this.onLoopIteration = options.onLoopIteration;
     this.lookaheadSeconds = options.lookaheadSeconds ?? 0.2;
     this.tickIntervalMs = options.tickIntervalMs ?? 25;
     this.clock = options.now ?? (() => this.engine.now());
@@ -95,14 +92,6 @@ export class Transport {
 
   get currentState(): TransportState {
     return this.state;
-  }
-
-  get currentProject(): Project {
-    return this.project;
-  }
-
-  get loop(): LoopRegion {
-    return this.project.loop;
   }
 
   private rebuildEvents(): void {
@@ -394,13 +383,6 @@ export class Transport {
     return this.countInBeats > 0 && this.clock() < this.anchorTime;
   }
 
-  countInRemainingBeats(): number {
-    if (this.state !== 'playing') return 0;
-    const remainingSeconds = this.anchorTime - this.clock();
-    if (remainingSeconds <= 0) return 0;
-    return remainingSeconds * this.bps;
-  }
-
   tick(): void {
     if (this.state !== 'playing') return;
     const now = this.clock();
@@ -487,7 +469,6 @@ export class Transport {
       this.loopIndex = 0;
       this.loopClickIndex = 0;
       this.firedLoopIterations++;
-      this.onLoopIteration?.(this.firedLoopIterations);
       if (this.firedLoopIterations > 100000) break;
     }
   }
@@ -497,28 +478,6 @@ export class Transport {
     this.state = 'paused';
     this.pausedBeat = this.contentEndBeat;
     this.onStateChange?.('paused');
-  }
-
-  setLoopEnabled(enabled: boolean): void {
-    const loop = { ...this.project.loop, enabled };
-    this.applyLoop(loop);
-  }
-
-  applyLoop(loop: LoopRegion): void {
-    const normalized: LoopRegion = {
-      enabled: loop.enabled,
-      startBeat: Math.max(0, Math.min(loop.startBeat, loop.endBeat - 0.25)),
-      endBeat: Math.max(loop.startBeat + 0.25, loop.endBeat),
-    };
-    this.project = { ...this.project, loop: normalized };
-    this.rebuildEvents();
-    if (this.state === 'playing') {
-      const position = this.positionBeats();
-      const clamped = normalized.enabled
-        ? Math.min(Math.max(position, normalized.startBeat), normalized.endBeat - 0.001)
-        : position;
-      this.seek(clamped);
-    }
   }
 
   getScheduledDiagnostics(): {

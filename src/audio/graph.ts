@@ -18,7 +18,7 @@ export interface MixGraph {
   previewBus: VoiceGraph;
 }
 
-function createBus(ctx: BaseAudioContext, graph: Pick<MixGraph, 'masterIn' | 'convolver'>, reverbAmount: number): VoiceGraph {
+export function createBus(ctx: BaseAudioContext, graph: Pick<MixGraph, 'masterIn' | 'convolver'>, reverbAmount: number): VoiceGraph {
   const trackGain = ctx.createGain();
   const dry = ctx.createGain();
   const send = ctx.createGain();
@@ -75,14 +75,6 @@ export function createMixGraph(
   const previewBus = createBus(ctx, { masterIn, convolver }, reverbAmount);
   previewBus.trackGain.gain.value = 0.9;
   return { ctx, masterIn, limiter, masterOut, convolver, reverbReturn, clickBus, previewBus };
-}
-
-export function createTrackBus(
-  ctx: BaseAudioContext,
-  graph: MixGraph,
-  reverbAmount: number,
-): VoiceGraph {
-  return createBus(ctx, graph, reverbAmount);
 }
 
 /** Short metronome click. Returns a function that silences it if it has not sounded yet. */

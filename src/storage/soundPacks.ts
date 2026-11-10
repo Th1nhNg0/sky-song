@@ -147,11 +147,6 @@ class MemorySoundPackStorage implements SoundPackStorage {
   async remove(id: string): Promise<void> {
     this.packs.delete(id);
   }
-
-  /** Test helper: inspect without cloning. */
-  peek(id: string): SoundPack | undefined {
-    return this.packs.get(id);
-  }
 }
 
 let storage: SoundPackStorage | null = null;

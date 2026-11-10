@@ -41,7 +41,7 @@ function monoMix(channels: Float32Array[]): Float32Array {
   return mono;
 }
 
-function detectPitch(
+export function detectPitch(
   input: Float32Array | Float32Array[],
   sampleRate: number,
   options: PitchDetectionOptions = {},
@@ -142,13 +142,4 @@ function detectPitch(
     confidence,
     centsOff: (exactMidi - Math.round(exactMidi)) * 100,
   };
-}
-
-/** Convenience wrapper for a stereo slice. */
-export function detectSlicePitch(
-  channels: Float32Array[],
-  sampleRate: number,
-  options: PitchDetectionOptions = {},
-): PitchResult | null {
-  return detectPitch(channels, sampleRate, options);
 }

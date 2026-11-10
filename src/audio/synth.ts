@@ -926,8 +926,7 @@ export function createNoteVoice(ctx: BaseAudioContext, spec: NoteVoiceSpec): Syn
   const seed = hashString(spec.seed ?? `${spec.instrument.id}:${spec.pad}:${spec.startTime.toFixed(3)}`);
   const random = mulberry32(seed);
 
-  // User-recorded sample packs take precedence over the synthesizer. This is the
-  // same call from the realtime AudioContext and the export OfflineAudioContext.
+  // User-recorded sample packs take precedence over the synthesizer.
   const recorded = resolveSampleForNote(
     spec.instrument.id,
     resolved.pitched ? resolved.midi : null,

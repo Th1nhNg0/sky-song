@@ -6,9 +6,10 @@
  */
 
 import type { SampleSelection } from './sampleBank';
-import { SAMPLE_LEVEL } from './sampleRender';
 import { findSustainLoop, joinSustainLoop, packSustains, type SustainLoop } from './soundPack';
 import type { NoteVoiceSpec, SynthVoice } from './synth';
+
+const SAMPLE_LEVEL = 0.3;
 
 const bufferCache = new WeakMap<BaseAudioContext, Map<string, CachedBuffer>>();
 

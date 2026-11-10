@@ -134,7 +134,7 @@ function rms(channel: Float32Array, from: number, to: number): number {
   return Math.sqrt(energy / Math.max(1, to - from));
 }
 
-function loopFrames(channels: Float32Array[], sampleRate: number): SustainLoop | null {
+export function findSustainLoop(channels: Float32Array[], sampleRate: number): SustainLoop | null {
   const crossfadeFrames = Math.floor(LOOP_CROSSFADE_SECONDS * sampleRate);
   const endFrame = (channels[0]?.length ?? 0) - Math.floor(LOOP_TAIL_FADE_SECONDS * sampleRate);
   const startFrame = endFrame - Math.floor(LOOP_SECONDS * sampleRate);
@@ -143,7 +143,7 @@ function loopFrames(channels: Float32Array[], sampleRate: number): SustainLoop |
 
 /** How loud the end of a recording is, compared with the second before its loop. */
 function tailLevel(sample: Pick<PackSample, 'channels' | 'sampleRate'>): number {
-  const loop = loopFrames(sample.channels, sample.sampleRate);
+  const loop = findSustainLoop(sample.channels, sample.sampleRate);
   if (!loop) return 0;
   const channel = sample.channels[0];
   const body = rms(channel, loop.startFrame - sample.sampleRate, loop.startFrame);
@@ -158,10 +158,6 @@ function tailLevel(sample: Pick<PackSample, 'channels' | 'sampleRate'>): number 
 export function packSustains(samples: Pick<PackSample, 'channels' | 'sampleRate'>[]): boolean {
   const levels = samples.map(tailLevel).sort((a, b) => a - b);
   return (levels[Math.floor(levels.length / 2)] ?? 0) >= 0.5;
-}
-
-export function findSustainLoop(channels: Float32Array[], sampleRate: number): SustainLoop | null {
-  return loopFrames(channels, sampleRate);
 }
 
 /** Crossfades the end of the loop into the audio just before its start, so the seam is silent. */
