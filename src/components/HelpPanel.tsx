@@ -1,3 +1,4 @@
+import { useAppStore } from '../state/store';
 import { Modal } from './Modal';
 import { DownloadIcon, KeyboardIcon, MusicIcon, SparkIcon } from './Icons';
 
@@ -118,6 +119,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
         </section>
       </div>
       <div className="modal-actions">
+        <button type="button" className="btn" onClick={() => useAppStore.getState().setPanel('about')}>About &amp; credits</button>
         <button type="button" className="btn primary" onClick={onClose}>Start composing</button>
       </div>
     </Modal>

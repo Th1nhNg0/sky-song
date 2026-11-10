@@ -12,7 +12,7 @@ import { RecordIcon } from './Icons';
 const KEY_ROWS = ['QWERT', 'ASDFG', 'ZXCVB'];
 
 /** The computer key for a pad, by its place on the instrument's physical grid. */
-function padKey(instrument: InstrumentDefinition, pad: number): string | null {
+export function padKey(instrument: InstrumentDefinition, pad: number): string | null {
   const { row, col } = instrument.pads[pad];
   return KEY_ROWS[row]?.[col] ?? null;
 }

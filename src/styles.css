@@ -3417,3 +3417,203 @@ body {
   align-items: center;
   gap: 6px;
 }
+
+/* ---------- Sheet ---------- */
+
+.sheet-toolbar {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: -16px -18px 6px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+}
+.sheet-toolbar .btn {
+  flex: 0 0 auto;
+}
+.sheet-play {
+  min-width: 92px;
+  justify-content: center;
+}
+.sheet-track {
+  flex: 0 1 260px;
+  min-width: 150px;
+  min-height: 36px;
+}
+.sheet-toolbar-space {
+  flex: 1 1 auto;
+}
+.sheet-section {
+  margin-top: 14px;
+}
+.sheet-section-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 4px 2px;
+}
+.sheet-section-head h3 {
+  color: var(--ink);
+  font-size: 15px;
+}
+.sheet-section-head span:last-child {
+  color: var(--dim);
+  font-size: var(--text-xs);
+}
+.sheet-section svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.sheet-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 22px;
+  margin-top: 6px;
+  padding: 10px 4px 0;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--text-sm);
+}
+.sheet-key {
+  display: inline-block;
+  width: 11px;
+  height: 11px;
+  margin-right: 4px;
+  border-radius: 3px;
+  background: #6cc4ff;
+  vertical-align: -1px;
+}
+
+.print-root {
+  display: none;
+}
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+  #root {
+    display: none !important;
+  }
+  .print-root {
+    display: block;
+  }
+  .print-page {
+    break-after: page;
+    break-inside: avoid;
+  }
+  .print-page:last-child {
+    break-after: auto;
+  }
+  .print-page svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+}
+
+/* ---------- About ---------- */
+
+.about-hero {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 14px;
+}
+.about-mark {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 211, 138, 0.12);
+  color: var(--accent);
+}
+.about-hero h3 {
+  font-size: 17px;
+  margin-bottom: 4px;
+}
+.about-hero p,
+.about-card p,
+.about-credits li {
+  color: var(--muted);
+  font-size: var(--text-md);
+  line-height: 1.6;
+}
+.about-card {
+  margin-bottom: 10px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: rgba(255, 236, 205, 0.03);
+}
+.about-author {
+  border-color: var(--line-strong);
+  background: linear-gradient(135deg, rgba(255, 211, 138, 0.08), rgba(255, 236, 205, 0.02));
+}
+.about-author h3 {
+  font-size: 20px;
+}
+.about-card .about-sky-name {
+  margin-bottom: 8px;
+  color: var(--accent);
+}
+.about-sky-name strong {
+  font-weight: 620;
+}
+.about-card .about-label {
+  margin-bottom: 4px;
+  color: var(--dim);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+.about-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: 12px;
+}
+.about-links .btn {
+  text-decoration: none;
+}
+.about-credits {
+  display: grid;
+  gap: 8px;
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.about-credits strong {
+  color: var(--ink-soft);
+  font-weight: 600;
+}
+.about-fine {
+  padding: 4px 2px 0;
+  color: var(--dim);
+  font-size: var(--text-xs);
+  line-height: 1.6;
+}
+.welcome-about {
+  padding: 0;
+  color: var(--muted);
+  font-size: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.welcome-about:hover {
+  color: var(--accent);
+}

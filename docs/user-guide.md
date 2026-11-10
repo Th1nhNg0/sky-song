@@ -132,6 +132,16 @@ MIDI.
   folder and open F5 → Music → My songs. Mute and solo are ignored. The export warns
   when the song runs past the 120 s reported for one Shared Memory recording. Notes
   on instruments that can sustain keep their length, so sky-mod holds the key.
+- **Sheet** (top bar, or Export → Sheet): the song as key frames for a player to read.
+  Each frame is one press, and the filled keys go down together. Keys carry the same
+  circle and diamond shapes as in the game, the small number at the left is the bar
+  the line starts on, and bars with nothing to play show as one "rest" cell.
+  - Pick one instrument or **All instruments**, and choose what is written on the
+    keys: shapes, note names, or the computer keyboard letter.
+  - To practise, press **Play** (or Space) and the outline follows the song. Click a
+    frame to hear it and jump there; ← and → step one frame at a time.
+  - **Print or save PDF** makes pages that fit A4 and Letter; choose "Save as PDF" in
+    the print window for a file to share.
 - Every export is generated locally. No cloud service or key is involved.
 - MIDI contains notes, not timbres.
 

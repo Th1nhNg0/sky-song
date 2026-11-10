@@ -3,11 +3,12 @@ import { useAppStore } from '../state/store';
 import { Modal } from './Modal';
 import { downloadProjectFile, estimateProjectJsonSize, exportMidiFile, exportSkyModFile, formatBytes, sanitizeFilename } from '../export/exporters';
 import { SHARED_MEMORY_LIMIT_MS } from '../export/skymod';
-import { DownloadIcon, HelpIcon, SparkIcon } from './Icons';
+import { DownloadIcon, HelpIcon, SheetIcon, SparkIcon } from './Icons';
 
 export function ExportPanel({ onClose }: { onClose: () => void }) {
   const project = useAppStore((state) => state.project);
   const notify = useAppStore((state) => state.notify);
+  const setPanel = useAppStore((state) => state.setPanel);
   const [result, setResult] = useState<{ title: string; lines: string[] } | null>(null);
 
   const noteCount = project.tracks.reduce((sum, track) => sum + track.notes.length, 0);
@@ -65,7 +66,7 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Export" eyebrow="Song file · MIDI · sky-mod" onClose={onClose} size="large">
+    <Modal title="Export" eyebrow="Song file · MIDI · sky-mod · sheet" onClose={onClose} size="large">
       <div className="export-panel">
         <div className="export-grid">
           <article className="export-card">
@@ -90,6 +91,14 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
             <p>A <code>.skymod.json</code> for the separate sky-mod tool, which plays it in the game. Every track shares one count-in.</p>
             <button type="button" className="btn primary" onClick={exportSkyMod}>
               Export for sky-mod
+            </button>
+          </article>
+          <article className="export-card">
+            <div className="export-icon"><SheetIcon size={18} /></div>
+            <h3>Sheet</h3>
+            <p>The song as key frames to read while you play. Print it or save it as a PDF.</p>
+            <button type="button" className="btn primary" onClick={() => setPanel('sheet')}>
+              Open the sheet
             </button>
           </article>
         </div>

@@ -3,6 +3,7 @@ import { useAppStore } from '../state/store';
 import type { PanelKind } from '../state/store';
 import {
   HelpIcon,
+  InfoIcon,
   MoreIcon,
   MusicIcon,
   SettingsIcon,
@@ -77,6 +78,10 @@ export function MoreMenu({ onOpenCatalog }: { onOpenCatalog: () => void }) {
               <HelpIcon size={17} />
               <span>Help</span>
             </button>
+            <button type="button" role="menuitem" onClick={() => openPanel('about')}>
+              <InfoIcon size={17} />
+              <span>About</span>
+            </button>
           </div>
 
           <div className="more-menu-tools">
@@ -105,7 +110,7 @@ export function MoreMenu({ onOpenCatalog }: { onOpenCatalog: () => void }) {
             </label>
           </div>
 
-          <p className="more-menu-footer">Unofficial fan app</p>
+          <p className="more-menu-footer">Made by Th1nhNg0 (WeepingAngel89) · Unofficial fan app</p>
         </div>
       )}
     </div>

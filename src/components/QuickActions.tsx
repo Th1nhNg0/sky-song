@@ -1,7 +1,7 @@
 import type { ChangeEvent } from 'react';
 import { importSongFile, SONG_FILE_ACCEPT } from '../state/importFile';
 import { useAppStore } from '../state/store';
-import { DownloadIcon, LibraryIcon, StarIcon, UploadIcon } from './Icons';
+import { DownloadIcon, LibraryIcon, SheetIcon, StarIcon, UploadIcon } from './Icons';
 
 /** The song-level actions used most often, kept one click away in the top bar. */
 export function QuickActions() {
@@ -47,6 +47,16 @@ export function QuickActions() {
           onChange={(event) => void importFile(event)}
         />
       </label>
+      <button
+        type="button"
+        className="quick-action"
+        onClick={() => setPanel('sheet')}
+        aria-label="Sheet"
+        title="Sheet: read, practise, print or share the song as key frames"
+      >
+        <SheetIcon size={17} />
+        <span>Sheet</span>
+      </button>
       <button
         type="button"
         className="quick-action"

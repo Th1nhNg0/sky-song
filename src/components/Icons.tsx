@@ -255,3 +255,32 @@ export const KeysIcon = (props: IconProps) => (
     <path d="M9.3 5v14M14.7 5v14M4 12h16" />
   </Svg>
 );
+
+export const SheetIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <rect x="3.5" y="5" width="7" height="6" rx="1.6" />
+    <rect x="13.5" y="5" width="7" height="6" rx="1.6" />
+    <rect x="3.5" y="13" width="7" height="6" rx="1.6" />
+    <rect x="13.5" y="13" width="7" height="6" rx="1.6" />
+    <circle cx="7" cy="8" r="0.9" fill="currentColor" stroke="none" />
+    <circle cx="18" cy="8" r="0.9" fill="currentColor" stroke="none" />
+    <circle cx="6" cy="16" r="0.9" fill="currentColor" stroke="none" />
+    <circle cx="16" cy="16" r="0.9" fill="currentColor" stroke="none" />
+  </Svg>
+);
+
+export const PrintIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <path d="M7 8V4h10v4" />
+    <rect x="4" y="8" width="16" height="8" rx="2" />
+    <path d="M7 14h10v6H7z" />
+  </Svg>
+);
+
+export const InfoIcon = (props: IconProps) => (
+  <Svg {...props}>
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 11v5.5" />
+    <circle cx="12" cy="7.8" r="0.6" fill="currentColor" />
+  </Svg>
+);

@@ -80,7 +80,19 @@ export function WelcomePanel() {
           )}
         </div>
 
-        <p className="welcome-note">You can also drop a MIDI or song file anywhere on this window · Unofficial fan app</p>
+        <p className="welcome-note">
+          You can also drop a MIDI or song file anywhere on this window · Unofficial fan app ·{' '}
+          <button
+            type="button"
+            className="welcome-about"
+            onClick={() => {
+              dismiss();
+              setPanel('about');
+            }}
+          >
+            Made by Th1nhNg0 (WeepingAngel89)
+          </button>
+        </p>
       </div>
     </div>
   );

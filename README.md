@@ -46,6 +46,11 @@ Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ri
 - Open one of 23 well-known songs from the built-in song library, already arranged for several Sky instruments.
 - Search by song, artist or instrument, then edit your own copy.
 
+**Read, practise and share**
+- Open the Sheet to see any instrument as key frames, one frame per press, with keys shaped as in the game.
+- Play along while the sheet follows the song, click a frame to hear it, or step through with the arrow keys.
+- Print it or save it as a PDF to share.
+
 **Keep your work**
 - Songs save automatically in your browser. There's no account or server.
 - Import MIDI files, which are arranged onto real game keys.

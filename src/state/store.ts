@@ -17,7 +17,7 @@ import { loadPreferences, savePreferences, type Preferences } from '../storage/p
 
 type SaveState = 'saved' | 'unsaved' | 'saving' | 'error';
 type EditTool = 'select' | 'draw';
-export type PanelKind = 'catalog' | 'library' | 'songs' | 'help' | 'settings' | 'export' | 'tracks' | null;
+export type PanelKind = 'catalog' | 'library' | 'songs' | 'sheet' | 'about' | 'help' | 'settings' | 'export' | 'tracks' | null;
 type ToastKind = 'info' | 'success' | 'warning' | 'error';
 
 interface Toast {

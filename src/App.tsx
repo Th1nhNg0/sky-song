@@ -12,9 +12,11 @@ import { WelcomePanel } from './components/WelcomePanel';
 import { CatalogPanel, type CatalogIntent } from './components/CatalogPanel';
 import { LibraryPanel } from './components/LibraryPanel';
 import { SongbookPanel } from './components/SongbookPanel';
+import { SheetPanel } from './components/SheetPanel';
 import { ExportPanel } from './components/ExportPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { HelpPanel } from './components/HelpPanel';
+import { AboutPanel } from './components/AboutPanel';
 import { TracksPanel } from './components/TracksPanel';
 import { lastOpenedProjectId } from './storage/library';
 import { SparkIcon } from './components/Icons';
@@ -125,9 +127,11 @@ export default function App() {
         {panel === 'catalog' && <CatalogPanel intent={catalogIntent} onClose={() => useAppStore.getState().setPanel(null)} />}
         {panel === 'library' && <LibraryPanel onClose={() => useAppStore.getState().setPanel(null)} />}
         {panel === 'songs' && <SongbookPanel onClose={() => useAppStore.getState().setPanel(null)} />}
+        {panel === 'sheet' && <SheetPanel onClose={() => useAppStore.getState().setPanel(null)} />}
         {panel === 'export' && <ExportPanel onClose={() => useAppStore.getState().setPanel(null)} />}
         {panel === 'settings' && <SettingsPanel onClose={() => useAppStore.getState().setPanel(null)} />}
         {panel === 'help' && <HelpPanel onClose={() => useAppStore.getState().setPanel(null)} />}
+        {panel === 'about' && <AboutPanel onClose={() => useAppStore.getState().setPanel(null)} />}
         {panel === 'tracks' && (
           <TracksPanel
             onOpenCatalog={openCatalog}
