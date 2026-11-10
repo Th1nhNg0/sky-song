@@ -3,7 +3,7 @@ import { useAppStore } from '../state/store';
 import { playback } from '../state/playback';
 import { searchInstruments } from '../music/instruments';
 import { soundSourceInfo } from '../audio/sampleBank';
-import { useSoundBankVersion } from './SoundsPanel';
+import { useSoundBankVersion } from '../state/soundBank';
 import type { SheetPart } from '../music/types';
 import { Modal } from './Modal';
 import { InstrumentIcon } from './InstrumentIcon';

@@ -11,7 +11,6 @@ import {
   useEffect,
   useMemo,
   useState,
-  useSyncExternalStore,
   type ChangeEvent,
   type ReactNode,
 } from 'react';
@@ -20,9 +19,11 @@ import { getKey, midiToSpelledName } from '../music/keys';
 import { resolvePad } from '../music/pitch';
 import { useAppStore } from '../state/store';
 import { playback } from '../state/playback';
+import { useSoundBankVersion } from '../state/soundBank';
 import { analyzeFile, analyzeRecording } from '../audio/slicing';
 import {
   createSoundPack,
+  nearestSample,
   packBytes,
   packFileName,
   packFromJson,
@@ -31,14 +32,11 @@ import {
   type PackSample,
   type SoundPack,
 } from '../audio/soundPack';
-import { nearestSample } from '../audio/soundPack';
 import {
   ensureSoundPacksLoaded,
   getLoadedSoundPacks,
-  getSoundBankVersion,
   refreshSoundPacks,
   soundSourceInfo,
-  subscribeSoundBank,
 } from '../audio/sampleBank';
 import { createSampleVoice } from '../audio/sampleVoice';
 import { getSoundPackStorage } from '../storage/soundPacks';
@@ -94,11 +92,6 @@ async function decodeRecordingFile(file: File): Promise<DecodedRecording> {
     channels,
     durationSeconds: buffer.duration,
   };
-}
-
-/** The active pack / synth state for one instrument, kept live via the bank. */
-export function useSoundBankVersion(): number {
-  return useSyncExternalStore(subscribeSoundBank, getSoundBankVersion, getSoundBankVersion);
 }
 
 /** The active pack / synth state for one instrument, kept live via the bank. */

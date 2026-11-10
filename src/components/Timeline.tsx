@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { firstNoteAt, gridBackground } from '../music/grid';
 import { getInstrument } from '../music/instruments';
@@ -7,9 +7,10 @@ import { resolvePad } from '../music/pitch';
 import { DEFAULT_VELOCITY, isTrackAudible, projectEndBeat } from '../music/project';
 import { beatsPerMeasure, formatBarBeat, snapBeat } from '../music/time';
 import type { Note } from '../music/types';
-import { getSoundBankVersion, soundSourceInfo, subscribeSoundBank } from '../audio/sampleBank';
+import { soundSourceInfo } from '../audio/sampleBank';
 import { LABEL_WIDTH, useClockStore, useViewStore } from '../state/clock';
 import { playback } from '../state/playback';
+import { useSoundBankVersion } from '../state/soundBank';
 import { useAppStore } from '../state/store';
 import { MAX_ZOOM, MIN_ZOOM } from '../storage/preferences';
 import { clamp } from '../util';
@@ -210,7 +211,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
   const [windowStart, setWindowStart] = useState(0);
   const [dragging, setDragging] = useState(false);
   const [marquee, setMarquee] = useState<{ left: number; top: number; width: number; height: number } | null>(null);
-  useSyncExternalStore(subscribeSoundBank, getSoundBankVersion);
+  useSoundBankVersion();
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
