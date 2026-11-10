@@ -6,6 +6,8 @@
  * Detection is a convenience: the UI always lets the user correct the note.
  */
 
+import { clamp } from '../util';
+
 export interface PitchDetectionOptions {
   minFrequency?: number;
   maxFrequency?: number;
@@ -133,7 +135,7 @@ export function detectPitch(
   if (refinedLag <= 0) return null;
   const frequency = sampleRate / refinedLag;
   if (!Number.isFinite(frequency) || frequency < minFrequency || frequency > maxFrequency) return null;
-  const confidence = Math.max(0, Math.min(1, 1 - normalised[bestLag]));
+  const confidence = clamp(1 - normalised[bestLag], 0, 1);
   if (confidence < minConfidence) return null;
   const exactMidi = midiFromFrequency(frequency);
   return {

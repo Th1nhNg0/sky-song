@@ -10,6 +10,7 @@
 
 import { detectPitch, mixToMono, type PitchDetectionOptions, type PitchResult } from './pitchDetect';
 import { normalizeSlice, type PackSample } from './soundPack';
+import { clamp } from '../util';
 
 export interface OnsetDetectionOptions {
   /** Onset threshold relative to the loudest frame, in dB (default -32). */
@@ -72,7 +73,7 @@ interface Envelope {
 
 function percentile(sortedValues: number[], fraction: number): number {
   if (sortedValues.length === 0) return 0;
-  const index = Math.min(sortedValues.length - 1, Math.max(0, Math.floor(fraction * sortedValues.length)));
+  const index = clamp(Math.floor(fraction * sortedValues.length), 0, sortedValues.length - 1);
   return sortedValues[index];
 }
 

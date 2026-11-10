@@ -2,7 +2,18 @@ import { getInstrument, hasInstrument } from './instruments';
 import { MAX_BPM, MIN_BPM, TIME_SIGNATURES } from './time';
 import { CATALOG_VERSION, PROJECT_SCHEMA_VERSION } from './types';
 import type { Note, Project, Track, ValidationIssue, ValidationResult } from './types';
-import { DEFAULT_TITLE, DEFAULT_TRACK_VOLUME, DEFAULT_VELOCITY, defaultLoop, newId, nowIso, sortNotes } from './project';
+import {
+  clampVelocity,
+  DEFAULT_TITLE,
+  DEFAULT_TRACK_VOLUME,
+  DEFAULT_VELOCITY,
+  defaultLoop,
+  MAX_TRACK_VOLUME,
+  newId,
+  nowIso,
+  sortNotes,
+} from './project';
+import { clamp } from '../util';
 
 export const MAX_PROJECT_NOTES = 20000;
 export const MAX_TRACKS = 24;
@@ -131,8 +142,7 @@ function validateNote(
     );
     durationBeats = LIMITS.maxDurationBeats;
   }
-  let velocity = finiteNumber(raw.velocity) ? raw.velocity : DEFAULT_VELOCITY;
-  velocity = Math.min(1, Math.max(0.05, velocity));
+  const velocity = clampVelocity(finiteNumber(raw.velocity) ? raw.velocity : DEFAULT_VELOCITY);
   const note: Note = {
     id,
     pad,
@@ -235,7 +245,7 @@ function validateProject(input: unknown): ValidationResult {
         typeof nameRaw === 'string' && nameRaw.trim()
           ? nameRaw.trim().slice(0, LIMITS.maxTrackNameLength)
           : `${instrument.shortName} · Performer`;
-      const volume = finiteNumber(trackRaw.volume) ? Math.min(1.5, Math.max(0, trackRaw.volume)) : DEFAULT_TRACK_VOLUME;
+      const volume = finiteNumber(trackRaw.volume) ? clamp(trackRaw.volume, 0, MAX_TRACK_VOLUME) : DEFAULT_TRACK_VOLUME;
       const color =
         typeof trackRaw.color === 'string' && /^#[0-9a-f]{6}$/i.test(trackRaw.color) ? trackRaw.color : '#8fd3ff';
       const notesRaw = trackRaw.notes;

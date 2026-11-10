@@ -9,6 +9,7 @@
  */
 
 import { newId } from '../music/project';
+import { clamp, clampNumber } from '../util';
 
 const SOUND_PACK_FORMAT = 'skymusic-soundpack';
 const SOUND_PACK_VERSION = 1;
@@ -257,14 +258,9 @@ function normalizePack(pack: SoundPack): SoundPack {
   };
 }
 
-function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, value));
-}
-
 function clampInt(value: unknown, min: number, max: number): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return min;
-  return Math.min(max, Math.max(min, Math.round(value)));
+  return clamp(Math.round(value), min, max);
 }
 
 /* ------------------------------------------------------------------ */
@@ -324,7 +320,7 @@ function floatToPcm16Base64(channel: Float32Array): string {
   const bytes = new Uint8Array(channel.length * 2);
   const view = new DataView(bytes.buffer);
   for (let i = 0; i < channel.length; i++) {
-    const sample = Math.max(-1, Math.min(1, channel[i]));
+    const sample = clamp(channel[i], -1, 1);
     view.setInt16(i * 2, sample < 0 ? Math.round(sample * 0x8000) : Math.round(sample * 0x7fff), true);
   }
   return bytesToBase64(bytes);

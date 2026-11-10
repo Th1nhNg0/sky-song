@@ -1,3 +1,5 @@
+import { clamp } from '../util';
+
 export interface VoiceGraph {
   input: AudioNode;
   /** Reverb send for this bus. */
@@ -38,7 +40,7 @@ export function createBus(ctx: BaseAudioContext, graph: Pick<MixGraph, 'masterIn
  * above a dry room; 0 still means fully dry.
  */
 export function reverbSendLevel(reverbAmount: number, instrumentSend: number): number {
-  const amount = Math.min(1, Math.max(0, reverbAmount));
+  const amount = clamp(reverbAmount, 0, 1);
   return Math.min(0.85, amount * (0.3 + instrumentSend * 2));
 }
 

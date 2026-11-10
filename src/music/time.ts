@@ -1,5 +1,11 @@
+import { clamp } from '../util';
+
 export const MIN_BPM = 40;
 export const MAX_BPM = 240;
+
+export function clampBpm(bpm: number): number {
+  return clamp(Math.round(bpm), MIN_BPM, MAX_BPM);
+}
 
 export const TIME_SIGNATURES: ReadonlyArray<{ label: string; value: [number, number] }> = [
   { label: '4/4', value: [4, 4] },

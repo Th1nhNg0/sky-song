@@ -1,18 +1,20 @@
 import { create } from 'zustand';
 import { DEFAULT_INSTRUMENT_ID, getInstrument, hasInstrument } from '../music/instruments';
 import {
+  clampVelocity,
   createNote,
   createProject,
   createTrack,
   DEFAULT_TITLE,
   DEFAULT_VELOCITY,
+  MAX_TRACK_VOLUME,
   newId,
   nowIso,
   renameForInstrument,
   sortNotes,
   TRACK_COLORS,
 } from '../music/project';
-import { MAX_BPM, MIN_BPM, snapBeat } from '../music/time';
+import { clampBpm, snapBeat } from '../music/time';
 import type { LoopRegion, Note, Project, Track } from '../music/types';
 import { MAX_TITLE_LENGTH, MAX_TRACK_NAME_LENGTH, MAX_TRACKS, parseProjectJson, ProjectImportError } from '../music/validation';
 import {
@@ -25,6 +27,7 @@ import {
 } from '../storage/library';
 import { midiToProject, trimToNoteLimit } from '../music/midiImport';
 import { loadPreferences, savePreferences, type Preferences } from '../storage/preferences';
+import { clamp } from '../util';
 
 export type SaveState = 'saved' | 'unsaved' | 'saving' | 'error';
 type EditTool = 'select' | 'draw';
@@ -403,7 +406,7 @@ export const useAppStore = create<AppState>()((set, get) => {
   },
   setBpm: (bpm) => {
     if (!Number.isFinite(bpm)) return;
-    const value = Math.round(Math.min(MAX_BPM, Math.max(MIN_BPM, bpm)));
+    const value = clampBpm(bpm);
     if (get().project.bpm !== value) commit({ ...get().project, bpm: value });
   },
   setMeter: (meter) => {
@@ -526,7 +529,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     commit(replaceTrack(get().project, id, (track) => ({ ...track, solo: !track.solo })));
   },
   setTrackVolume: (id, volume) => {
-    const value = Math.min(1.5, Math.max(0, volume));
+    const value = clamp(volume, 0, MAX_TRACK_VOLUME);
     // A drag is one undo step (its gesture records it); a key press is a step of its own.
     commit(replaceTrack(get().project, id, (track) => ({ ...track, volume: value })), {}, get().gesture === null);
   },
@@ -617,7 +620,7 @@ export const useAppStore = create<AppState>()((set, get) => {
   setSelectionVelocity: (velocity) => {
     const state = get();
     const ids = new Set(state.selectedNoteIds);
-    const value = Math.min(1, Math.max(0.05, velocity));
+    const value = clampVelocity(velocity);
     commit(
       replaceTrack(state.project, state.activeTrackId, (track) => ({
         ...track,
@@ -652,7 +655,7 @@ export const useAppStore = create<AppState>()((set, get) => {
     if (!track) return;
     const instrument = getInstrument(track.instrumentId);
     if (!instrument.supportsHold) return;
-    const next = Math.min(instrument.maxHoldBeats, Math.max(0.1, roundBeat(durationBeats)));
+    const next = clamp(roundBeat(durationBeats), 0.1, instrument.maxHoldBeats);
     const notes = track.notes.map((note) => (note.id === noteId ? { ...note, durationBeats: next } : note));
     commit(replaceTrack(state.project, track.id, (item) => ({ ...item, notes })), {}, false);
   },

@@ -4,6 +4,7 @@ import type { InstrumentDefinition, PercussionVoiceId, SoundProfileId } from '..
 import { getNoiseBuffer, hashString, mulberry32 } from './random';
 import { resolveSampleForNote } from './sampleBank';
 import { createSampleVoice } from './sampleVoice';
+import { clamp } from '../util';
 
 type PartialSpec = readonly [ratio: number, amplitude: number, decayScale?: number];
 
@@ -788,10 +789,6 @@ function safeStop(source: AudioScheduledSourceNode, when: number): void {
   } catch {
     // Already stopped or never started; nothing to do.
   }
-}
-
-function clamp(value: number, min: number, max: number): number {
-  return Math.min(max, Math.max(min, value));
 }
 
 function createNoiseHit(

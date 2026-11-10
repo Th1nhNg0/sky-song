@@ -4,9 +4,10 @@ import { getInstrument, INSTRUMENTS } from './instruments';
 import { pitchClass } from './keys';
 import { resolvePad } from './pitch';
 import { createProject, createTrack, newId, sortNotes } from './project';
-import { MAX_BPM, MIN_BPM, TIME_SIGNATURES } from './time';
+import { clampBpm, TIME_SIGNATURES } from './time';
 import type { InstrumentDefinition, Note, Project } from './types';
 import { MAX_PROJECT_NOTES, MAX_TRACK_NAME_LENGTH } from './validation';
+import { clamp } from '../util';
 
 interface SourceNote {
   midi: number;
@@ -168,7 +169,7 @@ function placeNotes(notes: SourceNote[], instrument: InstrumentDefinition, grid:
       pad,
       startBeat,
       durationBeats: Math.max(grid, snap(note.durationBeats, grid)),
-      velocity: Math.max(0.2, Math.min(1, note.velocity)),
+      velocity: clamp(note.velocity, 0.2, 1),
     });
   });
   const placed = [...chords.values()].flatMap((chord) =>
@@ -324,10 +325,6 @@ function clearClashes(parts: Part[], grid: number): Part[] {
   return parts
     .map((part) => ({ ...part, notes: part.notes.filter((note) => kept.has(note)) }))
     .filter((part) => part.notes.length > 0);
-}
-
-function clampBpm(bpm: number): number {
-  return Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(bpm)));
 }
 
 /**

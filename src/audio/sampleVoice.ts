@@ -8,6 +8,7 @@
 import type { SampleSelection } from './sampleBank';
 import { findSustainLoop, joinSustainLoop, packSustains, type SustainLoop } from './soundPack';
 import type { NoteVoiceSpec, SynthVoice } from './synth';
+import { clamp } from '../util';
 
 const SAMPLE_LEVEL = 0.3;
 
@@ -75,7 +76,7 @@ export function createSampleVoice(
   sampleVoicesCreated += 1;
   const frames = sample.channels[0]?.length ?? 0;
   const start = Math.max(options.start, ctx.currentTime + 0.002);
-  const velocity = Math.max(0.02, Math.min(1, options.velocity));
+  const velocity = clamp(options.velocity, 0.02, 1);
   const source = ctx.createBufferSource();
   const { buffer, loop } = getSampleBuffer(ctx, selection, spec.instrument.supportsHold);
   source.buffer = buffer;
@@ -102,7 +103,7 @@ export function createSampleVoice(
     start + attack + 0.01,
     Math.min(start + naturalDuration, spec.instrument.supportsHold ? holdEnd + release : start + naturalDuration),
   );
-  const fade = spec.instrument.supportsHold ? Math.min(0.35, Math.max(0.02, stopAt - start - attack)) : 0.03;
+  const fade = spec.instrument.supportsHold ? clamp(stopAt - start - attack, 0.02, 0.35) : 0.03;
 
   gain.gain.setValueAtTime(0.0001, start);
   gain.gain.linearRampToValueAtTime(level, start + attack);

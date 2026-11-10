@@ -1,6 +1,7 @@
 import { DEFAULT_INSTRUMENT_ID, getInstrument } from './instruments';
 import { CATALOG_VERSION, PROJECT_SCHEMA_VERSION } from './types';
 import type { LoopRegion, Note, Project, Track } from './types';
+import { clamp } from '../util';
 
 export const TRACK_COLORS = [
   '#8fd3ff',
@@ -16,6 +17,7 @@ export const TRACK_COLORS = [
 export const DEFAULT_TITLE = 'Untitled Song';
 export const DEFAULT_VELOCITY = 0.85;
 export const DEFAULT_TRACK_VOLUME = 0.85;
+export const MAX_TRACK_VOLUME = 1.5;
 
 const ID_ALPHABET = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -38,6 +40,10 @@ export function nowIso(): string {
   return new Date().toISOString();
 }
 
+export function clampVelocity(velocity: number): number {
+  return clamp(velocity, 0.05, 1);
+}
+
 export function createNote(
   pad: number,
   startBeat: number,
@@ -49,7 +55,7 @@ export function createNote(
     pad,
     startBeat: Math.max(0, startBeat),
     durationBeats: Math.max(0.05, durationBeats),
-    velocity: Math.min(1, Math.max(0.05, velocity)),
+    velocity: clampVelocity(velocity),
   };
 }
 

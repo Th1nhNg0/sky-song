@@ -12,6 +12,7 @@ import { LABEL_WIDTH, useClockStore, useViewStore } from '../state/clock';
 import { playback } from '../state/playback';
 import { useAppStore } from '../state/store';
 import { MAX_ZOOM, MIN_ZOOM } from '../storage/preferences';
+import { clamp } from '../util';
 import type { CatalogIntent } from './CatalogPanel';
 import {
   CheckIcon,
@@ -237,7 +238,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
     openRows +
     (project.tracks.length - (minimized ? 0 : 1)) * LANE_HEIGHT +
     ADD_ROW_HEIGHT;
-  const rowHeight = Math.max(MIN_ROW, Math.min(MAX_ROW, Math.floor((viewHeight - chrome) / keyCount)));
+  const rowHeight = clamp(Math.floor((viewHeight - chrome) / keyCount), MIN_ROW, MAX_ROW);
   const rollHeight = keyCount * rowHeight;
   const noteSize = Math.min(NOTE_SIZE, rowHeight - 4);
   // Zoomed far out, dots would overlap into a blur, so notes become slim unlabelled marks.
@@ -334,7 +335,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
           const scroll = scrollRef.current;
           if (!scroll) return;
           const current = useAppStore.getState().preferences.zoom;
-          const value = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.round(next * 100) / 100));
+          const value = clamp(Math.round(next * 100) / 100, MIN_ZOOM, MAX_ZOOM);
           if (value === current) return;
           const left = scroll.getBoundingClientRect().left + LABEL_WIDTH;
           const offset = anchorClientX !== undefined ? Math.max(0, anchorClientX - left) : scroll.clientWidth / 3;
@@ -346,7 +347,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
           const scroll = scrollRef.current;
           if (!scroll) return;
           const width = scroll.clientWidth - LABEL_WIDTH - 24;
-          const value = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, Math.floor((width / projectEndBeat(song)) * 100) / 100));
+          const value = clamp(Math.floor((width / projectEndBeat(song)) * 100) / 100, MIN_ZOOM, MAX_ZOOM);
           zoomAnchorRef.current = { beat: 0, offset: 0 };
           useAppStore.getState().setPreferences({ zoom: value });
           scroll.scrollLeft = 0;
@@ -382,7 +383,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
       const rect = gridRef.current?.getBoundingClientRect();
       if (!rect) return null;
       const beat = Math.max(0, (clientX - rect.left) / px);
-      const pad = Math.min(keyCount - 1, Math.max(0, Math.floor((clientY - rect.top) / rowHeight)));
+      const pad = clamp(Math.floor((clientY - rect.top) / rowHeight), 0, keyCount - 1);
       return { beat, pad, snapped: snap > 0 ? snapBeat(beat, snap) : beat, x: clientX - rect.left, y: clientY - rect.top };
     },
     [px, keyCount, rowHeight, snap],
@@ -538,7 +539,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
         const landed = snap > 0 && !event.shiftKey ? snapBeat(target, snap) : target;
         const deltaPad = Math.round((event.clientY - drag.startY) / rowHeight);
         store.dragSelectedNotes(drag.originals, landed - drag.anchor.startBeat, deltaPad);
-        const pad = Math.max(0, Math.min(keyCount - 1, drag.anchor.pad + deltaPad));
+        const pad = clamp(drag.anchor.pad + deltaPad, 0, keyCount - 1);
         useViewStore.setState({ hover: { beat: landed, pad } });
         if (pad !== lastPadRef.current) {
           lastPadRef.current = pad;
@@ -552,7 +553,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
         const rect = gridRef.current?.getBoundingClientRect();
         if (!rect) return;
         const x = Math.max(0, event.clientX - rect.left);
-        const y = Math.min(Math.max(0, event.clientY - rect.top), rollHeight);
+        const y = clamp(event.clientY - rect.top, 0, rollHeight);
         setMarquee({
           left: Math.min(drag.x1, x),
           top: Math.min(drag.y1, y),

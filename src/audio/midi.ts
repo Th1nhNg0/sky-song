@@ -1,6 +1,7 @@
 import { getInstrument } from '../music/instruments';
 import { resolvePad } from '../music/pitch';
 import type { Project, SoundProfileId } from '../music/types';
+import { clamp } from '../util';
 
 const TICKS_PER_BEAT = 480;
 
@@ -90,11 +91,11 @@ function textMeta(type: number, text: string): number[] {
 }
 
 function noteOn(channel: number, note: number, velocity: number): number[] {
-  return [0x90 | (channel & 0x0f), Math.max(0, Math.min(127, note)), Math.max(1, Math.min(127, velocity))];
+  return [0x90 | (channel & 0x0f), clamp(note, 0, 127), clamp(velocity, 1, 127)];
 }
 
 function noteOff(channel: number, note: number): number[] {
-  return [0x80 | (channel & 0x0f), Math.max(0, Math.min(127, note)), 64];
+  return [0x80 | (channel & 0x0f), clamp(note, 0, 127), 64];
 }
 
 function encodeTrack(events: MidiEvent[]): Uint8Array {
@@ -220,7 +221,7 @@ export function exportProjectToMidi(project: Project): MidiExportResult {
       if (midiNote === null) continue;
       const startTick = Math.round(note.startBeat * TICKS_PER_BEAT);
       const endTick = Math.max(startTick + 1, Math.round((note.startBeat + note.durationBeats) * TICKS_PER_BEAT));
-      const velocity = Math.max(1, Math.min(127, Math.round(note.velocity * 127)));
+      const velocity = clamp(Math.round(note.velocity * 127), 1, 127);
       events.push({ tick: startTick, priority: 3, bytes: noteOn(channel, midiNote, velocity) });
       events.push({ tick: endTick, priority: 0, bytes: noteOff(channel, midiNote) });
       noteCount++;

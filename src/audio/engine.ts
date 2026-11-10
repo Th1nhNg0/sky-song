@@ -1,6 +1,7 @@
 import { isTrackAudible } from '../music/project';
 import { getInstrument } from '../music/instruments';
 import type { InstrumentDefinition, Project } from '../music/types';
+import { clamp } from '../util';
 import {
   createBus,
   createMixGraph,
@@ -170,7 +171,7 @@ export class AudioEngine implements PlaybackEngine {
   }
 
   setReverbAmount(amount: number): void {
-    this.reverbAmount = Math.min(1, Math.max(0, amount));
+    this.reverbAmount = clamp(amount, 0, 1);
     if (!this.graph || !this.ctx) return;
     const at = this.ctx.currentTime;
     this.graph.reverbReturn.gain.setTargetAtTime(0.6 + this.reverbAmount * 1.1, at, 0.05);
@@ -182,7 +183,7 @@ export class AudioEngine implements PlaybackEngine {
   }
 
   setMasterVolume(volume: number): void {
-    this.masterVolume = Math.min(1, Math.max(0, volume));
+    this.masterVolume = clamp(volume, 0, 1);
     if (!this.graph || !this.ctx) return;
     this.graph.masterIn.gain.setTargetAtTime(this.masterVolume * 0.9, this.ctx.currentTime, 0.05);
   }

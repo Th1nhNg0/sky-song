@@ -43,6 +43,7 @@ import {
 import { createSampleVoice } from '../audio/sampleVoice';
 import { getSoundPackStorage } from '../storage/soundPacks';
 import { downloadBlob } from '../export/exporters';
+import { clamp } from '../util';
 
 interface DecodedRecording {
   fileName: string;
@@ -181,7 +182,7 @@ export function SoundsPanel() {
       current.map((sample, i) => {
         if (i !== index) return sample;
         const base = sample.midi ?? sample.detectedMidi ?? 60;
-        return { ...sample, midi: Math.min(127, Math.max(0, base + delta)) };
+        return { ...sample, midi: clamp(base + delta, 0, 127) };
       }),
     );
   };
@@ -684,7 +685,7 @@ export function SoundsPanel() {
                         value={sample.midi ?? ''}
                         onChange={(event) => {
                           const value = event.target.value === '' ? null : Number(event.target.value);
-                          updateSample(index, { midi: value === null ? null : Math.min(127, Math.max(0, Math.round(value))) });
+                          updateSample(index, { midi: value === null ? null : clamp(Math.round(value), 0, 127) });
                         }}
                         aria-label={`Note for sample ${index + 1}`}
                       />

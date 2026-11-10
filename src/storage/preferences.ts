@@ -1,3 +1,5 @@
+import { clamp, clampNumber } from '../util';
+
 export interface Preferences {
   reverbAmount: number;
   masterVolume: number;
@@ -41,7 +43,7 @@ function normalizePreferences(raw: unknown): Preferences {
     metronomeEnabled: typeof source.metronomeEnabled === 'boolean' ? source.metronomeEnabled : false,
     countInMeasures:
       typeof source.countInMeasures === 'number' && Number.isInteger(source.countInMeasures)
-        ? Math.min(4, Math.max(0, source.countInMeasures))
+        ? clamp(source.countInMeasures, 0, 4)
         : DEFAULT_PREFERENCES.countInMeasures,
     latencyOffsetMs: clampNumber(source.latencyOffsetMs, -500, 500, 0),
     onboardingDone: Boolean(source.onboardingDone),
@@ -52,11 +54,6 @@ function normalizePreferences(raw: unknown): Preferences {
     notePreview: source.notePreview !== false,
     stepInput: source.stepInput === true,
   };
-}
-
-function clampNumber(value: unknown, min: number, max: number, fallback: number): number {
-  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
-  return Math.min(max, Math.max(min, value));
 }
 
 export function loadPreferences(): Preferences {
