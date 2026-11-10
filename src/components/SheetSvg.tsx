@@ -1,4 +1,5 @@
 import { memo, useId, type MouseEvent, type Ref } from 'react';
+import { isTonicDegree } from '../music/keys';
 import { resolvePad } from '../music/pitch';
 import type { SheetGeometry, SheetLine } from '../music/sheet';
 import type { InstrumentDefinition } from '../music/types';
@@ -97,7 +98,7 @@ type KeyShape = 'circle' | 'diamond' | 'both';
  */
 function keyShape(instrument: InstrumentDefinition, pad: number): KeyShape {
   const { degree, col } = instrument.pads[pad];
-  if (degree !== null && (degree - 1) % 7 === 0) return 'both';
+  if (isTonicDegree(degree)) return 'both';
   return instrument.padLayout.cols === 5 && col % 2 === 1 ? 'diamond' : 'circle';
 }
 

@@ -27,6 +27,7 @@ import {
   packFileName,
   packFromJson,
   packToJson,
+  playbackRateFor,
   type PackSample,
   type SoundPack,
 } from '../audio/soundPack';
@@ -320,7 +321,6 @@ export function SoundsPanel() {
     const graph = playback.engine.graph;
     if (!ok || !ctx || !graph) return;
     const start = ctx.currentTime + 0.02;
-    const rate = Math.pow(2, (resolved.midi - (sample.midi ?? resolved.midi)) / 12);
     createSampleVoice(
       ctx,
       {
@@ -332,7 +332,7 @@ export function SoundsPanel() {
         velocity: 0.85,
         destination: graph.previewBus.input,
       },
-      { pack: activePack, sample, targetMidi: resolved.midi, playbackRate: rate },
+      { pack: activePack, sample, targetMidi: resolved.midi, playbackRate: playbackRateFor(sample, resolved.midi) },
       { start, velocity: 0.85 },
     );
   };

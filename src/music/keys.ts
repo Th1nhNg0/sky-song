@@ -65,9 +65,19 @@ export function keyShortLabel(index: number): string {
   return key.name === key.altName ? key.name : `${key.name}/${key.altName}`;
 }
 
+/** Pitch class 0..11 of a MIDI note, C = 0. */
+export function pitchClass(midi: number): number {
+  return ((midi % 12) + 12) % 12;
+}
+
+/** True for the key's home note in any octave: scale degrees 1, 8 and 15. */
+export function isTonicDegree(degree: number | null): boolean {
+  return degree !== null && (degree - 1) % 7 === 0;
+}
+
 /** Note name (letter + accidental) without octave for a MIDI note in a key. */
 export function midiToSpelledName(midi: number, key: MusicKey): string {
-  const pc = ((midi % 12) + 12) % 12;
+  const pc = pitchClass(midi);
   // Find a degree spelling matching the pitch class; fall back to sharps.
   for (let degree = 1; degree <= 15; degree++) {
     const name = key.degreeNames[degree - 1];
@@ -110,7 +120,7 @@ function spelledPitchClass(name: string): number {
 
 function pcName(pc: number): string {
   const names = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
-  return names[((pc % 12) + 12) % 12];
+  return names[pitchClass(pc)];
 }
 
 /** Scale degree 1..15 for a diatonic semitone offset above the tonic, if diatonic. */

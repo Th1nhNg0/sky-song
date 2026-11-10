@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { MouseEvent as ReactMouseEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { firstNoteAt, gridBackground } from '../music/grid';
 import { getInstrument } from '../music/instruments';
+import { isTonicDegree } from '../music/keys';
 import { resolvePad } from '../music/pitch';
 import { DEFAULT_VELOCITY, isTrackAudible, projectEndBeat } from '../music/project';
 import { beatsPerMeasure, formatBarBeat, snapBeat } from '../music/time';
@@ -635,7 +636,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
             type="button"
             key={pad}
             data-pad={pad}
-            className={`roll-label ${Math.floor(pad / cols) % 2 === 1 ? 'group-alt' : ''} ${name.degree && (name.degree - 1) % 7 === 0 ? 'is-tonic' : ''}`}
+            className={`roll-label ${Math.floor(pad / cols) % 2 === 1 ? 'group-alt' : ''} ${isTonicDegree(name.degree) ? 'is-tonic' : ''}`}
             style={{ height: rowHeight }}
             tabIndex={-1}
             onPointerDown={() => void playback.previewPad(instrument.id, pad, 0.8, true)}
@@ -659,7 +660,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
         {padNames.map((name, pad) => (
           <div
             key={pad}
-            className={`roll-row-bg ${Math.floor(pad / cols) % 2 === 1 ? 'group-alt' : ''} ${name.degree && (name.degree - 1) % 7 === 0 ? 'is-tonic' : ''}`}
+            className={`roll-row-bg ${Math.floor(pad / cols) % 2 === 1 ? 'group-alt' : ''} ${isTonicDegree(name.degree) ? 'is-tonic' : ''}`}
             style={{ top: pad * rowHeight, height: rowHeight }}
             aria-hidden="true"
           />

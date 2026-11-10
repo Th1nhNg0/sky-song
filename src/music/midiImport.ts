@@ -1,6 +1,7 @@
 import { Midi } from '@tonejs/midi';
 import { midiSafeText } from '../audio/midi';
 import { getInstrument, INSTRUMENTS } from './instruments';
+import { pitchClass } from './keys';
 import { resolvePad } from './pitch';
 import { createProject, createTrack, newId, sortNotes } from './project';
 import { MAX_BPM, MIN_BPM, TIME_SIGNATURES } from './time';
@@ -109,7 +110,7 @@ function bestTranspose(notes: SourceNote[]): number {
   for (const shift of [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6]) {
     let score = 0;
     for (const note of notes) {
-      if (C_MAJOR.has((((note.midi + shift) % 12) + 12) % 12)) score += note.durationBeats;
+      if (C_MAJOR.has(pitchClass(note.midi + shift))) score += note.durationBeats;
     }
     if (score > bestScore) {
       best = shift;
@@ -307,7 +308,7 @@ function clearClashes(parts: Part[], grid: number): Part[] {
     if (!held || note.velocity > held.velocity) loudest.set(key, note);
   }
   const clear = parts.flatMap((part) => part.notes).filter((note) => {
-    const offScale = !C_MAJOR.has((((note.pitch ?? note.midi) % 12) + 12) % 12);
+    const offScale = !C_MAJOR.has(pitchClass(note.pitch ?? note.midi));
     if (offScale && (sizes.get(at(note)) ?? 0) >= 3) return false;
     return loudest.get(`${at(note)}:${note.pitch}`) === note;
   });

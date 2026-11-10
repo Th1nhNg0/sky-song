@@ -1,3 +1,4 @@
+import { midiToFrequency } from '../music/keys';
 import { resolvePad } from '../music/pitch';
 import type { InstrumentDefinition, PercussionVoiceId, SoundProfileId } from '../music/types';
 import { getNoiseBuffer, hashString, mulberry32 } from './random';
@@ -965,7 +966,7 @@ export function createNoteVoice(ctx: BaseAudioContext, spec: NoteVoiceSpec): Syn
   }
 
   const midi = resolved.midi!;
-  const frequency = 440 * Math.pow(2, (midi - 69) / 12);
+  const frequency = midiToFrequency(midi);
   const voiceDetune = spec.instrument.detuneCents;
   const filter = ctx.createBiquadFilter();
   filter.type = 'lowpass';

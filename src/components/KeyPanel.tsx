@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { firstNoteAt } from '../music/grid';
 import { getInstrument } from '../music/instruments';
+import { isTonicDegree } from '../music/keys';
 import { resolvePad } from '../music/pitch';
 import { snapBeat } from '../music/time';
 import type { InstrumentDefinition } from '../music/types';
@@ -101,7 +102,7 @@ export function KeyPanel() {
         {instrument.pads.map((pad) => {
           const resolved = resolvePad(instrument, projectKey, pad.index);
           const key = padKey(instrument, pad.index);
-          const tonic = pad.degree !== null && (pad.degree - 1) % 7 === 0;
+          const tonic = isTonicDegree(pad.degree);
           return (
             <button
               type="button"
