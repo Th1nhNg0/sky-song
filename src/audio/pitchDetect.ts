@@ -30,14 +30,14 @@ function midiFromFrequency(frequency: number): number {
   return 69 + 12 * Math.log2(frequency / 440);
 }
 
-function monoMix(channels: Float32Array[]): Float32Array {
+export function mixToMono(channels: Float32Array[]): Float32Array {
+  if (channels.length === 0) return new Float32Array(0);
   if (channels.length === 1) return channels[0];
   const frames = Math.min(...channels.map((channel) => channel.length));
   const mono = new Float32Array(frames);
   for (const channel of channels) {
-    for (let i = 0; i < frames; i++) mono[i] += channel[i];
+    for (let i = 0; i < frames; i++) mono[i] += channel[i] / channels.length;
   }
-  for (let i = 0; i < frames; i++) mono[i] /= channels.length;
   return mono;
 }
 
@@ -48,7 +48,7 @@ export function detectPitch(
 ): PitchResult | null {
   const channels = Array.isArray(input) ? input : [input];
   if (channels.length === 0 || sampleRate <= 0) return null;
-  const mono = monoMix(channels);
+  const mono = mixToMono(channels);
   const minFrequency = options.minFrequency ?? 55;
   const maxFrequency = options.maxFrequency ?? 2100;
   const minConfidence = options.minConfidence ?? 0.3;

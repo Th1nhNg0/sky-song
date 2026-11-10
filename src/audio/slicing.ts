@@ -8,7 +8,7 @@
  * detected note, so a failed onset is recoverable rather than silently wrong.
  */
 
-import { detectPitch, type PitchResult } from './pitchDetect';
+import { detectPitch, mixToMono, type PitchDetectionOptions, type PitchResult } from './pitchDetect';
 import { normalizeSlice, type PackSample } from './soundPack';
 
 export interface OnsetDetectionOptions {
@@ -51,16 +51,14 @@ const DEFAULTS: Required<OnsetDetectionOptions> = {
   detectPitches: true,
 };
 
-function mixToMono(channels: Float32Array[]): Float32Array {
-  if (channels.length === 0) return new Float32Array(0);
-  if (channels.length === 1) return channels[0];
-  const frames = Math.min(...channels.map((channel) => channel.length));
-  const mono = new Float32Array(frames);
-  for (const channel of channels) {
-    for (let i = 0; i < frames; i++) mono[i] += channel[i] / channels.length;
-  }
-  return mono;
-}
+/** Wider and more forgiving than the detector's defaults: game recordings are breathy and reach low. */
+const SLICE_PITCH_OPTIONS: PitchDetectionOptions = {
+  minFrequency: 45,
+  maxFrequency: 2600,
+  minConfidence: 0.18,
+  skipSeconds: 0.015,
+  windowSeconds: 0.12,
+};
 
 interface Envelope {
   rms: Float32Array;
@@ -237,13 +235,7 @@ export function analyzeRecording(
     sample.sourceStartSeconds = slice.startSeconds;
     sample.durationSeconds = slice.durationSeconds;
     const pitch = config.detectPitches
-      ? detectPitch(sample.channels, sampleRate, {
-          minFrequency: 45,
-          maxFrequency: 2600,
-          minConfidence: 0.18,
-          skipSeconds: 0.015,
-          windowSeconds: 0.12,
-        })
+      ? detectPitch(sample.channels, sampleRate, SLICE_PITCH_OPTIONS)
       : null;
     if (pitch) {
       sample.midi = pitch.midi;
@@ -263,13 +255,7 @@ export function analyzeFile(
   const sample = normalizeSlice(channels, sampleRate);
   sample.durationSeconds = sample.channels[0] ? sample.channels[0].length / sampleRate : 0;
   const pitch = detect
-    ? detectPitch(sample.channels, sampleRate, {
-        minFrequency: 45,
-        maxFrequency: 2600,
-        minConfidence: 0.18,
-        skipSeconds: 0.015,
-        windowSeconds: 0.12,
-      })
+    ? detectPitch(sample.channels, sampleRate, SLICE_PITCH_OPTIONS)
     : null;
   if (pitch) {
     sample.midi = pitch.midi;
