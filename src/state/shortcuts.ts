@@ -1,5 +1,6 @@
 import { padForKey, pressPad } from '../components/KeyPanel';
 import { getInstrument } from '../music/instruments';
+import { lastNoteEnd } from '../music/project';
 import { beatsPerMeasure } from '../music/time';
 import { useViewStore } from './clock';
 import { playback } from './playback';
@@ -82,11 +83,7 @@ export function handleShortcut(event: KeyboardEvent): void {
     arrowup: () => arrow(event),
     arrowdown: () => arrow(event),
     home: () => playback.seek(0),
-    // Notes are sorted by start, so a long early note can end after the last one starts.
-    end: () => playback.seek(useAppStore.getState().project.tracks.reduce(
-      (end, track) => track.notes.reduce((last, note) => Math.max(last, note.startBeat + note.durationBeats), end),
-      0,
-    )),
+    end: () => playback.seek(lastNoteEnd(useAppStore.getState().project)),
     1: () => state.setEditTool('draw'),
     2: () => state.setEditTool('select'),
     k: () => state.setPreferences({ keysOpen: !state.preferences.keysOpen }),

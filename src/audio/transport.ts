@@ -1,4 +1,5 @@
 import { getInstrument } from '../music/instruments';
+import { lastNoteEnd } from '../music/project';
 import { beatsPerMeasure, beatsToSeconds } from '../music/time';
 import type { Project } from '../music/types';
 import type { PlaybackEngine } from './engine';
@@ -115,7 +116,7 @@ export class Transport {
     }
     events.sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
     this.events = events;
-    this.contentEndBeat = Math.max(4, Math.ceil(this.contentEnd(project)));
+    this.contentEndBeat = Math.max(4, Math.ceil(lastNoteEnd(project)));
     this.bps = project.bpm / 60;
     const latency = (this.getSettings().latencyOffsetMs ?? 0) / 1000;
     const hardware = this.engine.outputLatencySeconds?.() ?? 0;
@@ -127,14 +128,6 @@ export class Transport {
     const clickEnd = Math.ceil(project.loop.endBeat - EPSILON);
     this.loopClicks = [];
     for (let beat = clickStart; beat < clickEnd; beat++) this.loopClicks.push(beat);
-  }
-
-  private contentEnd(project: Project): number {
-    let end = 0;
-    for (const track of project.tracks) {
-      for (const note of track.notes) end = Math.max(end, note.startBeat + note.durationBeats);
-    }
-    return Math.max(4, end);
   }
 
   private rebuild(): void {

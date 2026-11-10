@@ -104,15 +104,23 @@ export function createProject(options: { title?: string; bpm?: number; key?: num
   };
 }
 
-/** Last meaningful beat; minimum four bars so the timeline always has room. */
-export function projectEndBeat(project: Project): number {
+/**
+ * Beat where the last note ends; 0 for an empty song. Notes are sorted by start, so a
+ * long early note can end after the last one starts.
+ */
+export function lastNoteEnd(project: Project): number {
   let end = 0;
   for (const track of project.tracks) {
     for (const note of track.notes) {
       end = Math.max(end, note.startBeat + note.durationBeats);
     }
   }
-  return Math.max(16, Math.ceil(end));
+  return end;
+}
+
+/** Last meaningful beat; minimum four bars so the timeline always has room. */
+export function projectEndBeat(project: Project): number {
+  return Math.max(16, Math.ceil(lastNoteEnd(project)));
 }
 
 function anySolo(project: Project): boolean {
