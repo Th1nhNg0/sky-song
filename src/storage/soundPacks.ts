@@ -9,6 +9,7 @@
  */
 
 import type { SoundPack } from '../audio/soundPack';
+import { openStoreDatabase } from './indexedDb';
 
 export interface SoundPackStorage {
   readonly kind: 'indexeddb' | 'memory';
@@ -37,28 +38,7 @@ function clonePack(pack: SoundPack): SoundPack {
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
 function openDatabase(): Promise<IDBDatabase | null> {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve) => {
-    if (typeof indexedDB === 'undefined') {
-      resolve(null);
-      return;
-    }
-    try {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          const store = db.createObjectStore(STORE, { keyPath: 'id' });
-          store.createIndex('updatedAt', 'updatedAt');
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => resolve(null);
-      request.onblocked = () => resolve(null);
-    } catch {
-      resolve(null);
-    }
-  });
+  dbPromise ??= openStoreDatabase(DB_NAME, DB_VERSION, STORE);
   return dbPromise;
 }
 

@@ -1,6 +1,7 @@
 import type { Project } from '../music/types';
 import { parseProjectJson } from '../music/validation';
 import { newId, nowIso, projectToJson } from '../music/project';
+import { openStoreDatabase } from './indexedDb';
 
 const DB_NAME = 'sky-music-studio';
 const DB_VERSION = 1;
@@ -28,28 +29,7 @@ interface StoredProject extends LibraryEntry {
 let dbPromise: Promise<IDBDatabase | null> | null = null;
 
 function openDatabase(): Promise<IDBDatabase | null> {
-  if (dbPromise) return dbPromise;
-  dbPromise = new Promise((resolve) => {
-    if (typeof indexedDB === 'undefined') {
-      resolve(null);
-      return;
-    }
-    try {
-      const request = indexedDB.open(DB_NAME, DB_VERSION);
-      request.onupgradeneeded = () => {
-        const db = request.result;
-        if (!db.objectStoreNames.contains(STORE)) {
-          const store = db.createObjectStore(STORE, { keyPath: 'id' });
-          store.createIndex('updatedAt', 'updatedAt');
-        }
-      };
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = () => resolve(null);
-      request.onblocked = () => resolve(null);
-    } catch {
-      resolve(null);
-    }
-  });
+  dbPromise ??= openStoreDatabase(DB_NAME, DB_VERSION, STORE);
   return dbPromise;
 }
 
