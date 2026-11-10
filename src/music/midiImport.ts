@@ -329,6 +329,34 @@ function clampBpm(bpm: number): number {
   return Math.min(MAX_BPM, Math.max(MIN_BPM, Math.round(bpm)));
 }
 
+/**
+ * The tempo the song spends the most time in. A file's first tempo is often just a
+ * count-in or a pickup, and a project has one tempo, so the opening one can be far off.
+ */
+function songBpm(midi: Midi): number {
+  const { tempos } = midi.header;
+  const notes = midi.tracks.flatMap((track) => track.notes);
+  if (tempos.length < 2 || notes.length === 0) return tempos[0]?.bpm ?? 90;
+  const first = Math.min(...notes.map((note) => note.ticks));
+  const last = Math.max(...notes.map((note) => note.ticks + note.durationTicks));
+  const held = new Map<number, number>();
+  tempos.forEach((tempo, index) => {
+    const from = Math.max(first, tempo.ticks);
+    const to = Math.min(last, tempos[index + 1]?.ticks ?? last);
+    const bpm = Math.round(tempo.bpm);
+    if (to > from) held.set(bpm, (held.get(bpm) ?? 0) + to - from);
+  });
+  let best = tempos[0].bpm;
+  let longest = 0;
+  for (const [bpm, ticks] of held) {
+    if (ticks > longest) {
+      best = bpm;
+      longest = ticks;
+    }
+  }
+  return best;
+}
+
 /** Files this app exported name each track `<track> | <instrument> (<part>, <role>)`. */
 function nativeTrackParts(name: string): { name: string; instrument: InstrumentDefinition } | null {
   const match = /^(.*) \| (.+) \([^,]+, \w+\)$/.exec(name);
@@ -341,7 +369,7 @@ function nativeProject(midi: Midi, title: string): Project | null {
   const sources = midi.tracks.filter((track) => track.notes.length > 0 || nativeTrackParts(track.name));
   const parts = sources.map((track) => nativeTrackParts(track.name));
   if (parts.length === 0 || parts.some((part) => !part)) return null;
-  const project = createProject({ title, bpm: clampBpm(midi.header.tempos[0]?.bpm ?? 90), key: 0 });
+  const project = createProject({ title, bpm: clampBpm(songBpm(midi)), key: 0 });
   const meter = midi.header.timeSignatures[0]?.timeSignature;
   project.timeSignature =
     TIME_SIGNATURES.find((option) => option.value[0] === meter?.[0] && option.value[1] === meter?.[1])?.value ?? [4, 4];
@@ -436,7 +464,7 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   const known = TIME_SIGNATURES.find(
     (option) => option.value[0] === meter?.timeSignature[0] && option.value[1] === meter?.timeSignature[1],
   );
-  const bpm = (midi.header.tempos[0]?.bpm ?? 90) * (waltz ? 2 : 1);
+  const bpm = songBpm(midi) * (waltz ? 2 : 1);
   const project = createProject({ title, bpm: clampBpm(bpm), key: 0 });
   project.timeSignature = waltz ? [3, 4] : known ? known.value : [4, 4];
   project.tracks = clearClashes(reachNotes(parts, shift), grid).map((part, index) => {

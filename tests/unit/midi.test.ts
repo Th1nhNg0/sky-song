@@ -117,6 +117,18 @@ describe('MIDI import/export', () => {
     expect(notes).toHaveLength(6);
   });
 
+  it('takes the tempo most of the song is in, not a count-in', () => {
+    const midi = new Midi();
+    const ppq = midi.header.ppq;
+    midi.header.tempos = [
+      { ticks: 0, bpm: 240 },
+      { ticks: ppq * 4, bpm: 114 },
+    ];
+    const track = midi.addTrack();
+    for (let i = 0; i < 64; i++) track.addNote({ midi: 60, ticks: ppq * (4 + i), durationTicks: ppq / 2 });
+    expect(midiToProject(midi.toArray(), 'Count-in').bpm).toBe(114);
+  });
+
   it('lifts a quiet file without changing its balance', () => {
     const midi = new Midi();
     const track = midi.addTrack();
