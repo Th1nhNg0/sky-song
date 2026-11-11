@@ -63,7 +63,8 @@ export function AboutPanel({ onClose }: { onClose: () => void }) {
           </li>
           <li>
             <strong>The song library.</strong> Fan arrangements of well-known songs, made from community MIDI files on{' '}
-            <Link href="https://bitmidi.com">BitMidi</Link> and fitted to Sky's keys. The songs belong to their
+            <Link href="https://bitmidi.com">BitMidi</Link> and{' '}
+            <Link href="https://cungtapnhac.com">Cùng Tập Nhạc</Link>, and fitted to Sky's keys. The songs belong to their
             writers and publishers.
           </li>
           <li>

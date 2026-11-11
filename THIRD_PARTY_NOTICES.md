@@ -13,7 +13,8 @@ them.
 
 The ready-made songs in `public/songs/` are fan arrangements of copyrighted songs.
 They were converted with this project's MIDI importer from community-made MIDI
-transcriptions published on [BitMidi](https://bitmidi.com), then fitted to Sky's
+transcriptions published on [BitMidi](https://bitmidi.com) and, for the Vietnamese
+songs, [Cùng Tập Nhạc](https://cungtapnhac.com), then fitted to Sky's
 keys. The compositions remain the property of their songwriters and publishers.
 The MIT license does not cover them, and they are included for personal,
 non-commercial play and practice only.

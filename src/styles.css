@@ -3236,6 +3236,15 @@ body {
 .songbook-filters .search-input {
   flex: 1 1 auto;
 }
+.songbook-filters .catalog-parts {
+  flex: 0 0 auto;
+}
+.songbook-filters .catalog-parts button {
+  white-space: nowrap;
+}
+.songbook-filters .search-input {
+  min-width: 120px;
+}
 .songbook-filters .select {
   flex: 0 0 auto;
   min-height: 36px;

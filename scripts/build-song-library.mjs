@@ -4,7 +4,7 @@
  *
  *   node scripts/build-song-library.mjs <folder>
  *
- * The folder needs a `meta.json` mapping each file's base name to `{ artist, year }`;
+ * The folder needs a `meta.json` mapping each file's base name to `{ artist, year? }`;
  * only songs listed there are packed. Each song is written to `public/songs/` without
  * note ids (the app makes new ones on open), which keeps the files small, and
  * `public/songs/catalog.json` gets the details the browser panel shows before a song
@@ -24,8 +24,9 @@ const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'public', 'songs
 const meta = JSON.parse(readFileSync(join(source, 'meta.json'), 'utf8'));
 const round = (value, places) => Number(value.toFixed(places));
 
-rmSync(out, { recursive: true, force: true });
+// Clear old songs one by one: removing the folder itself makes a running dev server lose it.
 mkdirSync(out, { recursive: true });
+for (const name of readdirSync(out)) rmSync(join(out, name));
 
 const catalog = [];
 for (const name of readdirSync(source).sort()) {
@@ -62,7 +63,7 @@ for (const name of readdirSync(source).sort()) {
     id: packed.id,
     title: project.title,
     artist: details.artist,
-    year: details.year,
+    ...(details.year ? { year: details.year } : {}),
     file,
     bpm: project.bpm,
     seconds: Math.round((endBeat * 60) / project.bpm),
@@ -72,6 +73,6 @@ for (const name of readdirSync(source).sort()) {
   });
 }
 
-catalog.sort((a, b) => a.title.localeCompare(b.title));
+catalog.sort((a, b) => a.title.localeCompare(b.title, 'vi'));
 writeFileSync(join(out, 'catalog.json'), `${JSON.stringify(catalog, null, 1)}\n`);
 process.stdout.write(`Packed ${catalog.length} songs into ${out}\n`);

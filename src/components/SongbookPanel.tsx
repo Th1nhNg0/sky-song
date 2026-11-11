@@ -8,6 +8,7 @@ import { InstrumentIcon } from './InstrumentIcon';
 import { MusicIcon, PlayIcon, UndoIcon } from './Icons';
 
 type Pace = 'all' | 'slow' | 'medium' | 'fast';
+
 type Order = 'title' | 'artist' | 'newest' | 'oldest' | 'shortest';
 
 const PACES: { value: Pace; label: string; test: (bpm: number) => boolean }[] = [
@@ -18,12 +19,23 @@ const PACES: { value: Pace; label: string; test: (bpm: number) => boolean }[] = 
 ];
 
 const ORDERS: { value: Order; label: string; compare: (a: SongbookEntry, b: SongbookEntry) => number }[] = [
-  { value: 'title', label: 'Title A–Z', compare: (a, b) => a.title.localeCompare(b.title) },
-  { value: 'artist', label: 'Artist A–Z', compare: (a, b) => a.artist.localeCompare(b.artist) },
-  { value: 'newest', label: 'Newest first', compare: (a, b) => b.year - a.year },
-  { value: 'oldest', label: 'Oldest first', compare: (a, b) => a.year - b.year },
+  { value: 'title', label: 'Title A–Z', compare: (a, b) => a.title.localeCompare(b.title, 'vi') },
+  { value: 'artist', label: 'Artist A–Z', compare: (a, b) => a.artist.localeCompare(b.artist, 'vi') },
+  // Songs with no known year go last either way.
+  { value: 'newest', label: 'Newest first', compare: (a, b) => (b.year ?? -Infinity) - (a.year ?? -Infinity) },
+  { value: 'oldest', label: 'Oldest first', compare: (a, b) => (a.year ?? Infinity) - (b.year ?? Infinity) },
   { value: 'shortest', label: 'Shortest first', compare: (a, b) => a.seconds - b.seconds },
 ];
+
+/** Lower case without accents, so "mua hong" finds "Mưa Hồng". */
+function fold(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+    .toLowerCase();
+}
 
 /** A steady colour per song, so a card looks the same every time the panel opens. */
 function songColor(id: string): string {
@@ -58,7 +70,7 @@ function SongCard({
       <div className="song-card-body">
         <h3>{song.title}</h3>
         <p className="song-artist">
-          {song.artist} · {song.year}
+          {song.year ? `${song.artist} · ${song.year}` : song.artist}
         </p>
 
         <ul className="song-instruments" aria-label="Instruments">
@@ -157,18 +169,18 @@ export function SongbookPanel({ onClose }: { onClose: () => void }) {
   const savedIds = useMemo(() => new Set(library.map((entry) => entry.id)), [library]);
   const results = useMemo(() => {
     if (!songs) return [];
-    const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+    const words = fold(query).split(/\s+/).filter(Boolean);
     const inPace = PACES.find((item) => item.value === pace)!.test;
     const compare = ORDERS.find((item) => item.value === order)!.compare;
     return songs
       .filter((song) => {
         if (!inPace(song.bpm)) return false;
-        const text = `${song.title} ${song.artist} ${song.year} ${song.instruments
-          .map((id) => getInstrument(id).displayName)
-          .join(' ')}`.toLowerCase();
+        const text = fold(
+          `${song.title} ${song.artist} ${song.year ?? ''} ${song.instruments.map((id) => getInstrument(id).displayName).join(' ')}`,
+        );
         return words.every((word) => text.includes(word));
       })
-      .sort((a, b) => compare(a, b) || a.title.localeCompare(b.title));
+      .sort((a, b) => compare(a, b) || a.title.localeCompare(b.title, 'vi'));
   }, [songs, query, pace, order]);
 
   const open = async (song: SongbookEntry, fresh: boolean) => {

@@ -4,8 +4,9 @@ import { useAppStore } from './store';
 export interface SongbookEntry {
   id: string;
   title: string;
+  /** The performer, or the songwriter where a song has had many singers. */
   artist: string;
-  year: number;
+  year?: number;
   file: string;
   bpm: number;
   seconds: number;

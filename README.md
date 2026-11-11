@@ -43,7 +43,7 @@ Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ri
 - Only instruments that can sustain get held notes.
 
 **Play ready-made songs**
-- Open one of 23 well-known songs from the built-in song library, already arranged for several Sky instruments.
+- Open one of 37 well-known songs from the built-in song library, already arranged for several Sky instruments.
 - Search by song, artist or instrument, then edit your own copy.
 
 **Read, practise and share**
