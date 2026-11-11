@@ -8,6 +8,7 @@
 import type { SampleSelection } from './sampleBank';
 import { findSustainLoop, joinSustainLoop, packSustains, type SustainLoop } from './soundPack';
 import type { NoteVoiceSpec, SynthVoice } from './synth';
+import { createVoiceStop } from './voice';
 import { clamp } from '../util';
 
 const SAMPLE_LEVEL = 0.3;
@@ -112,23 +113,13 @@ export function createSampleVoice(
   source.start(start);
   source.stop(stopAt + 0.03);
 
-  let stopped = false;
-  const stop = (when?: number) => {
-    if (stopped) return;
-    stopped = true;
-    const at = Math.max(ctx.currentTime, when ?? ctx.currentTime);
-    try {
-      gain.gain.cancelScheduledValues(at);
-      gain.gain.setTargetAtTime(0.0001, at, 0.012);
-    } catch {
-      gain.gain.value = 0;
-    }
+  const stop = createVoiceStop(ctx, gain, (at) => {
     try {
       source.stop(at + 0.06);
     } catch {
       // Already stopped; nothing to do.
     }
-  };
+  });
 
   return { endTime: stopAt + 0.05, stop };
 }

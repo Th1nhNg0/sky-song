@@ -5,6 +5,7 @@ import { getNoiseBuffer, hashString, mulberry32 } from './random';
 import { resolveSampleForNote } from './sampleBank';
 import { createSampleVoice } from './sampleVoice';
 import { PROFILES, type SynthProfile } from './synthProfiles';
+import { createVoiceStop } from './voice';
 import { clamp } from '../util';
 
 const distortionCache = new WeakMap<BaseAudioContext, Float32Array>();
@@ -208,21 +209,7 @@ export function createNoteVoice(ctx: BaseAudioContext, spec: NoteVoiceSpec): Syn
   const sources: AudioScheduledSourceNode[] = [];
   if (profile.kind === 'percussion' || !resolved.pitched) {
     const result = createPercussionVoice(ctx, spec, profile, voiceGain, start, random);
-    const endTime = result.endTime;
-    let stopped = false;
-    const stop = (when?: number) => {
-      if (stopped) return;
-      stopped = true;
-      const at = Math.max(ctx.currentTime, when ?? ctx.currentTime);
-      try {
-        voiceGain.gain.cancelScheduledValues(at);
-        voiceGain.gain.setTargetAtTime(0.0001, at, 0.012);
-      } catch {
-        voiceGain.gain.value = 0;
-      }
-      panner.disconnect();
-    };
-    return { endTime, stop };
+    return { endTime: result.endTime, stop: createVoiceStop(ctx, voiceGain, () => panner.disconnect()) };
   }
 
   const midi = resolved.midi!;
@@ -374,18 +361,7 @@ export function createNoteVoice(ctx: BaseAudioContext, spec: NoteVoiceSpec): Syn
       ? holdEnd + release + 0.08
       : naturalEnd + Math.max(0.05, profile.tail) + 0.12;
 
-  // A short fade at the end prevents clicks even when the musical note is long.
-  let stopped = false;
-  const stop = (when?: number) => {
-    if (stopped) return;
-    stopped = true;
-    const at = Math.max(ctx.currentTime, when ?? ctx.currentTime);
-    try {
-      voiceGain.gain.cancelScheduledValues(at);
-      voiceGain.gain.setTargetAtTime(0.0001, at, 0.012);
-    } catch {
-      voiceGain.gain.value = 0;
-    }
+  const stop = createVoiceStop(ctx, voiceGain, (at) => {
     for (const source of sources) {
       safeStop(source, at + 0.08);
     }
@@ -394,7 +370,7 @@ export function createNoteVoice(ctx: BaseAudioContext, spec: NoteVoiceSpec): Syn
     } catch {
       // ignore
     }
-  };
+  });
 
   return { endTime, stop };
 }
