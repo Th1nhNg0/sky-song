@@ -10,6 +10,7 @@ import type { Note } from '../music/types';
 import { soundSourceInfo } from '../audio/sampleBank';
 import { LABEL_WIDTH, useClockStore, useViewStore } from '../state/clock';
 import { playback } from '../state/playback';
+import { pasteAtCursor } from '../state/shortcuts';
 import { useSoundBankVersion } from '../state/soundBank';
 import { useAppStore } from '../state/store';
 import { MAX_ZOOM, MIN_ZOOM } from '../storage/preferences';
@@ -141,10 +142,7 @@ function SelectionBar({ onLoop, onQuantize }: { onLoop: () => void; onQuantize: 
         </button>
         <button
           type="button"
-          onClick={() => {
-            const end = useAppStore.getState().pasteClipboard(playback.position());
-            if (end !== null) playback.seek(end);
-          }}
+          onClick={pasteAtCursor}
           aria-label="Paste notes at cursor"
           title="Paste at cursor (Ctrl+V)"
         >

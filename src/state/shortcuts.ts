@@ -18,6 +18,12 @@ function isEditableTarget(event: KeyboardEvent): boolean {
   return tag === 'input' || tag === 'textarea' || tag === 'select' || target.isContentEditable;
 }
 
+/** Pastes the clipboard at the cursor and moves the cursor past what was pasted. */
+export function pasteAtCursor(): void {
+  const end = useAppStore.getState().pasteClipboard(playback.position());
+  if (end !== null) playback.seek(end);
+}
+
 function withModifier(event: KeyboardEvent, lower: string): boolean {
   const state = useAppStore.getState();
   const actions: Record<string, () => void> = {
@@ -27,10 +33,7 @@ function withModifier(event: KeyboardEvent, lower: string): boolean {
     c: state.copySelection,
     x: state.cutSelection,
     d: state.duplicateSelection,
-    v: () => {
-      const end = state.pasteClipboard(playback.position());
-      if (end !== null) playback.seek(end);
-    },
+    v: pasteAtCursor,
   };
   actions[lower]?.();
   return lower in actions;
