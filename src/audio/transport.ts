@@ -77,6 +77,8 @@ export class Transport {
   private firedLoopIterations = 0;
   private lastTickAt = 0;
   private droppedLate = 0;
+  /** Set by an edit: the note list is rebuilt when it is next needed, not once per edit. */
+  private stale = false;
 
   constructor(options: TransportOptions) {
     this.engine = options.engine;
@@ -88,7 +90,7 @@ export class Transport {
     this.clock = options.now ?? (() => this.engine.now());
     this.manualTick = options.manualTick ?? false;
     this.project = this.getProject();
-    this.rebuild();
+    this.rebuildEvents();
   }
 
   get currentState(): TransportState {
@@ -96,6 +98,7 @@ export class Transport {
   }
 
   private rebuildEvents(): void {
+    this.stale = false;
     const project = this.project;
     const keyIndex = project.key;
     const events: ScheduledEvent[] = [];
@@ -130,14 +133,15 @@ export class Transport {
     for (let beat = clickStart; beat < clickEnd; beat++) this.loopClicks.push(beat);
   }
 
-  private rebuild(): void {
-    const previousLoopBase = this.loopBase;
-    const previousScheduled = this.lastScheduledV;
+  /**
+   * Brings the note list up to date after an edit. Dragging a note edits the song on every
+   * pointer move, and sorting a long song each time is wasted while nothing reads the result.
+   * During playback it carries on from what is already scheduled, so no note sounds twice.
+   */
+  private refresh(): void {
+    if (!this.stale) return;
     this.rebuildEvents();
-    if (this.state === 'playing') {
-      this.loopBase = previousLoopBase;
-      this.recomputeIndicesAfter(previousScheduled);
-    }
+    if (this.state === 'playing') this.recomputeIndicesAfter(this.lastScheduledV);
   }
 
   /** After a live project change, continue without re-triggering already scheduled notes. */
@@ -167,23 +171,26 @@ export class Transport {
   }
 
   setProject(project: Project): void {
-    const wasPlaying = this.state === 'playing';
     const previous = this.project;
-    const position = this.positionBeats();
-    const virtual = wasPlaying ? this.currentVirtual(false) : 0;
     const timingChanged = project.bpm !== previous.bpm;
     const loopChanged =
       project.loop.enabled !== previous.loop.enabled ||
       project.loop.startBeat !== previous.loop.startBeat ||
       project.loop.endBeat !== previous.loop.endBeat;
+    // Only a tempo or loop change during playback moves the transport; it needs to know
+    // where playback was under the old settings. Any other edit just marks the notes stale.
+    const moves = this.state === 'playing' && (loopChanged || timingChanged);
+    const position = moves ? this.positionBeats() : 0;
+    const virtual = moves ? this.currentVirtual(false) : 0;
     this.project = project;
-    this.rebuild();
-    if (wasPlaying && loopChanged) this.seek(position);
-    else if (wasPlaying && timingChanged) this.retime(virtual);
+    this.stale = true;
+    if (moves && loopChanged) this.seek(position);
+    else if (moves) this.retime(virtual);
   }
 
   /** Continues from the same musical position at a new tempo, leaving sounding notes alone. */
   private retime(virtual: number): void {
+    this.refresh();
     const now = this.clock();
     if (now < this.anchorTime) {
       this.seek(this.anchorVirtual);
@@ -258,6 +265,7 @@ export class Transport {
   }
 
   play(fromBeat?: number): void {
+    this.refresh();
     const settings = this.getSettings();
     const loop = this.project.loop;
     let start = fromBeat ?? this.pausedBeat;
@@ -326,6 +334,7 @@ export class Transport {
   }
 
   seek(beat: number): void {
+    this.refresh();
     const loop = this.project.loop;
     const wasPlaying = this.state === 'playing';
     let target = Math.max(0, beat);
@@ -360,6 +369,7 @@ export class Transport {
 
   positionBeats(): number {
     if (this.state !== 'playing') return this.pausedBeat;
+    this.refresh();
     const now = this.clock();
     if (now < this.anchorTime) return this.anchorVirtual;
     const virtual = this.currentVirtual(true);
@@ -378,6 +388,7 @@ export class Transport {
 
   tick(): void {
     if (this.state !== 'playing') return;
+    this.refresh();
     const now = this.clock();
     // After a background-tab suspension, do not dump minutes of missed notes into
     // the lookahead window. Re-anchor and keep the musical position instead.
@@ -483,6 +494,7 @@ export class Transport {
     bps: number;
     droppedLate: number;
   } {
+    this.refresh();
     return {
       state: this.state,
       events: this.events.length,
