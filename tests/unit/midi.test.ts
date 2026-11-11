@@ -129,6 +129,45 @@ describe('MIDI import/export', () => {
     expect(midiToProject(midi.toArray(), 'Count-in').bpm).toBe(114);
   });
 
+  it('finds the real tempo of a file recorded at a nominal 120', () => {
+    const midi = new Midi();
+    midi.header.setTempo(120);
+    const ppq = midi.header.ppq;
+    const track = midi.addTrack();
+    // Eighth notes at 90 BPM, written into a file that claims 120, starting off the beat.
+    const eighth = (0.5 * 120) / 90;
+    for (let i = 0; i < 120; i++) {
+      track.addNote({ midi: 60 + (i % 5) * 2, ticks: Math.round((0.37 + i * eighth) * ppq), durationTicks: Math.round(eighth * 0.8 * ppq) });
+    }
+    const project = midiToProject(midi.toArray(), 'Free running');
+    expect(project.bpm).toBe(90);
+    const starts = project.tracks[0].notes.map((note) => note.startBeat);
+    expect(starts[0] % 0.5).toBe(0);
+    expect(starts[10] - starts[0]).toBeCloseTo(5);
+    // The song still lasts as long as it did.
+    expect((starts[119] - starts[0]) * (60 / 90)).toBeCloseTo((119 * eighth * 60) / 120, 1);
+  });
+
+  it('keeps the tempo of a file that is only shifted off the grid', () => {
+    const midi = new Midi();
+    midi.header.setTempo(168);
+    const track = midi.addTrack();
+    for (let i = 0; i < 120; i++) track.addNote({ midi: 60, ticks: 77 + i * 240, durationTicks: 200 });
+    const project = midiToProject(midi.toArray(), 'Shifted');
+    expect(project.bpm).toBe(168);
+    expect(project.tracks[0].notes[0].startBeat % 0.5).toBe(0);
+  });
+
+  it('leaves a file that is already on the grid alone', () => {
+    const midi = new Midi();
+    midi.header.setTempo(100);
+    const track = midi.addTrack();
+    for (let i = 0; i < 120; i++) track.addNote({ midi: 60, ticks: i * 240, durationTicks: 200 });
+    const project = midiToProject(midi.toArray(), 'Sequenced');
+    expect(project.bpm).toBe(100);
+    expect(project.tracks[0].notes[4].startBeat).toBe(2);
+  });
+
   it('lifts a quiet file without changing its balance', () => {
     const midi = new Midi();
     const track = midi.addTrack();

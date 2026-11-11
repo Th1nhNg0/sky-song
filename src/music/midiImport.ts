@@ -360,6 +360,73 @@ function knownMeter(meter: number[] | undefined): [number, number] {
   return TIME_SIGNATURES.find((option) => option.value[0] === meter?.[0] && option.value[1] === meter?.[1])?.value ?? [4, 4];
 }
 
+/** Notes within this many seconds of a grid line count as on the grid, whatever the tempo. */
+const ON_GRID_SECONDS = 0.02;
+/** Below this share of notes on the grid, the stated tempo is probably not the real one. */
+const OFF_GRID_SHARE = 0.6;
+/** A detected tempo must put at least this share of notes on the grid to be trusted. */
+const STEADY_SHARE = 0.8;
+
+/**
+ * Share of notes that fall on a grid of `perBeat` steps to the beat, once the file's beats
+ * are stretched by `scale`. `slack` is how far off a note may be, in the file's own beats.
+ */
+function onGridShare(beats: number[], slack: number, scale: number, offset: number, perBeat = 4): number {
+  let on = 0;
+  for (const beat of beats) {
+    const steps = (beat - offset) * scale * perBeat;
+    if (Math.abs(steps - Math.round(steps)) / (perBeat * scale) < slack) on++;
+  }
+  return on / beats.length;
+}
+
+/**
+ * Many files are recorded straight from a keyboard: the music keeps a steady tempo, but the
+ * file just says 120 BPM, so no note sits on a bar or a beat. This finds the tempo the notes
+ * really keep, the factor to stretch the file's beats by, and the beat where the grid starts.
+ */
+function steadyTempo(midi: Midi): { bpm: number; scale: number; offset: number } | null {
+  if (midi.header.tempos.length > 1) return null;
+  const stated = midi.header.tempos[0]?.bpm ?? 120;
+  const all = midi.tracks
+    .flatMap((track) => track.notes.map((note) => note.ticks / midi.header.ppq))
+    .sort((a, b) => a - b);
+  if (all.length < 64) return null;
+  const every = Math.ceil(all.length / 1500);
+  const beats = all.filter((_, index) => index % every === 0);
+  const slack = (ON_GRID_SECONDS * stated) / 60;
+  if (onGridShare(beats, slack, 1, 0) >= OFF_GRID_SHARE) return null;
+
+  const offsets = [all[0], all[1], all[2], all[5]];
+  // A file that is only shifted off the grid keeps its tempo and just needs the grid moved.
+  const shifted = offsets.find((offset) => onGridShare(beats, slack, 1, offset) >= STEADY_SHARE);
+  if (shifted !== undefined) return { bpm: stated, scale: 1, offset: shifted };
+  let best = { score: 0, share: 0, bpm: stated, offset: 0 };
+  const search = (from: number, to: number, step: number, candidates: number[]) => {
+    for (let bpm = from; bpm <= to; bpm += step) {
+      for (const offset of candidates) {
+        const share = onGridShare(beats, slack, bpm / stated, offset);
+        if (share < best.share - 0.05) continue;
+        // Several tempos put every note on a sixteenth; the real one puts most on the eighths too.
+        const score = share + onGridShare(beats, slack, bpm / stated, offset, 2);
+        if (score > best.score) best = { score, share, bpm, offset };
+      }
+    }
+  };
+  search(50, 100, 0.05, offsets);
+  search(best.bpm - 0.06, best.bpm + 0.06, 0.002, [best.offset]);
+  if (best.share < STEADY_SHARE) return null;
+  // Sixteenths at one tempo are eighths at twice that. A file that names its own tempo is
+  // usually close, so take the reading nearest it; the default 120 says nothing, so there
+  // take the one nearest a walking pace.
+  const named = Math.abs(stated - 120) > 0.5;
+  const readings = [best.bpm, best.bpm * 2, best.bpm * 4];
+  const bpm = named
+    ? readings.reduce((a, b) => (Math.abs(Math.log(b / stated)) < Math.abs(Math.log(a / stated)) ? b : a))
+    : best.bpm < 72 ? best.bpm * 2 : best.bpm;
+  return { bpm, scale: bpm / stated, offset: best.offset };
+}
+
 /** Files this app exported name each track `<track> | <instrument> (<part>, <role>)`. */
 function nativeTrackParts(name: string): { name: string; instrument: InstrumentDefinition } | null {
   const match = /^(.*) \| (.+) \([^,]+, \w+\)$/.exec(name);
@@ -419,13 +486,18 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   const [meter] = midi.header.timeSignatures;
   // Fast waltzes are often notated in 6/8; as 3/4 at double tempo the notes sit on the beats.
   const waltz = meter?.timeSignature[0] === 6 && meter?.timeSignature[1] === 8;
-  const beat = (ticks: number) => (ticks / midi.header.ppq) * (waltz ? 2 : 1);
+  const steady = steadyTempo(midi);
+  const stretch = (waltz ? 2 : 1) * (steady?.scale ?? 1);
+  const span = (ticks: number) => (ticks / midi.header.ppq) * stretch;
+  // Whole bars of lead-in keep any notes before the first on-grid one from falling before zero.
+  const lead = steady ? Math.ceil((steady.offset * stretch) / 4) * 4 - steady.offset * stretch : 0;
+  const beat = (ticks: number) => span(ticks) + lead;
   const boost = velocityBoost(midi.tracks.flatMap((track) => track.notes.map((note) => note.velocity)));
   const source = (track: Midi['tracks'][number]): SourceNote[] =>
     track.notes.map((note) => ({
       midi: note.midi,
       startBeat: beat(note.ticks),
-      durationBeats: beat(note.durationTicks),
+      durationBeats: span(note.durationTicks),
       velocity: Math.min(1, note.velocity * boost),
     }));
 
@@ -462,7 +534,7 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   const grid = timingGrid(parts.flatMap((part) => part.notes));
 
   const shift = bestTranspose(parts.flatMap((part) => part.notes));
-  const bpm = songBpm(midi) * (waltz ? 2 : 1);
+  const bpm = steady ? steady.bpm * (waltz ? 2 : 1) : songBpm(midi) * stretch;
   const project = createProject({ title, bpm: clampBpm(bpm), key: 0 });
   project.timeSignature = waltz ? [3, 4] : knownMeter(meter?.timeSignature);
   project.tracks = clearClashes(reachNotes(parts, shift), grid).map((part, index) => {
