@@ -24,7 +24,7 @@ import {
   type SoundPack,
 } from '../audio/soundPack';
 import {
-  ensureSoundPacksLoaded,
+  ensureSoundsFor,
   getLoadedSoundPacks,
   refreshSoundPacks,
   saveExclusivePack,
@@ -60,9 +60,10 @@ export function SoundsPanel() {
   // The bank is the one copy of the packs; its version changes whenever they do.
   const bankVersion = useSoundBankVersion();
 
+  // The chosen instrument's shipped pack is read here, so it can be listed and switched off.
   useEffect(() => {
-    void ensureSoundPacksLoaded();
-  }, []);
+    void ensureSoundsFor([instrumentId]);
+  }, [instrumentId]);
 
   useEffect(() => {
     setRecording(null);

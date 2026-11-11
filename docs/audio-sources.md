@@ -21,11 +21,20 @@ installed game's own FMOD banks and `fmodstudio.dll`, one recording per key or p
 it keeps the game's layered attacks, variant choice, envelopes and relative loudness.
 
 At dev-server startup and build time, Vite generates `manifest.json` from the
-`.skypack.json` files in that directory. Both dev and production preview import
-these same packs from the app's own origin, cache them in IndexedDB, and wait for
-the import before the first note. Existing disabled packs stay disabled; newer
-browser edits are preserved. A checkout with no personal packs uses the synth.
-No external audio service is contacted and nothing is uploaded.
+`.skypack.json` files in that directory, naming the instrument each pack plays. Both
+dev and production preview read these same packs from the app's own origin and cache
+them in IndexedDB. Existing disabled packs stay disabled; newer browser edits are
+preserved. A checkout with no personal packs uses the synth. No external audio
+service is contacted and nothing is uploaded.
+
+The packs add up to about 285 MB, so a pack is fetched only when its instrument is
+needed: when a song that uses it is opened, when it is auditioned in the picker, or
+when it is chosen in Settings. Play waits for the song's packs so the first note is
+the recorded one, for at most 8 seconds; on a slow connection the song then starts
+on the synth and each instrument switches to its recording as its pack arrives.
+The audio context itself is started inside the tap or key press and never waits on a
+download, because phones only let sound begin within a gesture. A manifest entry
+without an `instrumentId` is read up front, as every pack once was.
 
 Builds include the same audio files in `dist/sound-packs/`. The source packs and
 their manifest are tracked in Git; generated `dist/` is ignored. To add

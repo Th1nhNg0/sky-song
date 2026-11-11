@@ -3,7 +3,7 @@ import { Transport, type TransportState } from '../audio/transport';
 import { useAppStore } from './store';
 import { useAudioStore, useClockStore } from './clock';
 import { PlayheadSmoother } from './smoothing';
-import type { SampleSelection } from '../audio/sampleBank';
+import { ensureSoundsFor, subscribeSoundBank, type SampleSelection } from '../audio/sampleBank';
 import { createSampleVoice } from '../audio/sampleVoice';
 import { getInstrument } from '../music/instruments';
 import type { InstrumentDefinition, Project } from '../music/types';
@@ -24,12 +24,23 @@ function mixChanged(next: Project, previous: Project): boolean {
   });
 }
 
+/** Longest that Play waits for a song's recordings. Past it the song starts, and they join as they arrive. */
+const PLAY_PATIENCE_MS = 8000;
+/** A key answered later than this is not answered at all: its sound was still on the way. */
+const PREVIEW_PATIENCE_MS = 700;
+const LOADING_NOTICE_MS = 350;
+
+const songInstruments = (project: Project) => [...new Set(project.tracks.map((track) => track.instrumentId))];
+
 class PlaybackController {
   readonly engine: AudioEngine;
   readonly transport: Transport;
   private rafId: number | null = null;
   private unsubscribe: (() => void) | null = null;
+  private unsubscribeBank: (() => void) | null = null;
   private audioReady = false;
+  private fetchedFor = '';
+  private loadingNotice: number | null = null;
   private starting: Promise<boolean> | null = null;
   private smoother = new PlayheadSmoother();
   private lastPreview = { key: '', at: 0 };
@@ -65,6 +76,7 @@ class PlaybackController {
       if (state.project !== previous.project) {
         this.transport.setProject(state.project);
         if (mixChanged(state.project, previous.project)) this.engine.syncTracks(state.project);
+        this.fetchSongSounds(state.project);
       }
       if (state.preferences.reverbAmount !== previous.preferences.reverbAmount) {
         this.engine.setReverbAmount(state.preferences.reverbAmount);
@@ -83,6 +95,20 @@ class PlaybackController {
         useClockStore.getState().setPlayhead(this.transport.positionBeats());
       }
     });
+    // A pack that arrives mid-song changes how much reverb its tracks send.
+    this.unsubscribeBank = subscribeSoundBank(() => {
+      if (this.audioReady) this.engine.syncTracks(useAppStore.getState().project);
+    });
+    this.fetchSongSounds(app.project);
+  }
+
+  /** Starts fetching the recordings a song plays with as soon as it is open, ahead of the first note. */
+  private fetchSongSounds(project: Project): void {
+    const ids = songInstruments(project);
+    const key = ids.join(',');
+    if (key === this.fetchedFor) return;
+    this.fetchedFor = key;
+    void ensureSoundsFor(ids);
   }
 
   private handleTransportState(state: TransportState): void {
@@ -91,8 +117,28 @@ class PlaybackController {
     if (state === 'playing') this.startFrameLoop();
   }
 
-  async ensureAudio(): Promise<boolean> {
-    if (this.audioReady && this.engine.ready) return true;
+  /**
+   * Starts sound and waits for the recordings these instruments play with, the whole song's
+   * by default. Call it straight from a tap or key press: a phone only lets sound start
+   * inside one, so the context is started before anything is waited on.
+   */
+  async ensureAudio(
+    instrumentIds: string[] = songInstruments(useAppStore.getState().project),
+    patienceMs = Infinity,
+  ): Promise<boolean> {
+    const started = this.startContext();
+    const sounds = ensureSoundsFor(instrumentIds);
+    if (!(await started)) return false;
+    if (Number.isFinite(patienceMs)) {
+      await Promise.race([sounds, new Promise((resolve) => window.setTimeout(resolve, patienceMs))]);
+    } else {
+      await sounds;
+    }
+    return true;
+  }
+
+  private startContext(): Promise<boolean> {
+    if (this.audioReady && this.engine.ready) return Promise.resolve(true);
     if (this.starting) return this.starting;
     useAudioStore.getState().setStatus('starting');
     this.starting = (async () => {
@@ -145,18 +191,28 @@ class PlaybackController {
     }
   }
 
+  /** Sounds usually arrive at once, so the Play button only says it is loading when the wait lasts. */
+  private setStartPending(pending: boolean): void {
+    this.startPending = pending;
+    if (this.loadingNotice !== null) window.clearTimeout(this.loadingNotice);
+    this.loadingNotice = pending
+      ? window.setTimeout(() => useAudioStore.setState({ loadingSounds: true }), LOADING_NOTICE_MS)
+      : null;
+    if (!pending && useAudioStore.getState().loadingSounds) useAudioStore.setState({ loadingSounds: false });
+  }
+
   private cancelPendingStart(): void {
     this.startRequest++;
-    this.startPending = false;
+    this.setStartPending(false);
   }
 
   async play(): Promise<void> {
     const request = ++this.startRequest;
-    this.startPending = true;
-    const ok = await this.ensureAudio();
-    // The first start waits for the sound packs; a stop, pause or new song meanwhile wins.
+    this.setStartPending(true);
+    const ok = await this.ensureAudio(undefined, PLAY_PATIENCE_MS);
+    // The first start waits for the song's sound packs; a stop, pause or new song meanwhile wins.
     if (request !== this.startRequest) return;
-    this.startPending = false;
+    this.setStartPending(false);
     if (!ok) return;
     this.engine.syncTracks(useAppStore.getState().project);
     this.transport.play();
@@ -194,7 +250,7 @@ class PlaybackController {
   }
 
   async audition(instrumentId: string): Promise<void> {
-    const ok = await this.ensureAudio();
+    const ok = await this.ensureAudio([instrumentId]);
     if (!ok) return;
     this.engine.audition(instrumentId, useAppStore.getState().project.key);
   }
@@ -207,7 +263,8 @@ class PlaybackController {
     const at = performance.now();
     if (this.lastPreview.key === key && at - this.lastPreview.at < 70) return;
     this.lastPreview = { key, at };
-    if (!(await this.ensureAudio())) return;
+    if (!(await this.ensureAudio([instrumentId]))) return;
+    if (performance.now() - at > PREVIEW_PATIENCE_MS) return;
     const instrument = getInstrument(instrumentId);
     this.engine.playPad({ instrument, keyIndex: app.project.key, pad, velocity, durationSeconds: 0.45 });
   }
@@ -219,7 +276,7 @@ class PlaybackController {
     durationSeconds: number,
     selection: SampleSelection,
   ): Promise<void> {
-    const ok = await this.ensureAudio();
+    const ok = await this.ensureAudio([instrument.id]);
     const { ctx, graph } = this.engine;
     if (!ok || !ctx || !graph) return;
     const start = ctx.currentTime + 0.02;
@@ -253,6 +310,8 @@ class PlaybackController {
     this.transport.dispose();
     this.unsubscribe?.();
     this.unsubscribe = null;
+    this.unsubscribeBank?.();
+    this.unsubscribeBank = null;
     void this.engine.dispose();
   }
 }

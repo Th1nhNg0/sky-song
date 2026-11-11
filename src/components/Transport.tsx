@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { playback } from '../state/playback';
-import { useClockStore } from '../state/clock';
+import { useAudioStore, useClockStore } from '../state/clock';
 import { clampBpm, formatBarBeat, MAX_BPM, MIN_BPM, TIME_SIGNATURES } from '../music/time';
 import {
   CursorIcon,
@@ -35,19 +35,23 @@ function TimeReadout() {
 
 export function TransportControls() {
   const isPlaying = useAppStore((state) => state.isPlaying);
+  // Play was pressed and the song's sounds are still arriving; pressing again calls it off.
+  const loading = useAudioStore((state) => state.loadingSounds) && !isPlaying;
+  const label = isPlaying ? 'Pause' : loading ? 'Loading sounds' : 'Play';
 
   return (
     <div className="transport-primary">
       <button
         type="button"
-        className={`play-button ${isPlaying ? 'is-playing' : ''}`}
+        className={`play-button ${isPlaying ? 'is-playing' : ''} ${loading ? 'is-loading' : ''}`}
         onClick={() => void playback.togglePlay()}
-        aria-label={isPlaying ? 'Pause' : 'Play'}
+        aria-label={label}
         aria-pressed={isPlaying}
-        title={isPlaying ? 'Pause (Space)' : 'Play (Space)'}
+        aria-busy={loading}
+        title={isPlaying ? 'Pause (Space)' : loading ? 'Loading this song’s sounds. Press again to cancel.' : 'Play (Space)'}
       >
-        {isPlaying ? <PauseIcon size={18} /> : <PlayIcon size={18} />}
-        <span>{isPlaying ? 'Pause' : 'Play'}</span>
+        {isPlaying ? <PauseIcon size={18} /> : loading ? <span className="play-spinner" aria-hidden="true" /> : <PlayIcon size={18} />}
+        <span className="play-label">{isPlaying ? 'Pause' : loading ? 'Loading' : 'Play'}</span>
       </button>
       <button
         type="button"
