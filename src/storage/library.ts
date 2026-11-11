@@ -98,6 +98,20 @@ async function getAllWithIndexedDb(): Promise<StoredProject[] | null> {
   });
 }
 
+async function getOneWithIndexedDb(id: string): Promise<StoredProject | null> {
+  const db = await openDatabase();
+  if (!db) return null;
+  return new Promise((resolve) => {
+    try {
+      const request = db.transaction(STORE, 'readonly').objectStore(STORE).get(id);
+      request.onsuccess = () => resolve((request.result as StoredProject | undefined) ?? null);
+      request.onerror = () => resolve(null);
+    } catch {
+      resolve(null);
+    }
+  });
+}
+
 function toEntry(record: StoredProject): LibraryEntry {
   return {
     id: record.id,
@@ -155,11 +169,8 @@ export async function listLibrary(): Promise<LibraryEntry[]> {
 }
 
 export async function loadProjectFromLibrary(id: string): Promise<Project | null> {
-  const records = await getAllWithIndexedDb();
-  let data: string | null = null;
-  if (records) {
-    data = records.find((record) => record.id === id)?.data ?? null;
-  }
+  // Only this song is read; a library of long songs is megabytes of JSON.
+  let data = (await getOneWithIndexedDb(id))?.data ?? null;
   if (!data) {
     try {
       data = localStorage.getItem(LS_PREFIX + id);
