@@ -20,6 +20,19 @@ export function usePlayheadTransform<T extends HTMLElement>(px: number, offset =
   return ref;
 }
 
+/** Follows the pointer across the window until it is released or the gesture is cancelled. */
+function followPointer(onMove: (event: PointerEvent) => void, onEnd?: () => void): void {
+  const end = () => {
+    window.removeEventListener('pointermove', onMove);
+    window.removeEventListener('pointerup', end);
+    window.removeEventListener('pointercancel', end);
+    onEnd?.();
+  };
+  window.addEventListener('pointermove', onMove);
+  window.addEventListener('pointerup', end);
+  window.addEventListener('pointercancel', end);
+}
+
 function RulerPlayhead({ px }: { px: number }) {
   const ref = usePlayheadTransform<HTMLDivElement>(px);
   return <div ref={ref} className="ruler-playhead" aria-hidden="true" />;
@@ -75,15 +88,7 @@ export function Ruler({
     event.preventDefault();
     const element = event.currentTarget;
     playback.seek(beatAt(event.clientX, element));
-    const move = (next: PointerEvent) => playback.seek(beatAt(next.clientX, element));
-    const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
-    };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
+    followPointer((next) => playback.seek(beatAt(next.clientX, element)));
   };
 
   return (
@@ -150,9 +155,6 @@ export function LoopLane({
       setDraft(latest);
     };
     const up = () => {
-      window.removeEventListener('pointermove', move);
-      window.removeEventListener('pointerup', up);
-      window.removeEventListener('pointercancel', up);
       setDraft(null);
       if (latest && latest.end - latest.start >= step) {
         onChange({ enabled: true, startBeat: latest.start, endBeat: latest.end });
@@ -162,9 +164,7 @@ export function LoopLane({
         onChange({ enabled: true, startBeat: start, endBeat: start + bar });
       }
     };
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', up);
-    window.addEventListener('pointercancel', up);
+    followPointer(move, up);
   };
 
   const shown = draft ?? { start: loop.startBeat, end: loop.endBeat };
