@@ -1,5 +1,5 @@
 import { Midi } from '@tonejs/midi';
-import { midiSafeText } from '../audio/midi';
+import { midiSafeText } from './midiText';
 import { getInstrument, INSTRUMENTS } from './instruments';
 import { pitchClass } from './keys';
 import { resolvePad } from './pitch';

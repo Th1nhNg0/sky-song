@@ -1,4 +1,3 @@
-import { readFileAsText } from '../export/exporters';
 import { useAppStore } from './store';
 
 /** For file pickers: MIDI files and saved songs. */
@@ -10,6 +9,15 @@ const SONG_NAME = /\.json$/i;
 /** True for files the app can open as a song: MIDI or a `.skymusic.json` project. */
 export function isSongFile(file: File): boolean {
   return MIDI_NAME.test(file.name) || SONG_NAME.test(file.name) || file.type === 'audio/midi' || file.type === 'audio/x-midi';
+}
+
+function readFileAsText(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ''));
+    reader.onerror = () => reject(new Error('Could not read that file.'));
+    reader.readAsText(file);
+  });
 }
 
 async function looksLikeMidi(file: File): Promise<boolean> {

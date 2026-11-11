@@ -1,4 +1,4 @@
-import { exportProjectToMidi } from '../audio/midi';
+import { exportProjectToMidi } from './midi';
 import { projectToJson } from '../music/project';
 import type { Project } from '../music/types';
 import { projectToSkyModSong, skyModFilename } from './skymod';
@@ -84,13 +84,4 @@ export function exportSkyModFile(project: Project): SkyModExportInfo {
     durationMs: song.durationMs,
     reducedPadTracks: song.tracks.filter((track) => track.pads < 15).map((track) => track.name),
   };
-}
-
-export function readFileAsText(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ''));
-    reader.onerror = () => reject(new Error('Could not read that file.'));
-    reader.readAsText(file);
-  });
 }

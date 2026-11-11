@@ -1,4 +1,5 @@
 import { getInstrument } from '../music/instruments';
+import { midiSafeText } from '../music/midiText';
 import { resolvePad } from '../music/pitch';
 import type { Project, SoundProfileId } from '../music/types';
 import { clamp } from '../util';
@@ -113,32 +114,6 @@ function encodeTrack(events: MidiEvent[]): Uint8Array {
 
 function u32(value: number): number[] {
   return [(value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff];
-}
-
-/**
- * MIDI text meta events are commonly decoded as Latin-1. Keep exported names
- * ASCII so DAWs and other parsers show readable instrument/part labels.
- */
-export function midiSafeText(value: string): string {
-  const replacements: Record<string, string> = {
-    '·': '-',
-    '—': '-',
-    '–': '-',
-    '’': "'",
-    '‘': "'",
-    '“': '"',
-    '”': '"',
-    '♭': 'b',
-    '♯': '#',
-    '×': 'x',
-    '…': '...',
-  };
-  return value
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\x20-\x7e]/g, (char) => replacements[char] ?? '')
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 /**

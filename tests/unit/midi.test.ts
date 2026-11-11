@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Midi } from '@tonejs/midi';
-import { exportProjectToMidi } from '../../src/audio/midi';
+import { exportProjectToMidi } from '../../src/export/midi';
 import { midiToProject } from '../../src/music/midiImport';
 import { createNote, createProject, createTrack } from '../../src/music/project';
 import { parseProjectJson } from '../../src/music/validation';
