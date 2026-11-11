@@ -67,6 +67,20 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
           </div>
         </section>
         <section className="help-card">
+          <h3>With a finger</h3>
+          <div className="shortcut-list">
+            <Shortcut keys="Tap" label="Place a note with Add note on, or select one" />
+            <Shortcut keys="Drag" label="Scroll the song; a selected note moves instead" />
+            <Shortcut keys="Double-tap" label="Delete a note" />
+            <Shortcut keys="Long press" label="Add a note to the selection, or drag a box from empty grid" />
+            <Shortcut keys="Pinch" label="Zoom in and out" />
+          </div>
+          <p className="fine-print">
+            On a phone, the ⋯ button holds Songs, My songs, Import, Sheet and Export, with the tempo and meter. Undo and the
+            keys are in the row of tools, which scrolls sideways.
+          </p>
+        </section>
+        <section className="help-card">
           <h3>With the mouse</h3>
           <div className="shortcut-list">
             <Shortcut keys="Drag" label="Move notes; they land on the grid" />

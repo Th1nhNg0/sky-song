@@ -176,3 +176,41 @@ supersedes the WAV/MP3 parts of D005 and all of D008 and D009.
 **Decision:** The unit and browser test suites and their tooling were removed at the
 owner's request. `npm run verify` now runs lint, typecheck and build. Older docs that
 mention test evidence describe past checks, not anything that can be re-run.
+
+## D018 — Phones: one folded layout, taps edit and drags scroll (2026-11-11)
+
+**Decision:** Below 900 px wide or 520 px tall the same studio screen folds, as D014
+describes: the top bar keeps Play, the title and **⋯**; song actions, tempo and meter
+move into **⋯**; the toolbar becomes one row that scrolls sideways; the label column
+narrows from 196 to 64 px. `src/state/layout.ts` holds the media queries that the
+components and the stylesheet share. On the note grid a finger scrolls, so editing is
+done with taps: tap to place or select, drag a selected note to move it, long-press to
+extend the selection or start a box, pinch to zoom.
+
+**Why:** With a mouse, pressing on the grid draws or box-selects at once. Under a
+finger that left no way to scroll a song that is always wider than the screen. Only a
+note that is already selected holds the finger, so a scroll that happens to start on a
+note cannot move it.
+
+**Consequence:** A held note gets its length from its right-edge handle after it is
+placed, and there is no touch form of Alt-drag copying. Rows are at least 30 px tall
+under a coarse pointer, so a 15-key instrument scrolls up and down on a small phone.
+The keys start closed on a phone, to leave the screen to the notes.
+
+## D019 — Shipped sound packs are fetched per instrument (2026-11-11)
+
+**Decision:** The manifest names the instrument each shipped pack plays, and a pack
+is read when a song using that instrument opens, when it is auditioned, or when it is
+chosen in Settings. The audio context is created and resumed inside the gesture that
+asks for sound, before any pack is awaited. Play waits up to 8 seconds for the song's
+packs and then starts regardless.
+
+**Why:** Every pack used to be downloaded before the audio context was created. That
+is about 285 MB, so on a phone the first note never came: the download outlasted the
+tap that is allowed to start audio, and it spent the visitor's data on instruments the
+song did not use.
+
+**Consequence:** An instrument can be labelled a game sound before its recordings are
+in memory (`soundSourceInfo(...).pack` is null until then). On a slow connection a
+song can start on the synth and change to recordings as they arrive. A manifest entry
+without `instrumentId` is still read up front.

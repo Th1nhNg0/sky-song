@@ -85,13 +85,16 @@ export function SelectionBar() {
         <button type="button" onClick={loopSelection} title="Loop these notes">
           <LoopIcon size={15} /> <span>Loop</span>
         </button>
-        <span className="selection-divider" />
-        <button type="button" className="danger-text" onClick={state.deleteSelectedNotes} aria-label="Delete selected notes" title="Delete (Del)">
-          <TrashIcon size={15} />
-        </button>
-        <button type="button" onClick={state.clearSelection} aria-label="Clear selection" title="Clear selection (Esc)">
-          Done
-        </button>
+        {/* Kept in reach on a phone, where the actions before them scroll sideways. */}
+        <div className="selection-end">
+          <span className="selection-divider" />
+          <button type="button" className="danger-text" onClick={state.deleteSelectedNotes} aria-label="Delete selected notes" title="Delete (Del)">
+            <TrashIcon size={15} />
+          </button>
+          <button type="button" onClick={state.clearSelection} aria-label="Clear selection" title="Clear selection (Esc)">
+            Done
+          </button>
+        </div>
       </div>
     </div>
   );

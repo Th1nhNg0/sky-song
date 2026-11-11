@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { projectEndBeat } from '../music/project';
-import { LABEL_WIDTH, useClockStore, useViewStore } from '../state/clock';
+import { useClockStore, useViewStore } from '../state/clock';
+import { labelWidth as currentLabelWidth } from '../state/layout';
 import { useAppStore } from '../state/store';
 import { MAX_ZOOM, MIN_ZOOM } from '../storage/preferences';
 import { clamp } from '../util';
@@ -19,6 +20,7 @@ export function useTimelineView(
   scrollRef: RefObject<HTMLDivElement | null>,
   px: number,
   dragRef: RefObject<unknown>,
+  labelWidth: number,
 ) {
   const [viewHeight, setViewHeight] = useState(0);
   const [viewWidth, setViewWidth] = useState(800);
@@ -32,7 +34,7 @@ export function useTimelineView(
     if (!scroll) return;
     const measure = () => {
       setViewHeight(scroll.clientHeight);
-      const width = Math.max(120, scroll.clientWidth - LABEL_WIDTH);
+      const width = Math.max(120, scroll.clientWidth - labelWidth);
       setViewWidth(width);
       useViewStore.setState({ viewWidth: width });
     };
@@ -48,7 +50,7 @@ export function useTimelineView(
       observer.disconnect();
       scroll.removeEventListener('scroll', onScroll);
     };
-  }, [scrollRef]);
+  }, [scrollRef, labelWidth]);
 
   // Ctrl+wheel and pinch zoom around the pointer; a plain wheel scrolls sideways when nothing overflows vertically.
   useEffect(() => {
@@ -69,6 +71,43 @@ export function useTimelineView(
     return () => scroll.removeEventListener('wheel', onWheel);
   }, [scrollRef]);
 
+  // Two fingers zoom around the point between them. One finger scrolls, as the browser does it.
+  useEffect(() => {
+    const scroll = scrollRef.current;
+    if (!scroll) return;
+    let pinch: { spread: number; zoom: number } | null = null;
+    const measure = (touches: TouchList) => ({
+      spread: Math.max(24, Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)),
+      middle: (touches[0].clientX + touches[1].clientX) / 2,
+    });
+    const onStart = (event: TouchEvent) => {
+      followHoldRef.current = performance.now() + USER_SCROLL_HOLD_MS;
+      if (event.touches.length !== 2 || dragRef.current) return;
+      pinch = { spread: measure(event.touches).spread, zoom: useAppStore.getState().preferences.zoom };
+    };
+    const onMove = (event: TouchEvent) => {
+      // A finger on the timeline has the view; playback must not pull it back.
+      followHoldRef.current = performance.now() + USER_SCROLL_HOLD_MS;
+      if (!pinch || event.touches.length !== 2) return;
+      if (event.cancelable) event.preventDefault();
+      const { spread, middle } = measure(event.touches);
+      useViewStore.getState().navigation?.zoomTo((pinch.zoom * spread) / pinch.spread, middle);
+    };
+    const onEnd = (event: TouchEvent) => {
+      if (event.touches.length < 2) pinch = null;
+    };
+    scroll.addEventListener('touchstart', onStart, { passive: true });
+    scroll.addEventListener('touchmove', onMove, { passive: false });
+    scroll.addEventListener('touchend', onEnd);
+    scroll.addEventListener('touchcancel', onEnd);
+    return () => {
+      scroll.removeEventListener('touchstart', onStart);
+      scroll.removeEventListener('touchmove', onMove);
+      scroll.removeEventListener('touchend', onEnd);
+      scroll.removeEventListener('touchcancel', onEnd);
+    };
+  }, [scrollRef, dragRef]);
+
   // Keeps the beat under the pointer in place across a zoom.
   useLayoutEffect(() => {
     const scroll = scrollRef.current;
@@ -87,7 +126,7 @@ export function useTimelineView(
           const current = useAppStore.getState().preferences.zoom;
           const value = clamp(Math.round(next * 100) / 100, MIN_ZOOM, MAX_ZOOM);
           if (value === current) return;
-          const left = scroll.getBoundingClientRect().left + LABEL_WIDTH;
+          const left = scroll.getBoundingClientRect().left + currentLabelWidth();
           const offset = anchorClientX !== undefined ? Math.max(0, anchorClientX - left) : scroll.clientWidth / 3;
           zoomAnchorRef.current = { beat: (scroll.scrollLeft + offset) / current, offset };
           useAppStore.getState().setPreferences({ zoom: value });
@@ -96,7 +135,7 @@ export function useTimelineView(
           const { project: song } = useAppStore.getState();
           const scroll = scrollRef.current;
           if (!scroll) return;
-          const width = scroll.clientWidth - LABEL_WIDTH - 24;
+          const width = scroll.clientWidth - currentLabelWidth() - 24;
           const value = clamp(Math.floor((width / projectEndBeat(song)) * 100) / 100, MIN_ZOOM, MAX_ZOOM);
           zoomAnchorRef.current = { beat: 0, offset: 0 };
           useAppStore.getState().setPreferences({ zoom: value });
@@ -117,7 +156,7 @@ export function useTimelineView(
     return useClockStore.subscribe((state) => {
       const scroll = scrollRef.current;
       if (!scroll || dragRef.current || performance.now() < followHoldRef.current) return;
-      const width = scroll.clientWidth - LABEL_WIDTH;
+      const width = scroll.clientWidth - currentLabelWidth();
       const x = state.playhead * px;
       const left = scroll.scrollLeft;
       if (x < left) scroll.scrollLeft = Math.max(0, x - width * 0.1);

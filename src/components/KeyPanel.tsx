@@ -5,6 +5,7 @@ import { isTonicDegree } from '../music/keys';
 import { padKey } from '../music/padKeys';
 import { resolvePad } from '../music/pitch';
 import { useClockStore } from '../state/clock';
+import { useTouch } from '../state/layout';
 import { pressPad } from '../state/padInput';
 import { useAppStore } from '../state/store';
 import { RecordIcon } from './Icons';
@@ -50,6 +51,7 @@ export function KeyPanel() {
   const setPreferences = useAppStore((state) => state.setPreferences);
   const instrument = getInstrument(track.instrumentId);
   const { rows, cols } = instrument.padLayout;
+  const touch = useTouch();
 
   return (
     <aside className="key-panel" aria-label={`${instrument.displayName} keys`} style={{ ['--track-color' as string]: track.color }}>
@@ -96,7 +98,7 @@ export function KeyPanel() {
       <p className="key-panel-hint">
         {stepInput
           ? 'Each key writes a note at the cursor and moves on by the snap value. While playing, keys record at the playhead.'
-          : 'Press the letters to play along. Turn on step input to write what you play.'}
+          : `${touch ? 'Tap the keys' : 'Press the letters'} to play along. Turn on step input to write what you play.`}
       </p>
       <dl className="hint-list">
         <div><dt><kbd>Space</kbd></dt><dd>Play or pause</dd></div>

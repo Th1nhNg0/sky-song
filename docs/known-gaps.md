@@ -100,8 +100,12 @@ This is the unvarnished list, current as of the delivery build. Items marked
     the separate sky-mod project, which does the in-game playback; nothing here sends
     input to the game. The file's 4- and 8-pad key layout is unverified in game.
 24. **No multiplayer, synchronized editing, accounts, or backend.** By design.
-25. **Desktop only.** The editor is laid out for windows 1024 px wide and up. Phones are
-    not supported.
+25. **Phones are supported but only tested in emulation.** Windows under 900 px wide,
+    or under 520 px tall, get the folded layout and touch gestures. They are covered by
+    Chromium touch emulation in `npm run test:e2e`, not by a run on real iOS or Android
+    hardware. On a touch screen a held note is given its length by dragging its right
+    edge after placing it, not while placing it, and Alt-drag copying has no touch
+    equivalent (use Copy and Paste in the selection bar).
 26. **Undo keeps 80 steps.** Edits share unchanged tracks and notes, so history stays
     small even on long songs. A whole drag or slider move is one step.
 27. **Accessibility is improved but not certified.** Focus-visible styles, labels,
@@ -125,8 +129,8 @@ This is the unvarnished list, current as of the delivery build. Items marked
     an expert listening panel or against game recordings. The “quality” claim is
     therefore about a playable, distinct synthesized baseline, not exact fidelity.
 37. **Browser tests run in Chromium only.** `npm run test:e2e` covers composing, playback,
-    MIDI round trips, reloads, a 20,000-note song and four desktop sizes. Firefox and
-    Safari are not part of it.
+    MIDI round trips, reloads, a 20,000-note song, four desktop sizes and three phone
+    sizes with emulated touch. Firefox and Safari are not part of it.
 38. **Load is tested at the 20,000-note limit** on a desktop machine, not on low-end
     hardware. Only notes near the view are drawn, so note count mainly affects saving
     and the overview.

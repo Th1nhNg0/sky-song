@@ -3,7 +3,8 @@ import { getInstrument } from '../music/instruments';
 import { isTrackAudible, projectEndBeat } from '../music/project';
 import { beatsPerMeasure } from '../music/time';
 import { soundSourceInfo } from '../audio/sampleBank';
-import { LABEL_WIDTH, useViewStore } from '../state/clock';
+import { useViewStore } from '../state/clock';
+import { useCompact, useLabelWidth, useTouch } from '../state/layout';
 import { useSoundBankVersion } from '../state/soundBank';
 import { useAppStore } from '../state/store';
 import { clamp } from '../util';
@@ -22,10 +23,12 @@ const RULER_HEIGHT = 34;
 const LOOP_HEIGHT = 26;
 const ADD_ROW_HEIGHT = 38;
 const MIN_ROW = 20;
+/** A row a finger can hit. The roll scrolls up and down when they do not all fit. */
+const MIN_TOUCH_ROW = 30;
 const MAX_ROW = 42;
 
-function PlayheadLine({ px }: { px: number }) {
-  const ref = usePlayheadTransform<HTMLDivElement>(px, LABEL_WIDTH);
+function PlayheadLine({ px, offset }: { px: number; offset: number }) {
+  const ref = usePlayheadTransform<HTMLDivElement>(px, offset);
   return <div ref={ref} className="playhead-line" aria-hidden="true" />;
 }
 
@@ -65,9 +68,12 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
   const [minimizedId, setMinimizedId] = useState<string | null>(null);
   useSoundBankVersion();
 
+  const labelWidth = useLabelWidth();
+  const compact = useCompact();
+  const touch = useTouch();
   const scrollRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<DragState | null>(null);
-  const { viewHeight, viewWidth, windowStart } = useTimelineView(scrollRef, px, dragRef);
+  const { viewHeight, viewWidth, windowStart } = useTimelineView(scrollRef, px, dragRef, labelWidth);
 
   const activeTrack = project.tracks.find((track) => track.id === activeTrackId) ?? project.tracks[0];
   const instrument = getInstrument(activeTrack.instrumentId);
@@ -86,7 +92,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
     openRows +
     (project.tracks.length - (minimized ? 0 : 1)) * LANE_HEIGHT +
     ADD_ROW_HEIGHT;
-  const rowHeight = clamp(Math.floor((viewHeight - chrome) / instrument.keyCount), MIN_ROW, MAX_ROW);
+  const rowHeight = clamp(Math.floor((viewHeight - chrome) / instrument.keyCount), touch ? MIN_TOUCH_ROW : MIN_ROW, MAX_ROW);
 
   useEffect(() => {
     useViewStore.setState({ totalBeats });
@@ -105,7 +111,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
       <div className="timeline-scroll" ref={scrollRef}>
         <div
           className="timeline-content"
-          style={{ width: LABEL_WIDTH + totalBeats * px, ['--label-width' as string]: `${LABEL_WIDTH}px` }}
+          style={{ width: labelWidth + totalBeats * px, ['--label-width' as string]: `${labelWidth}px` }}
         >
           <div className="ruler-wrap">
             <div className="ruler-row">
@@ -128,7 +134,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
             {project.loop.enabled && (
               <div
                 className="loop-band"
-                style={{ left: LABEL_WIDTH + project.loop.startBeat * px, width: (project.loop.endBeat - project.loop.startBeat) * px }}
+                style={{ left: labelWidth + project.loop.startBeat * px, width: (project.loop.endBeat - project.loop.startBeat) * px }}
                 aria-hidden="true"
               />
             )}
@@ -155,7 +161,8 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
                       <span>{track.notes.length} notes</span>
                     </span>
                     <TrackMixButtons track={track} />
-                    <ActiveVolume trackId={track.id} volume={track.volume} name={track.name} />
+                    {/* A phone has no room for the slider here; Mix has every track's level. */}
+                    {!compact && <ActiveVolume trackId={track.id} volume={track.volume} name={track.name} />}
                     <button
                       type="button"
                       className="track-minimize"
@@ -201,7 +208,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
                 <span>Add instrument</span>
               </button>
             </div>
-            <PlayheadLine px={px} />
+            <PlayheadLine px={px} offset={labelWidth} />
           </div>
         </div>
       </div>

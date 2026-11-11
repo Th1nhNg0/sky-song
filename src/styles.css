@@ -1143,91 +1143,6 @@ input[type="range"]::-moz-range-thumb {
   .catalog-filters { grid-template-columns: 1fr 1fr; }
 }
 
-@media (max-width: 960px) {
-  .app-shell {
-    padding: 8px 8px 68px;
-    height: 100dvh;
-    overflow: hidden;
-  }
-  .project-title-block {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    align-items: flex-start;
-  }
-  .project-title {
-    text-align: left;
-    font-size: 12.5px;
-    padding-left: 0;
-    max-width: 100%;
-  }
-  .top-actions { grid-column: 2; grid-row: 1; flex-wrap: wrap; justify-content: flex-end; }
-  .audio-pill span { display: none; }
-  .audio-pill { padding: 6px; }
-  .transport {
-    gap: 8px;
-    padding: 6px 8px;
-    mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 18px), transparent 100%);
-    -webkit-mask-image: linear-gradient(90deg, #000 0, #000 calc(100% - 18px), transparent 100%);
-  }
-  .transport .field-label { display: none; }
-  .time-readout { min-width: 74px; padding-inline: 7px; }
-  .bar-beat { font-size: 13px; }
-  .sidebar { display: none; }
-  .timeline { border-radius: 14px; }
-  .modal-backdrop { padding: 8px; }
-  .modal { max-height: 94dvh; border-radius: 16px; }
-  .modal-head { padding: 13px 14px 10px; }
-  .modal-head h2 { font-size: 17px; }
-  .modal-body { padding: 12px 14px 16px; }
-  .catalog-grid { grid-template-columns: 1fr; }
-  .welcome-backdrop { padding: 10px; }
-  .welcome-panel { padding: 24px 20px 20px; border-radius: 20px; }
-  .welcome-start { flex-direction: column; }
-  .welcome-start .btn { width: 100%; }
-  .welcome-links { gap: 10px; }
-  .toast { right: 12px; bottom: 78px; width: calc(100vw - 24px); max-width: calc(100vw - 24px); }
-  .library-card { flex-wrap: wrap; }
-  .library-card-actions { width: 100%; justify-content: flex-end; }
-  .settings-grid { grid-template-columns: 1fr; }
-  .tracks-panel-body {
-  min-height: 0;
-}
-.tracks-panel-body .sidebar {
-  display: flex;
-  flex-basis: auto;
-  width: 100%;
-  max-height: 58dvh;
-  padding: 0;
-  border: 0;
-  background: none;
-  box-shadow: none;
-  backdrop-filter: none;
-}
-.tracks-panel-body .track-list {
-  max-height: 48dvh;
-}
-@media (max-width: 960px) {
-  .tracks-panel-body .track-card {
-    flex: 0 0 auto;
-  }
-}
-.library-toolbar { flex-direction: column; }
-  .library-card-main p { font-size: 9px; }
-  .export-grid { grid-template-columns: 1fr; }
-  .help-columns { grid-template-columns: 1fr; }
-  .transport { border-radius: 13px; }
-  .catalog-filters { grid-template-columns: 1fr; }
-}
-
-@media (max-width: 520px) {
-  .app-shell { padding: 6px 6px 66px; gap: 6px; }
-  .top-actions { gap: 1px; }
-  .time-readout { min-width: 62px; }
-  .modal-close { width: 30px; height: 30px; }
-  .welcome-panel { padding: 20px 14px 16px; }
-  .library-card-actions { justify-content: flex-start; }
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -1285,7 +1200,8 @@ textarea {
   flex-direction: column;
   gap: 0;
   height: 100dvh;
-  padding: 0;
+  /* Zero on a desktop; on a phone this clears the notch and the home bar. */
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
   overflow: hidden;
   background:
     radial-gradient(900px 420px at 50% -20%, rgba(255, 183, 120, 0.2), transparent 70%),
@@ -2068,10 +1984,6 @@ textarea {
   }
 }
 
-body {
-  min-width: 900px;
-}
-
 .sound-source {
   padding: 1px 6px;
   border-radius: 999px;
@@ -2396,6 +2308,8 @@ body {
   overflow: auto;
   position: relative;
   overscroll-behavior: contain;
+  /* Two fingers zoom the timeline, not the page. */
+  touch-action: pan-x pan-y;
 }
 .timeline-content {
   position: relative;
@@ -2787,7 +2701,10 @@ body {
   position: relative;
   flex: 0 0 auto;
   overflow: hidden;
-  touch-action: none;
+  /* A finger scrolls the timeline from anywhere on the grid; taps do the editing. */
+  touch-action: pan-x pan-y;
+  -webkit-touch-callout: none;
+  user-select: none;
 }
 .roll-grid.tool-draw {
   cursor: crosshair;
@@ -2815,7 +2732,6 @@ body {
   background: var(--track-color);
   color: var(--on-note);
   cursor: grab;
-  touch-action: none;
   user-select: none;
   transition: filter var(--ease), box-shadow var(--ease);
 }
@@ -2834,6 +2750,8 @@ body {
 }
 .roll-note.is-selected {
   z-index: 4;
+  /* A selected note is held by the finger on it, so dragging moves it instead of scrolling. */
+  touch-action: none;
   opacity: 1 !important;
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--ink);
 }
@@ -2969,6 +2887,11 @@ body {
 .selection-actions .danger-text {
   color: var(--danger);
 }
+.selection-end {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
 .selection-divider {
   width: 1px;
   height: 18px;
@@ -3059,9 +2982,11 @@ body {
   touch-action: none;
   user-select: none;
 }
-.key-pad:hover {
-  background: color-mix(in srgb, var(--track-color) 26%, transparent);
-  color: var(--ink);
+@media (hover: hover) {
+  .key-pad:hover {
+    background: color-mix(in srgb, var(--track-color) 26%, transparent);
+    color: var(--ink);
+  }
 }
 .key-pad:active {
   background: var(--track-color);
@@ -3622,3 +3547,481 @@ body {
   .sounds-note { flex-basis: 100%; }
 }
 
+
+/* =========================================================
+   Phones — the same studio, folded for a small window and a finger.
+   "Compact" is a narrow window or a short one (a phone on its side);
+   state/layout.ts uses the same query to move controls between bars.
+   ========================================================= */
+
+html,
+body {
+  overscroll-behavior: none;
+}
+html {
+  /* No double-tap zoom, so a second tap lands at once. Pinch zoom stays for reading. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-text-size-adjust: 100%;
+}
+
+@media (max-width: 899px), (max-height: 520px) {
+  /* ---- Bars ---- */
+  .studio-bar {
+    gap: 8px;
+    height: 56px;
+    padding: 0 10px;
+  }
+  .play-button {
+    width: 44px;
+    min-width: 0;
+    padding: 0;
+  }
+  .play-label {
+    display: none;
+  }
+  .project-title-block {
+    justify-content: flex-start;
+  }
+  .project-title {
+    width: 100%;
+    padding: 0 6px;
+    text-align: left;
+  }
+  .editor-toolbar {
+    gap: 6px;
+    min-height: 0;
+    padding: 0 10px 8px;
+    overflow-x: auto;
+    scrollbar-width: none;
+    /* The row runs off the right edge; the fade says there is more. */
+    mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent);
+  }
+  .editor-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+  .editor-toolbar > * {
+    flex: 0 0 auto;
+  }
+  .editor-toolbar > :last-child {
+    margin-right: 20px;
+  }
+  .tool-switch button {
+    justify-content: center;
+    width: 42px;
+    padding: 0;
+  }
+  .tool-switch button span,
+  .toolbar-field > span,
+  .zoom-control input {
+    display: none;
+  }
+  .toolbar-field {
+    padding-left: var(--space-1);
+  }
+  .toolbar-field select {
+    max-width: 78px;
+  }
+  .studio-main {
+    gap: var(--space-2);
+    padding: 0 8px 8px;
+  }
+  .status-bar {
+    height: 40px;
+    padding: 0 8px 8px;
+  }
+  .pointer-readout {
+    display: none;
+  }
+  .key-panel {
+    flex-basis: 232px;
+  }
+
+  /* ---- More menu: the top bar's song actions and fields live here ---- */
+  .more-menu {
+    right: 8px;
+    width: min(330px, calc(100% - 16px));
+    max-height: calc(100dvh - 72px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+  .more-menu .quick-actions {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
+    margin: 0 0 7px;
+    padding: 0 0 7px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .more-menu .quick-action {
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: auto;
+    height: 60px;
+    padding: 0 2px;
+    border-radius: 10px;
+    font-size: 11px;
+  }
+  .more-menu .quick-action span {
+    display: block;
+  }
+  .more-menu .song-fields {
+    display: grid;
+    gap: 0;
+  }
+  .more-menu .inline-field {
+    justify-content: space-between;
+    height: 38px;
+    padding: 0 10px;
+    border-radius: 8px;
+    background: none;
+  }
+  .more-menu .inline-field > span {
+    color: var(--ink-soft);
+    font-size: 12.5px;
+  }
+  .more-menu .inline-field input,
+  .more-menu .inline-field select {
+    width: 92px;
+    height: 30px;
+    padding: 0 7px;
+    border: 1px solid var(--line);
+    border-radius: 7px;
+    background: var(--panel);
+    font-weight: 500;
+  }
+
+  /* ---- Timeline: a narrow label column leaves the width to the notes ---- */
+  .ruler-corner,
+  .loop-corner {
+    justify-content: center;
+    padding: 0;
+  }
+  .loop-corner span,
+  .roll-pad-number,
+  .track-lane .mix-toggles {
+    display: none;
+  }
+  .track-header {
+    padding: 0;
+  }
+  .track-header-open {
+    justify-content: center;
+    padding: 0;
+  }
+  /* The name moves out of the column and sits over the start of its lane. */
+  .track-header-name {
+    position: absolute;
+    top: 2px;
+    left: calc(var(--label-width) + 6px);
+    max-width: 60vw;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 560;
+    text-shadow: 0 0 3px var(--surface), 0 0 3px var(--surface);
+    pointer-events: none;
+  }
+  .roll-label {
+    padding: 0 var(--space-2);
+  }
+  .roll-note-name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .add-track-button {
+    width: auto;
+    white-space: nowrap;
+  }
+  .track-active-head {
+    gap: var(--space-2);
+    max-width: calc(100vw - 16px);
+    padding-right: var(--space-2);
+  }
+  .instrument-pick span {
+    max-width: 124px;
+  }
+  .roll-empty {
+    left: 10px;
+    max-width: min(300px, calc(100vw - 104px));
+  }
+
+  /* ---- Floating bars ---- */
+  .selection-bar {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    width: auto;
+    max-width: none;
+    padding: var(--space-1) 6px var(--space-1) 10px;
+    transform: none;
+    animation-name: rise-flat;
+  }
+  .selection-actions {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .selection-actions > * {
+    flex: 0 0 auto;
+  }
+  .selection-actions button span,
+  .velocity-control > span {
+    display: none;
+  }
+  .velocity-control input {
+    width: 56px;
+  }
+  .selection-end {
+    position: sticky;
+    right: 0;
+    background: var(--panel-strong);
+  }
+  /* At the top, clear of the selection bar and the keys at the bottom. */
+  .toast {
+    top: calc(env(safe-area-inset-top) + 60px);
+    right: 10px;
+    bottom: auto;
+    left: 10px;
+    max-width: none;
+  }
+  /* An open panel covers the top of the screen, so its messages go underneath. */
+  .has-panel .toast {
+    top: auto;
+    bottom: calc(14px + env(safe-area-inset-bottom));
+  }
+  .welcome-backdrop {
+    padding: 10px;
+  }
+}
+@keyframes rise-flat {
+  from { opacity: 0; transform: translateY(6px); }
+}
+
+/* A phone on its side: every row of height goes to the notes. */
+@media (max-height: 520px) {
+  .studio-bar {
+    height: 48px;
+  }
+  .play-button {
+    height: 38px;
+  }
+  .status-bar {
+    display: none;
+  }
+  .modal-backdrop {
+    padding: 6px;
+  }
+  .modal {
+    max-height: calc(100dvh - 12px);
+  }
+}
+
+/* A phone held upright: the keys go under the notes, and panels rise as sheets. */
+@media (max-width: 639px) {
+  .studio-main {
+    flex-direction: column;
+  }
+  .key-panel {
+    flex: 0 0 auto;
+    gap: var(--space-2);
+    max-height: 48%;
+    padding: 10px;
+  }
+  .key-pad {
+    aspect-ratio: auto;
+    height: 46px;
+  }
+  .key-panel-hint,
+  .hint-list {
+    display: none;
+  }
+
+  .modal-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+  .modal {
+    width: 100%;
+    max-width: none;
+    max-height: calc(100dvh - 20px - env(safe-area-inset-top));
+    border-bottom: 0;
+    border-radius: 18px 18px 0 0;
+  }
+  .modal-head {
+    padding: 14px 14px 10px;
+  }
+  .modal-body {
+    padding: 14px 14px calc(16px + env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+  }
+  .modal-actions {
+    flex-wrap: wrap;
+  }
+  .catalog-filters,
+  .songbook-filters {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+  .catalog-filters .search-input,
+  .songbook-filters .search-input {
+    flex: 1 1 100%;
+  }
+  .catalog-parts {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+  .catalog-parts button {
+    flex: 0 0 auto;
+  }
+  .catalog-grid {
+    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  }
+  .instrument-tile-play {
+    top: 4px;
+    right: 4px;
+  }
+  .songbook-grid,
+  .settings-grid,
+  .export-grid,
+  .help-columns,
+  .settings-facts {
+    grid-template-columns: 1fr;
+  }
+  .sheet-toolbar {
+    top: -14px;
+    flex-wrap: wrap;
+    margin: -14px -14px 6px;
+    padding: 10px 14px;
+  }
+  .sheet-track {
+    flex: 1 1 140px;
+    min-width: 0;
+  }
+  .sheet-toolbar-space {
+    display: none;
+  }
+  .library-toolbar {
+    flex-direction: column;
+  }
+  .library-card {
+    flex-wrap: wrap;
+  }
+  .library-card-actions {
+    justify-content: flex-start;
+    width: 100%;
+  }
+  .library-footnote {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .about-hero {
+    flex-direction: column;
+  }
+  .welcome-panel {
+    padding: 30px 20px 22px;
+  }
+  .welcome-panel h1 {
+    font-size: 26px;
+  }
+  .file-drop {
+    padding: 12px;
+  }
+}
+
+/* A finger: bigger targets, and nothing that depends on hovering or a keyboard. */
+@media (pointer: coarse) {
+  .studio-bar,
+  .editor-toolbar,
+  .timeline,
+  .key-panel,
+  .status-bar {
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+  .studio-bar input {
+    -webkit-user-select: text;
+    user-select: text;
+  }
+  /* iOS zooms the page into any field whose text is smaller than this. */
+  input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+  input[type="range"] {
+    height: 28px;
+  }
+  input[type="range"]::-webkit-slider-thumb {
+    width: 20px;
+    height: 20px;
+    margin-top: -8.5px;
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 20px;
+    height: 20px;
+  }
+  .tool-switch button {
+    height: 38px;
+  }
+  .tool-toggle,
+  .icon-text-button,
+  .toolbar-field {
+    height: 40px;
+  }
+  .tool-toggle,
+  .icon-text-button {
+    justify-content: center;
+    min-width: 40px;
+  }
+  .zoom-control button {
+    width: 36px;
+    height: 38px;
+  }
+  .mix-toggle {
+    width: 30px;
+    height: 30px;
+    font-size: 12px;
+  }
+  .track-minimize {
+    width: 34px;
+    height: 34px;
+  }
+  .modal-close {
+    width: 40px;
+    height: 40px;
+  }
+  .instrument-tile-play {
+    width: 32px;
+    height: 32px;
+  }
+  .selection-actions button {
+    justify-content: center;
+    min-width: 38px;
+    height: 38px;
+  }
+  .step-toggle {
+    height: 36px;
+  }
+  .more-menu-links button,
+  .menu-row,
+  .more-menu .inline-field {
+    min-height: 44px;
+  }
+  .loop-handle {
+    flex-basis: 18px;
+  }
+  /* Wide enough to catch, narrow enough to leave the rest of a short note for moving it. */
+  .note-resize {
+    width: clamp(10px, 40%, 20px);
+  }
+  .key-pad kbd,
+  .hint-list {
+    display: none;
+  }
+}

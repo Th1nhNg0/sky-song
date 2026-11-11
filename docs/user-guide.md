@@ -8,7 +8,7 @@ MIDI.
 
 ## 1. First run
 
-1. Open the app in a desktop browser.
+1. Open the app in a browser, on a computer or a phone.
 2. Choose **Browse ready-made songs** to open a finished song from the song
    library, or **Start a new song**. An opened song is copied to My songs, so you
    can edit it; the library's **Continue** button reopens your copy.
@@ -71,6 +71,35 @@ MIDI.
   timing to invert.
 - **Zoom** is under More → Grid & timing. The timeline follows the playhead while
   playing.
+
+### On a phone or tablet
+
+In a window under 900 px wide, or a phone on its side, the studio folds down:
+
+- **Top bar:** Play, stop, position, the song name and **⋯**. Songs, My songs, Import,
+  Sheet and Export sit at the top of **⋯**, with the tempo and meter below them.
+- **Toolbar:** one row that scrolls sideways: Add note / Edit, undo, redo, Keys, Snap,
+  Loop, Click, zoom and Mix.
+- **Tracks:** the label column narrows to the pad names. A lane shows its
+  instrument's picture, with the track name over its first notes; mute, solo and
+  volume for every track are in **Mix**.
+- **Keys:** closed to begin with. Held upright, they open under the notes.
+- Panels rise from the bottom as sheets, and the Sheet draws fewer, larger frames per
+  line.
+
+With a finger on the grid:
+
+- **Tap** an empty cell with Add note on to place a note. Tap a note to select it; tap
+  the only selected note to let it go.
+- **Drag** to scroll the song. A selected note moves with the finger instead, and on a
+  sustain instrument its right edge sets the length.
+- **Double-tap** a note to delete it, or use the trash button in the selection bar.
+- **Long-press** a note to add it to the selection. Long-press empty grid, then drag,
+  to select a box of notes.
+- **Pinch** to zoom the timeline. Drag on the ruler to move the cursor.
+
+Sound starts on the first tap of Play or a key. An iPhone plays it even with the
+ringer switch off.
 
 ### Keyboard shortcuts
 

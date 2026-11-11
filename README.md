@@ -29,6 +29,7 @@ Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ri
 - Play the on-screen keys, or use `Q`–`T`, `A`–`G` and `Z`–`B` on your keyboard.
 - Turn on step input to write what you play, or record over the song as it plays.
 - Hear each note as you place or move it.
+- On a phone, tap to place notes, drag to scroll, pinch to zoom and long-press to select several.
 
 **Arrange**
 - Build a song from up to 24 tracks and 20,000 notes.
@@ -71,7 +72,7 @@ npm run dev
 
 Open <http://127.0.0.1:5173> and choose **Browse ready-made songs** or **Start a new song**. Your browser unlocks sound the first time you press Play.
 
-The editor is designed for desktop browsers, in windows 1024 px wide or larger.
+The editor works in desktop browsers and on phones and tablets. A phone gets a folded layout with touch gestures: tap to place or select a note, drag to scroll, pinch to zoom.
 
 ## Keyboard shortcuts
 
