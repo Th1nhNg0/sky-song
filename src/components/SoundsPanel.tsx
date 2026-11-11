@@ -12,7 +12,6 @@ import {
   useMemo,
   useState,
   type ChangeEvent,
-  type ReactNode,
 } from 'react';
 import { DEFAULT_INSTRUMENT_ID, getInstrument, hasInstrument, selectableInstruments } from '../music/instruments';
 import { getKey, midiToSpelledName } from '../music/keys';
@@ -446,7 +445,6 @@ export function SoundsPanel() {
 
   return (
     <section className="settings-card wide sounds-panel">
-      <SoundsStyles />
       <div className="sounds-heading">
         <div>
           <h3>Instrument sounds &amp; sample packs</h3>
@@ -783,57 +781,5 @@ export function SoundsPanel() {
         </ul>
       </div>
     </section>
-  );
-}
-
-function SoundsStyles(): ReactNode {
-  return (
-    <style>{`
-      .sounds-panel { gap: 14px; }
-      .sounds-heading { display: flex; gap: 18px; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; }
-      .sounds-heading h3 { margin-bottom: 6px; }
-      .sounds-instrument-select { min-width: 260px; }
-      .sounds-source { display: flex; gap: 14px; align-items: center; justify-content: space-between; border-radius: 12px; padding: 12px 14px; border: 1px solid var(--line, rgba(255,255,255,.14)); background: rgba(255,255,255,.035); }
-      .sounds-source.sample { border-color: rgba(124, 208, 255, .4); background: rgba(124, 208, 255, .07); }
-      .sounds-source p { margin: 4px 0 0; font-size: 12px; line-height: 1.45; opacity: .82; max-width: 70ch; }
-      .sounds-warning { border: 1px solid rgba(255, 190, 100, .4); background: rgba(255, 190, 100, .08); border-radius: 10px; padding: 10px 12px; font-size: 12px; margin: 0; }
-      .sounds-block { border-top: 1px solid var(--line, rgba(255,255,255,.1)); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
-      .sounds-block h4 { margin: 0; font-size: 14px; }
-      .sounds-block-head { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
-      .sounds-block-head h4 { margin: 0; }
-      .sounds-file-button { cursor: pointer; display: inline-flex; align-items: center; }
-      .sounds-pack-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
-      .sounds-pack-row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border: 1px solid var(--line, rgba(255,255,255,.1)); border-radius: 10px; padding: 9px 11px; }
-      .sounds-pack-info { display: flex; flex-direction: column; flex: 1 1 240px; min-width: 180px; }
-      .sounds-pack-info span { font-size: 11px; opacity: .72; }
-      .sounds-pack-active { white-space: nowrap; }
-      .sounds-mode-row { display: flex; gap: 14px; flex-wrap: wrap; }
-      .sounds-controls { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
-      .sounds-controls .slider-field { flex: 1 1 180px; min-width: 160px; }
-      .sounds-draft { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: 12px; padding: 12px; }
-      .sounds-rows { display: flex; flex-direction: column; gap: 6px; max-height: 340px; overflow: auto; }
-      .sounds-row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 6px 8px; border-radius: 8px; background: rgba(255,255,255,.03); }
-      .sounds-row-index { width: 22px; text-align: right; font-size: 11px; opacity: .6; }
-      .sounds-row-time { font-size: 11px; opacity: .65; min-width: 118px; }
-      .sounds-note { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; flex: 1 1 320px; }
-      .sounds-midi-input { width: 62px; }
-      .sounds-note-name { min-width: 42px; font-weight: 600; }
-      .sounds-pad-select { flex: 1 1 200px; }
-      .sounds-save-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
-      .sounds-name-field { flex: 1 1 260px; }
-      .sounds-map-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 6px; }
-      .sounds-map-cell { display: flex; flex-direction: column; gap: 2px; text-align: left; border: 1px solid var(--line, rgba(255,255,255,.12)); border-radius: 8px; padding: 6px 8px; background: rgba(255,255,255,.03); color: inherit; cursor: pointer; font: inherit; }
-      .sounds-map-cell:hover { border-color: rgba(124, 208, 255, .5); }
-      .sounds-map-cell span { font-size: 10px; opacity: .7; }
-      .sounds-error { color: #ffb4b4; font-size: 12px; margin: 0; }
-      .sounds-notice { color: #a8e6c1; font-size: 12px; margin: 0; }
-      .sounds-privacy ul { margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.55; opacity: .85; }
-      .mini-btn.danger { color: #ffb4b4; }
-      @media (max-width: 640px) {
-        .sounds-instrument-select { min-width: 100%; }
-        .sounds-row-time { min-width: 0; }
-        .sounds-note { flex-basis: 100%; }
-      }
-    `}</style>
   );
 }
