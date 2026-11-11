@@ -1,18 +1,10 @@
-import type { ChangeEvent } from 'react';
-import { importSongFile, SONG_FILE_ACCEPT } from '../state/importFile';
+import { importFromInput, SONG_FILE_ACCEPT } from '../state/importFile';
 import { useAppStore } from '../state/store';
 import { DownloadIcon, LibraryIcon, SheetIcon, StarIcon, UploadIcon } from './Icons';
 
 /** The song-level actions used most often, kept one click away in the top bar. */
 export function QuickActions() {
   const setPanel = useAppStore((state) => state.setPanel);
-
-  const importFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (!file) return;
-    await importSongFile(file);
-  };
 
   return (
     <div className="quick-actions">
@@ -44,7 +36,7 @@ export function QuickActions() {
           accept={SONG_FILE_ACCEPT}
           aria-label="Import song or MIDI"
           hidden
-          onChange={(event) => void importFile(event)}
+          onChange={(event) => void importFromInput(event.target)}
         />
       </label>
       <button

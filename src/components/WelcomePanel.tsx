@@ -1,5 +1,5 @@
 import type { ChangeEvent } from 'react';
-import { importSongFile, SONG_FILE_ACCEPT } from '../state/importFile';
+import { importFromInput, SONG_FILE_ACCEPT } from '../state/importFile';
 import { useAppStore } from '../state/store';
 import { CloseIcon, LibraryIcon, MusicIcon, SparkIcon, StarIcon, UploadIcon } from './Icons';
 
@@ -16,9 +16,7 @@ export function WelcomePanel() {
   };
 
   const openFile = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    event.target.value = '';
-    if (file && (await importSongFile(file))) finishOnboarding();
+    if (await importFromInput(event.target)) finishOnboarding();
   };
 
   const start = () => {

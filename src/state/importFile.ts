@@ -27,6 +27,13 @@ async function looksLikeMidi(file: File): Promise<boolean> {
   return String.fromCharCode(...head) === 'MThd';
 }
 
+/** Opens the file a file input was given, and clears the input so the same file can be chosen again. */
+export function importFromInput(input: HTMLInputElement): Promise<boolean> {
+  const file = input.files?.[0];
+  input.value = '';
+  return file ? importSongFile(file) : Promise.resolve(false);
+}
+
 /** Opens a MIDI or project file as the current song. Returns whether it loaded. */
 export async function importSongFile(file: File): Promise<boolean> {
   const state = useAppStore.getState();
