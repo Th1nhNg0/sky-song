@@ -12,7 +12,6 @@
 
 import { getSoundPackStorage } from '../storage/soundPacks';
 import { readCompactPack, type CompactPackEntry } from './compactPack';
-import { reverbSendLevel } from './graph';
 import {
   packFromJson,
   nearestSample,
@@ -205,12 +204,6 @@ function activePackFor(instrumentId: string): SoundPack | null {
     if (pack.instrumentId === instrumentId && pack.enabled) return pack;
   }
   return null;
-}
-
-/** Real game samples carry their own tone, so they only get a trace of the app's reverb. */
-export function trackSendLevel(reverbAmount: number, instrument: { id: string; reverbSend: number }): number {
-  const level = reverbSendLevel(reverbAmount, instrument.reverbSend);
-  return activePackFor(instrument.id) ? level * 0.15 : level;
 }
 
 /**

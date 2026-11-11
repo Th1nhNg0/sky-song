@@ -5,6 +5,7 @@ import { Modal } from './Modal';
 import { SparkIcon } from './Icons';
 import { SoundsPanel } from './SoundsPanel';
 import { COUNT_IN_OPTIONS } from '../music/time';
+import { REVERB_SPACES, getReverbSpace, type ReverbSpaceId } from '../audio/reverb';
 
 export function SettingsPanel({ onClose }: { onClose: () => void }) {
   const preferences = useAppStore((state) => state.preferences);
@@ -37,11 +38,20 @@ export function SettingsPanel({ onClose }: { onClose: () => void }) {
             <div><span>Master volume</span><strong>{Math.round(preferences.masterVolume * 100)}%</strong></div>
             <input type="range" min={0} max={1} step={0.01} value={preferences.masterVolume} onChange={(event) => setPreferences({ masterVolume: Number(event.target.value) })} />
           </label>
+          <label className="field">
+            <span className="field-label">Space</span>
+            <select className="input select" value={preferences.reverbSpace} onChange={(event) => setPreferences({ reverbSpace: event.target.value as ReverbSpaceId })}>
+              {REVERB_SPACES.map((space) => <option key={space.id} value={space.id}>{space.name}</option>)}
+            </select>
+          </label>
           <label className="slider-field">
-            <div><span>Reverb (synthetic)</span><strong>{Math.round(preferences.reverbAmount * 100)}%</strong></div>
+            <div><span>Reverb amount</span><strong>{Math.round(preferences.reverbAmount * 100)}%</strong></div>
             <input type="range" min={0} max={1} step={0.01} value={preferences.reverbAmount} onChange={(event) => setPreferences({ reverbAmount: Number(event.target.value) })} />
           </label>
-          <p className="fine-print">The reverb is a procedurally generated impulse response, not a sampled space. It is an approximation of Sky’s calm ambience.</p>
+          <p className="fine-print">
+            {getReverbSpace(preferences.reverbSpace).hint} Every instrument plays in this space, recordings included; 0%
+            is fully dry. The spaces are generated in the app as an approximation of Sky’s ambience, not sampled from the game.
+          </p>
           <label className="slider-field">
             <div><span>Latency offset</span><strong>{preferences.latencyOffsetMs} ms</strong></div>
             <input type="range" min={-250} max={300} step={5} value={preferences.latencyOffsetMs} onChange={(event) => setPreferences({ latencyOffsetMs: Number(event.target.value) })} />

@@ -63,7 +63,9 @@ This is the unvarnished list, current as of the delivery build. Items marked
 13. **Project sound packs are versioned in `public/sound-packs/`.** Both dev and
     production builds fetch these files from the app's own origin. Additional
     packs can still be imported into one browser.
-14. **Reverb is a procedural 5.2 s stereo impulse**, not a captured Sky space.
+14. **Reverb is a set of procedural stereo impulses**, not captured Sky spaces. The
+    five spaces in Settings (Open sky, Cave, Temple hall, Great vault, Canyon echo)
+    are original approximations; how the game shapes sound per area is not documented.
 15. **Percussion voices and some registers are approximations**, as above.
 16. **Browser audio support:** Chrome/Chromium is the primary tested target. A Firefox
     smoke check passed (Web Audio playback, note editing, WAV export). Safari

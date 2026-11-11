@@ -147,7 +147,7 @@ ringer switch off.
   toast; the current project is not modified.
 - Export a project file for a permanent backup. Clearing site data removes the local
   library.
-- Preferences (volumes, reverb, count-in, latency, snap, zoom) are stored separately
+- Preferences (volumes, reverb space and amount, count-in, latency, snap, zoom) are stored separately
   in localStorage.
 
 ## 7. Saving and exporting

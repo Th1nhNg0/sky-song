@@ -3,7 +3,7 @@ import { Transport, type TransportState } from '../audio/transport';
 import { useAppStore } from './store';
 import { useAudioStore, useClockStore } from './clock';
 import { PlayheadSmoother } from './smoothing';
-import { ensureSoundsFor, subscribeSoundBank, type SampleSelection } from '../audio/sampleBank';
+import { ensureSoundsFor, type SampleSelection } from '../audio/sampleBank';
 import { createSampleVoice } from '../audio/sampleVoice';
 import { getInstrument } from '../music/instruments';
 import type { InstrumentDefinition, Project } from '../music/types';
@@ -37,7 +37,6 @@ class PlaybackController {
   readonly transport: Transport;
   private rafId: number | null = null;
   private unsubscribe: (() => void) | null = null;
-  private unsubscribeBank: (() => void) | null = null;
   private audioReady = false;
   private fetchedFor = '';
   private loadingNotice: number | null = null;
@@ -65,6 +64,7 @@ class PlaybackController {
       onStateChange: (state) => this.handleTransportState(state),
     });
     this.engine.setReverbAmount(app.preferences.reverbAmount);
+    this.engine.setReverbSpace(app.preferences.reverbSpace);
     this.engine.setMasterVolume(app.preferences.masterVolume);
     this.unsubscribe = useAppStore.subscribe((state, previous) => {
       // Another song was opened: stop the old one and put the cursor back at its start.
@@ -81,6 +81,9 @@ class PlaybackController {
       if (state.preferences.reverbAmount !== previous.preferences.reverbAmount) {
         this.engine.setReverbAmount(state.preferences.reverbAmount);
       }
+      if (state.preferences.reverbSpace !== previous.preferences.reverbSpace) {
+        this.engine.setReverbSpace(state.preferences.reverbSpace);
+      }
       if (state.preferences.masterVolume !== previous.preferences.masterVolume) {
         this.engine.setMasterVolume(state.preferences.masterVolume);
       }
@@ -94,10 +97,6 @@ class PlaybackController {
       if (state.project.loop !== previous.project.loop) {
         useClockStore.getState().setPlayhead(this.transport.positionBeats());
       }
-    });
-    // A pack that arrives mid-song changes how much reverb its tracks send.
-    this.unsubscribeBank = subscribeSoundBank(() => {
-      if (this.audioReady) this.engine.syncTracks(useAppStore.getState().project);
     });
     this.fetchSongSounds(app.project);
   }
@@ -310,8 +309,6 @@ class PlaybackController {
     this.transport.dispose();
     this.unsubscribe?.();
     this.unsubscribe = null;
-    this.unsubscribeBank?.();
-    this.unsubscribeBank = null;
     void this.engine.dispose();
   }
 }

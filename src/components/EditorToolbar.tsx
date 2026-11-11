@@ -4,7 +4,7 @@ import { useCompact } from '../state/layout';
 import { useAppStore } from '../state/store';
 import { MAX_ZOOM, MIN_ZOOM } from '../storage/preferences';
 import { FitIcon, KeysIcon, LoopIcon, MetronomeIcon, VolumeIcon } from './Icons';
-import { HistoryButtons, ToolSwitch } from './Transport';
+import { HistoryButtons, SpaceField, ToolSwitch } from './Transport';
 
 function Toggle({ on, onClick, label, title, children }: { on: boolean; onClick: () => void; label: string; title: string; children: React.ReactNode }) {
   return (
@@ -97,6 +97,7 @@ export function EditorToolbar() {
         {keysToggle}
         {snapField}
         {loopAndClick}
+        <SpaceField />
         {zoomControl}
         {mixButton}
       </section>
@@ -109,6 +110,8 @@ export function EditorToolbar() {
       {snapField}
       <span className="toolbar-divider" />
       {loopAndClick}
+      <span className="toolbar-divider" />
+      <SpaceField />
       <div className="toolbar-end">
         {zoomControl}
         <span className="toolbar-divider" />

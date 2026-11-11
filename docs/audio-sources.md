@@ -321,7 +321,9 @@ Development/test-only libraries (not shipped in the app bundle except test code)
 - Onset detection is amplitude-based; slurred/legato notes or loud background music
   can merge or split slices. Every detected note is manually correctable, and the
   threshold/gap controls are exposed.
-- The reverb is a synthetic 5.2 s stereo impulse, not a captured Sky cave.
+- The reverb spaces are synthetic stereo impulses (1.5 s open sky to 8.5 s vault; the
+  default cave is 5.2 s), not captured Sky areas. Recordings from a sound pack are
+  sent to the space at the same level as the built-in voices.
 - Percussion pad voicing, handpan/bell pad order and some octave registers are
   community-reported or inferred; see [`known-gaps.md`](known-gaps.md).
 - No latency compensation beyond the measured `AudioContext.outputLatency` +

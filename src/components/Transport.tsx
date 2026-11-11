@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { playback } from '../state/playback';
 import { useAudioStore, useClockStore } from '../state/clock';
+import { REVERB_SPACES, getReverbSpace, type ReverbSpaceId } from '../audio/reverb';
 import { clampBpm, formatBarBeat, MAX_BPM, MIN_BPM, TIME_SIGNATURES } from '../music/time';
 import {
   CursorIcon,
@@ -154,6 +155,45 @@ export function SongFields() {
         </select>
       </label>
     </div>
+  );
+}
+
+/** The space the song rings in and how much of it is heard, always at hand in the toolbar. */
+export function SpaceField() {
+  const space = useAppStore((state) => state.preferences.reverbSpace);
+  const amount = useAppStore((state) => state.preferences.reverbAmount);
+  const setPreferences = useAppStore((state) => state.setPreferences);
+  const percent = Math.round(amount * 100);
+
+  return (
+    <label className="toolbar-field space-field" title={getReverbSpace(space).hint}>
+      <span>Space</span>
+      <select
+        value={space}
+        onChange={(event) => {
+          setPreferences({ reverbSpace: event.target.value as ReverbSpaceId });
+          event.currentTarget.blur();
+        }}
+        aria-label="Reverb space"
+      >
+        {REVERB_SPACES.map((option) => (
+          <option key={option.id} value={option.id}>
+            {option.name}
+          </option>
+        ))}
+      </select>
+      <input
+        type="range"
+        min={0}
+        max={1}
+        step={0.01}
+        value={amount}
+        onChange={(event) => setPreferences({ reverbAmount: Number(event.target.value) })}
+        aria-label="Reverb amount"
+        aria-valuetext={`${percent}%`}
+        title={`Reverb amount: ${percent}%`}
+      />
+    </label>
   );
 }
 

@@ -37,7 +37,8 @@ export function createBus(ctx: BaseAudioContext, graph: Pick<MixGraph, 'masterIn
 /**
  * Converts the user's reverb amount + the instrument's character into a bus send.
  * Sky's spaces are large and wet, so even the default amount lifts the send well
- * above a dry room; 0 still means fully dry.
+ * above a dry room; 0 still means fully dry. Built-in voices and recordings are sent
+ * alike: a recording is the instrument alone, and the space is what the game adds.
  */
 export function reverbSendLevel(reverbAmount: number, instrumentSend: number): number {
   const amount = clamp(reverbAmount, 0, 1);

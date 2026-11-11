@@ -10,8 +10,7 @@ import {
   type MixGraph,
   type VoiceGraph,
 } from './graph';
-import { getReverbImpulse } from './random';
-import { trackSendLevel } from './sampleBank';
+import { DEFAULT_REVERB_SPACE, getReverbImpulse, getReverbSpace, type ReverbSpaceId } from './reverb';
 import { createNoteVoice, type SynthVoice } from './synth';
 
 export interface ScheduledVoiceSpec {
@@ -44,6 +43,7 @@ interface ActiveVoice {
 
 export interface EngineOptions {
   reverbAmount?: number;
+  reverbSpace?: ReverbSpaceId;
   masterVolume?: number;
   latencyHint?: 'interactive' | 'balanced' | 'playback';
 }
@@ -62,6 +62,8 @@ export interface PreviewHandle {
 
 /** How long a request to start sound is waited on. Without a gesture some browsers never answer it. */
 const WAKE_PATIENCE_MS = 1200;
+/** How long the reverb is faded down for while one space's impulse replaces another's. */
+const SPACE_SWAP_MS = 70;
 /** What a phone counts as a gesture: lifting a finger or a click, never the touch going down. */
 const UNLOCK_EVENTS = ['pointerup', 'touchend', 'click', 'keydown'] as const;
 
@@ -82,7 +84,9 @@ export class AudioEngine implements PlaybackEngine {
   ctx: AudioContext | null = null;
   graph: MixGraph | null = null;
   reverbAmount: number;
+  reverbSpace: ReverbSpaceId;
   masterVolume: number;
+  private spaceSwap: number | null = null;
   private latencyHint: EngineOptions['latencyHint'];
   private buses = new Map<string, { bus: VoiceGraph; instrumentId: string }>();
   private active: ActiveVoice[] = [];
@@ -93,6 +97,7 @@ export class AudioEngine implements PlaybackEngine {
 
   constructor(options: EngineOptions = {}) {
     this.reverbAmount = options.reverbAmount ?? 0.24;
+    this.reverbSpace = options.reverbSpace ?? DEFAULT_REVERB_SPACE;
     this.masterVolume = options.masterVolume ?? 0.8;
     this.latencyHint = options.latencyHint ?? 'interactive';
   }
@@ -127,7 +132,7 @@ export class AudioEngine implements PlaybackEngine {
         reverbAmount: this.reverbAmount,
         masterVolume: this.masterVolume,
       });
-      graph.convolver.buffer = getReverbImpulse(ctx);
+      graph.convolver.buffer = getReverbImpulse(ctx, this.reverbSpace);
       this.ctx = ctx;
       this.graph = graph;
       this.attachUnlockListeners();
@@ -187,12 +192,34 @@ export class AudioEngine implements PlaybackEngine {
     this.reverbAmount = clamp(amount, 0, 1);
     if (!this.graph || !this.ctx) return;
     const at = this.ctx.currentTime;
-    this.graph.reverbReturn.gain.setTargetAtTime(0.6 + this.reverbAmount * 1.1, at, 0.05);
+    if (this.spaceSwap === null) this.graph.reverbReturn.gain.setTargetAtTime(this.reverbReturnLevel(), at, 0.05);
     for (const { bus, instrumentId } of this.buses.values()) {
       const instrument = getInstrument(instrumentId);
-      bus.send.gain.setTargetAtTime(trackSendLevel(this.reverbAmount, instrument), at, 0.05);
+      bus.send.gain.setTargetAtTime(reverbSendLevel(this.reverbAmount, instrument.reverbSend), at, 0.05);
     }
     this.graph.previewBus.send.gain.setTargetAtTime(reverbSendLevel(this.reverbAmount, 0.22), at, 0.05);
+  }
+
+  private reverbReturnLevel(): number {
+    return (0.6 + this.reverbAmount * 1.1) * getReverbSpace(this.reverbSpace).level;
+  }
+
+  /** Moves the song into another space. Tails still ringing in the old one are faded out, not cut. */
+  setReverbSpace(space: ReverbSpaceId): void {
+    if (space === this.reverbSpace) return;
+    this.reverbSpace = space;
+    const { ctx, graph } = this;
+    if (!ctx || !graph) return;
+    const wet = graph.reverbReturn.gain;
+    wet.cancelScheduledValues(ctx.currentTime);
+    wet.setTargetAtTime(0, ctx.currentTime, SPACE_SWAP_MS / 5000);
+    if (this.spaceSwap !== null) window.clearTimeout(this.spaceSwap);
+    this.spaceSwap = window.setTimeout(() => {
+      this.spaceSwap = null;
+      if (this.ctx !== ctx) return;
+      graph.convolver.buffer = getReverbImpulse(ctx, this.reverbSpace);
+      wet.setTargetAtTime(this.reverbReturnLevel(), ctx.currentTime, 0.05);
+    }, SPACE_SWAP_MS);
   }
 
   setMasterVolume(volume: number): void {
@@ -209,14 +236,14 @@ export class AudioEngine implements PlaybackEngine {
       if (existing.instrumentId !== instrumentId) {
         existing.instrumentId = instrumentId;
         existing.bus.send.gain.setTargetAtTime(
-          trackSendLevel(this.reverbAmount, instrument),
+          reverbSendLevel(this.reverbAmount, instrument.reverbSend),
           this.ctx.currentTime,
           0.05,
         );
       }
       return existing.bus;
     }
-    const bus = createBus(this.ctx, this.graph, trackSendLevel(this.reverbAmount, instrument));
+    const bus = createBus(this.ctx, this.graph, reverbSendLevel(this.reverbAmount, instrument.reverbSend));
     bus.trackGain.gain.value = 0.0001;
     this.buses.set(trackId, { bus, instrumentId });
     return bus;
@@ -240,7 +267,7 @@ export class AudioEngine implements PlaybackEngine {
       const target = audible ? Math.max(0.0001, track.volume) : 0.0001;
       bus.trackGain.gain.setTargetAtTime(target, at, 0.02);
       bus.send.gain.setTargetAtTime(
-        trackSendLevel(this.reverbAmount, getInstrument(track.instrumentId)),
+        reverbSendLevel(this.reverbAmount, getInstrument(track.instrumentId).reverbSend),
         at,
         0.05,
       );
@@ -373,6 +400,8 @@ export class AudioEngine implements PlaybackEngine {
 
   async dispose(): Promise<void> {
     this.stopAll();
+    if (this.spaceSwap !== null) window.clearTimeout(this.spaceSwap);
+    this.spaceSwap = null;
     this.buses.clear();
     if (this.ctx) {
       try {
@@ -392,6 +421,7 @@ export class AudioEngine implements PlaybackEngine {
     previewVoices: number;
     tracks: string[];
     reverbAmount: number;
+    reverbSpace: ReverbSpaceId;
     masterVolume: number;
   } {
     return {
@@ -401,6 +431,7 @@ export class AudioEngine implements PlaybackEngine {
       previewVoices: this.previewVoices.length,
       tracks: [...this.buses.keys()],
       reverbAmount: this.reverbAmount,
+      reverbSpace: this.reverbSpace,
       masterVolume: this.masterVolume,
     };
   }

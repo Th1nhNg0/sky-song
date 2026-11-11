@@ -119,3 +119,69 @@ test('contrabass keys and scheduled song notes reach the preview mixer', async (
   await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.playback.stop());
   expect(errors).toEqual([]);
 });
+
+test('choosing a space in the toolbar changes the room a note rings in', async ({ page }) => {
+  const errors: string[] = [];
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto('/');
+  await page.waitForFunction(() => window.__SKY_MUSIC_STUDIO__);
+  await page.evaluate(async () => {
+    const { store, playback } = window.__SKY_MUSIC_STUDIO__!;
+    const state = store.getState();
+    state.finishOnboarding();
+    state.newProject();
+    state.setPreferences({ reverbAmount: 0.6, reverbSpace: 'cave' });
+    await playback.ensureAudio();
+    state.setPanel('settings');
+  });
+  const impulseSeconds = () =>
+    page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.playback.engine.graph!.convolver.buffer!.duration);
+  expect(await impulseSeconds()).toBeCloseTo(5.228, 2);
+
+  // How loud the space answers a single key, heard after the dry note has gone.
+  const ring = () =>
+    page.evaluate(async () => {
+      const { playback, instruments } = window.__SKY_MUSIC_STUDIO__!;
+      const engine = playback.engine;
+      const analyser = engine.ctx!.createAnalyser();
+      analyser.fftSize = 8192;
+      engine.graph!.reverbReturn.connect(analyser);
+      engine.playPad({ instrument: instruments.find((item) => item.id === 'piano')!, keyIndex: 0, pad: 7, durationSeconds: 0.2 });
+      await new Promise((resolve) => setTimeout(resolve, 700));
+      const data = new Float32Array(analyser.fftSize);
+      analyser.getFloatTimeDomainData(data);
+      engine.graph!.reverbReturn.disconnect(analyser);
+      engine.stopAll();
+      return Math.sqrt(data.reduce((sum, value) => sum + value * value, 0) / data.length);
+    });
+  expect(await ring()).toBeGreaterThan(0.0005);
+
+  // The toolbar has the picker at hand, and Settings shows the same choice.
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().setPanel(null));
+  const space = page.getByLabel('Reverb space');
+  await expect(space).toHaveValue('cave');
+  await space.selectOption({ label: 'Great vault' });
+  await page.getByLabel('Reverb amount').fill('0.5');
+  expect(await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().preferences.reverbAmount)).toBe(0.5);
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().setPanel('settings'));
+  await expect(page.locator('.settings-card select').first()).toHaveValue('vault');
+  await expect.poll(impulseSeconds).toBeCloseTo(8.56, 2);
+  expect(await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().preferences.reverbSpace)).toBe('vault');
+  await page.waitForTimeout(300);
+  expect(await ring()).toBeGreaterThan(0.0005);
+
+  // The choice is kept for the next visit.
+  await page.reload();
+  await page.waitForFunction(() => window.__SKY_MUSIC_STUDIO__);
+  expect(await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().preferences.reverbSpace)).toBe('vault');
+
+  // At 0% the space is silent whichever one is chosen.
+  await page.evaluate(async () => {
+    const { store, playback } = window.__SKY_MUSIC_STUDIO__!;
+    store.getState().setPreferences({ reverbAmount: 0 });
+    await playback.ensureAudio();
+  });
+  await page.waitForTimeout(400);
+  expect(await ring()).toBeLessThan(0.00005);
+  expect(errors).toEqual([]);
+});

@@ -2236,6 +2236,36 @@ textarea {
 .toolbar-field select option {
   background: var(--panel-strong);
 }
+.space-field {
+  padding-right: var(--space-3);
+}
+.space-field input {
+  width: 72px;
+  accent-color: var(--accent);
+}
+/* A narrow window keeps the picker and the slider and drops the word. */
+@media (max-width: 1180px) {
+  .space-field > span {
+    display: none;
+  }
+  .space-field {
+    padding-left: var(--space-1);
+  }
+  .space-field select {
+    max-width: 104px;
+  }
+  .space-field input {
+    width: 56px;
+  }
+}
+@media (max-width: 1000px) {
+  .space-field select {
+    max-width: 92px;
+  }
+  .space-field input {
+    width: 44px;
+  }
+}
 .tool-toggle,
 .icon-text-button {
   display: inline-flex;

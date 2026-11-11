@@ -1,8 +1,10 @@
+import { DEFAULT_REVERB_SPACE, isReverbSpaceId, type ReverbSpaceId } from '../audio/reverb';
 import { isCompact } from '../state/layout';
 import { clamp, clampNumber } from '../util';
 
 export interface Preferences {
   reverbAmount: number;
+  reverbSpace: ReverbSpaceId;
   masterVolume: number;
   metronomeEnabled: boolean;
   countInMeasures: number;
@@ -18,6 +20,7 @@ export interface Preferences {
 
 const DEFAULT_PREFERENCES: Preferences = {
   reverbAmount: 0.24,
+  reverbSpace: DEFAULT_REVERB_SPACE,
   masterVolume: 0.8,
   metronomeEnabled: false,
   countInMeasures: 0,
@@ -40,6 +43,7 @@ function normalizePreferences(raw: unknown): Preferences {
   const source = (raw && typeof raw === 'object' ? raw : {}) as Partial<Preferences>;
   return {
     reverbAmount: clampNumber(source.reverbAmount, 0, 1, DEFAULT_PREFERENCES.reverbAmount),
+    reverbSpace: isReverbSpaceId(source.reverbSpace) ? source.reverbSpace : DEFAULT_PREFERENCES.reverbSpace,
     masterVolume: clampNumber(source.masterVolume, 0, 1, DEFAULT_PREFERENCES.masterVolume),
     metronomeEnabled: typeof source.metronomeEnabled === 'boolean' ? source.metronomeEnabled : false,
     countInMeasures:
