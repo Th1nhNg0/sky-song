@@ -11,7 +11,7 @@ import {
   type VoiceGraph,
 } from './graph';
 import { getReverbImpulse } from './random';
-import { ensureSoundPacksLoaded, trackSendLevel } from './sampleBank';
+import { trackSendLevel } from './sampleBank';
 import { createNoteVoice, type SynthVoice } from './synth';
 
 export interface ScheduledVoiceSpec {
@@ -60,6 +60,23 @@ export interface PreviewHandle {
   stop: () => void;
 }
 
+/** How long a request to start sound is waited on. Without a gesture some browsers never answer it. */
+const WAKE_PATIENCE_MS = 1200;
+/** What a phone counts as a gesture: lifting a finger or a click, never the touch going down. */
+const UNLOCK_EVENTS = ['pointerup', 'touchend', 'click', 'keydown'] as const;
+
+/** iPhones silence Web Audio while the ringer switch is off, unless the page says it plays media. */
+function claimPlaybackSession(): void {
+  if (typeof navigator === 'undefined') return;
+  const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+  if (!session) return;
+  try {
+    session.type = 'playback';
+  } catch {
+    // Older Safari: the ringer switch keeps its say.
+  }
+}
+
 /** Realtime Web Audio host for the shared synth voices. */
 export class AudioEngine implements PlaybackEngine {
   ctx: AudioContext | null = null;
@@ -71,7 +88,6 @@ export class AudioEngine implements PlaybackEngine {
   private active: ActiveVoice[] = [];
   private previewVoices: SynthVoice[] = [];
   private pendingClicks: { time: number; cancel: () => void }[] = [];
-  private initPromise: Promise<void> | null = null;
   private unlockListenersAttached = false;
   lastError: string | null = null;
 
@@ -93,66 +109,63 @@ export class AudioEngine implements PlaybackEngine {
     return this.ctx?.sampleRate ?? 0;
   }
 
-  async init(): Promise<void> {
-    if (this.ctx && this.graph) {
-      if (this.ctx.state === 'suspended') {
-        try {
-          await this.ctx.resume();
-        } catch {
-          // Resume can fail without a gesture; callers surface the lock prompt.
-        }
-      }
-      return;
+  /**
+   * Builds the audio graph. Nothing here waits, so when a tap calls it the context is
+   * created and started inside that tap: the only moment a phone lets sound begin.
+   */
+  private create(): void {
+    if (this.ctx && this.graph) return;
+    const AudioCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioCtor) {
+      this.lastError = 'This browser does not support the Web Audio API.';
+      throw new Error(this.lastError);
     }
-    if (this.initPromise) return this.initPromise;
-    this.initPromise = (async () => {
-      const AudioCtor = window.AudioContext ?? (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-      if (!AudioCtor) {
-        this.lastError = 'This browser does not support the Web Audio API.';
-        throw new Error(this.lastError);
-      }
-      try {
-        await ensureSoundPacksLoaded();
-        const ctx = new AudioCtor({ latencyHint: this.latencyHint });
-        const graph = createMixGraph(ctx, {
-          reverbAmount: this.reverbAmount,
-          masterVolume: this.masterVolume,
-        });
-        graph.convolver.buffer = getReverbImpulse(ctx);
-        this.ctx = ctx;
-        this.graph = graph;
-        if (ctx.state === 'suspended') {
-          try {
-            await ctx.resume();
-          } catch {
-            // The UI shows an unlock gate if the context stays suspended.
-          }
-        }
-        this.attachUnlockListeners();
-      } catch (error) {
-        this.lastError = error instanceof Error ? error.message : 'Could not start audio.';
-        throw error;
-      }
-    })();
-    return this.initPromise;
+    try {
+      claimPlaybackSession();
+      const ctx = new AudioCtor({ latencyHint: this.latencyHint });
+      const graph = createMixGraph(ctx, {
+        reverbAmount: this.reverbAmount,
+        masterVolume: this.masterVolume,
+      });
+      graph.convolver.buffer = getReverbImpulse(ctx);
+      this.ctx = ctx;
+      this.graph = graph;
+      this.attachUnlockListeners();
+    } catch (error) {
+      this.lastError = error instanceof Error ? error.message : 'Could not start audio.';
+      throw error;
+    }
   }
 
+  /** Asks a context that is not running to start: suspended at first, or interrupted by a call. */
+  private async wake(): Promise<void> {
+    const ctx = this.ctx;
+    if (!ctx || ctx.state === 'running') return;
+    try {
+      await Promise.race([ctx.resume(), new Promise((resolve) => setTimeout(resolve, WAKE_PATIENCE_MS))]);
+    } catch {
+      // Resume can fail without a gesture; callers surface the lock prompt.
+    }
+  }
+
+  async init(): Promise<void> {
+    this.create();
+    await this.wake();
+  }
+
+  /** Any later gesture starts a context the browser held back, or one a phone call interrupted. */
   private attachUnlockListeners() {
     if (this.unlockListenersAttached || typeof window === 'undefined') return;
     this.unlockListenersAttached = true;
     const unlock = () => {
-      void this.resume();
+      if (this.ctx && this.ctx.state !== 'running') void this.ctx.resume().catch(() => undefined);
     };
-    window.addEventListener('pointerdown', unlock, { passive: true });
-    window.addEventListener('keydown', unlock);
+    for (const type of UNLOCK_EVENTS) window.addEventListener(type, unlock, { capture: true, passive: true });
   }
 
   async resume(): Promise<boolean> {
     try {
       await this.init();
-      if (this.ctx && this.ctx.state !== 'running') {
-        await this.ctx.resume();
-      }
       return this.ctx?.state === 'running';
     } catch (error) {
       this.lastError = error instanceof Error ? error.message : 'Audio could not be resumed.';
@@ -370,7 +383,6 @@ export class AudioEngine implements PlaybackEngine {
     }
     this.ctx = null;
     this.graph = null;
-    this.initPromise = null;
   }
 
   getDebugInfo(): {

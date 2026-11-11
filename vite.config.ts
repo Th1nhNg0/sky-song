@@ -12,10 +12,14 @@ function prepareProjectSoundPacks(): void {
   fs.mkdirSync(directory, { recursive: true });
   const manifest = fs.readdirSync(directory).filter((file) => file.endsWith('.skypack.json')).sort().map((file) => {
     const pack = JSON.parse(fs.readFileSync(path.join(directory, file), 'utf8'));
-    if (pack.format !== 'skymusic-soundpack' || pack.version !== 1 || typeof pack.id !== 'string' || typeof pack.updatedAt !== 'string') {
+    if (
+      pack.format !== 'skymusic-soundpack' || pack.version !== 1 || typeof pack.id !== 'string' ||
+      typeof pack.updatedAt !== 'string' || typeof pack.instrumentId !== 'string'
+    ) {
       throw new Error(`Invalid project sound pack: ${file}`);
     }
-    return { id: pack.id as string, updatedAt: pack.updatedAt as string, file };
+    // Naming the instrument lets the app fetch a pack only when a song uses that instrument.
+    return { id: pack.id as string, updatedAt: pack.updatedAt as string, instrumentId: pack.instrumentId as string, file };
   });
   fs.writeFileSync(path.join(directory, 'manifest.json'), JSON.stringify(manifest));
 }

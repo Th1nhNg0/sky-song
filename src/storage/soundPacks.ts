@@ -18,6 +18,8 @@ export interface SoundPackStorage {
   save(pack: SoundPack): Promise<void>;
   load(id: string): Promise<SoundPack | null>;
   loadAll(): Promise<SoundPack[]>;
+  /** Ids of every stored pack, without reading their recordings. */
+  keys(): Promise<string[]>;
   remove(id: string): Promise<void>;
 }
 
@@ -99,6 +101,13 @@ class IndexedDbSoundPackStorage implements SoundPackStorage {
     return result.map(clonePack);
   }
 
+  async keys(): Promise<string[]> {
+    const db = await openDatabase();
+    if (!db) return [];
+    const result = await withStore<IDBValidKey[]>(db, 'readonly', (store) => store.getAllKeys(), []);
+    return result.map(String);
+  }
+
   async remove(id: string): Promise<void> {
     const db = await openDatabase();
     if (!db) return;
@@ -122,6 +131,10 @@ class MemorySoundPackStorage implements SoundPackStorage {
 
   async loadAll(): Promise<SoundPack[]> {
     return [...this.packs.values()].map(clonePack);
+  }
+
+  async keys(): Promise<string[]> {
+    return [...this.packs.keys()];
   }
 
   async remove(id: string): Promise<void> {

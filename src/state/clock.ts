@@ -14,12 +14,15 @@ export const useClockStore = create<ClockState>()((set) => ({
 interface AudioState {
   status: 'locked' | 'starting' | 'ready' | 'error';
   message: string | null;
+  /** True while Play has been pressed and the song's sounds are still being fetched. */
+  loadingSounds: boolean;
   setStatus: (status: AudioState['status'], message?: string | null) => void;
 }
 
 export const useAudioStore = create<AudioState>()((set) => ({
   status: 'locked',
   message: null,
+  loadingSounds: false,
   setStatus: (status, message = null) => set({ status, message }),
 }));
 

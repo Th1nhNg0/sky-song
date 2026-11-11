@@ -1869,6 +1869,23 @@ textarea {
   color: var(--accent);
   box-shadow: inset 0 0 0 1px var(--accent);
 }
+.play-button.is-loading {
+  animation: loading-pulse 1.2s ease-in-out infinite alternate;
+}
+.play-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spin 800ms linear infinite;
+}
+@keyframes loading-pulse {
+  to { opacity: 0.6; }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 .icon-button,
 .btn.top-icon {
   display: inline-flex;
