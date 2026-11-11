@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../state/store';
 import type { PanelKind } from '../state/store';
 import { COUNT_IN_OPTIONS } from '../music/time';
+import { QuickActions } from './QuickActions';
+import { SongFields } from './Transport';
 import {
   HelpIcon,
   InfoIcon,
@@ -11,7 +13,7 @@ import {
   VolumeIcon,
 } from './Icons';
 
-export function MoreMenu({ onOpenCatalog }: { onOpenCatalog: () => void }) {
+export function MoreMenu({ onOpenCatalog, compact = false }: { onOpenCatalog: () => void; compact?: boolean }) {
   const setPanel = useAppStore((state) => state.setPanel);
   const preferences = useAppStore((state) => state.preferences);
   const setPreferences = useAppStore((state) => state.setPreferences);
@@ -62,6 +64,7 @@ export function MoreMenu({ onOpenCatalog }: { onOpenCatalog: () => void }) {
       </button>
       {open && (
         <div className="more-menu" role="menu" aria-label="More options">
+          {compact && <QuickActions onAction={() => setOpen(false)} />}
           <div className="more-menu-links">
             <button type="button" role="menuitem" onClick={openInstruments}>
               <MusicIcon size={17} />
@@ -85,6 +88,12 @@ export function MoreMenu({ onOpenCatalog }: { onOpenCatalog: () => void }) {
             </button>
           </div>
 
+          {compact && (
+            <div className="more-menu-tools">
+              <p className="menu-heading">Song</p>
+              <SongFields />
+            </div>
+          )}
           <div className="more-menu-tools">
             <p className="menu-heading">Playback &amp; editing</p>
             <label className="menu-row select-row">

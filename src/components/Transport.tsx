@@ -78,6 +78,7 @@ export function ToolSwitch() {
         className={editTool === 'draw' ? 'is-on' : ''}
         onClick={() => setEditTool('draw')}
         aria-pressed={editTool === 'draw'}
+        aria-label="Add note"
         title="Click the grid to add notes (1)"
       >
         <PlusIcon size={16} />
@@ -88,6 +89,7 @@ export function ToolSwitch() {
         className={editTool === 'select' ? 'is-on' : ''}
         onClick={() => setEditTool('select')}
         aria-pressed={editTool === 'select'}
+        aria-label="Edit"
         title="Select and move notes (2)"
       >
         <CursorIcon size={15} />

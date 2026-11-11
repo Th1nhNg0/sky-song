@@ -1,10 +1,17 @@
 import { importFromInput, SONG_FILE_ACCEPT } from '../state/importFile';
-import { useAppStore } from '../state/store';
+import { useAppStore, type PanelKind } from '../state/store';
 import { DownloadIcon, LibraryIcon, SheetIcon, StarIcon, UploadIcon } from './Icons';
 
-/** The song-level actions used most often, kept one click away in the top bar. */
-export function QuickActions() {
-  const setPanel = useAppStore((state) => state.setPanel);
+/**
+ * The song-level actions used most often: one click away in the top bar, or at the top of
+ * the More menu on a phone, which passes `onAction` to close itself.
+ */
+export function QuickActions({ onAction }: { onAction?: () => void }) {
+  const openPanel = useAppStore((state) => state.setPanel);
+  const setPanel = (panel: PanelKind) => {
+    openPanel(panel);
+    onAction?.();
+  };
 
   return (
     <div className="quick-actions">
@@ -36,7 +43,10 @@ export function QuickActions() {
           accept={SONG_FILE_ACCEPT}
           aria-label="Import song or MIDI"
           hidden
-          onChange={(event) => void importFromInput(event.target)}
+          onChange={(event) => {
+            void importFromInput(event.target);
+            onAction?.();
+          }}
         />
       </label>
       <button

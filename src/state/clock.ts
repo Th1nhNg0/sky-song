@@ -26,8 +26,6 @@ export const useAudioStore = create<AudioState>()((set) => ({
   setStatus: (status, message = null) => set({ status, message }),
 }));
 
-export const LABEL_WIDTH = 196;
-
 interface TimelineNavigation {
   zoomTo(px: number, anchorClientX?: number): void;
   zoomToFit(): void;

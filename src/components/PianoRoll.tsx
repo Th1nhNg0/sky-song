@@ -4,6 +4,7 @@ import { isTonicDegree } from '../music/keys';
 import { resolvePad } from '../music/pitch';
 import { formatBarBeat } from '../music/time';
 import type { InstrumentDefinition, Note, Track } from '../music/types';
+import { useTouch } from '../state/layout';
 import { playback } from '../state/playback';
 import { useAppStore } from '../state/store';
 import { useNoteGestures, type DragState } from './useNoteGestures';
@@ -80,6 +81,7 @@ export function PianoRoll({
   const selectedNoteIds = useAppStore((state) => state.selectedNoteIds);
   const editTool = useAppStore((state) => state.editTool);
   const gridRef = useRef<HTMLDivElement>(null);
+  const touch = useTouch();
 
   const hold = instrument.supportsHold;
   const keyCount = instrument.keyCount;
@@ -188,9 +190,17 @@ export function PianoRoll({
         {marquee && <div className="marquee" style={marquee} aria-hidden="true" />}
         {track.notes.length === 0 && (
           <div className="roll-empty">
-            <strong>{editTool === 'draw' ? 'Click a row to place a note' : 'Double-click to place a note'}</strong>
+            <strong>
+              {editTool === 'draw'
+                ? `${touch ? 'Tap' : 'Click'} a row to place a note`
+                : `${touch ? 'Double-tap' : 'Double-click'} to place a note`}
+            </strong>
             <span>
-              {hold ? `${instrument.displayName} holds notes: drag right while placing to set the length.` : `${instrument.displayName} plays one-shot notes that ring out on their own.`}
+              {!hold
+                ? `${instrument.displayName} plays one-shot notes that ring out on their own.`
+                : touch
+                  ? `${instrument.displayName} holds notes: drag a note’s right edge to set the length.`
+                  : `${instrument.displayName} holds notes: drag right while placing to set the length.`}
             </span>
           </div>
         )}

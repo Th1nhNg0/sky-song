@@ -15,6 +15,7 @@ import {
 import { beatsPerMeasure } from '../music/time';
 import type { InstrumentDefinition, Track } from '../music/types';
 import { useClockStore } from '../state/clock';
+import { useNarrow, useTouch } from '../state/layout';
 import { playback } from '../state/playback';
 import { useAppStore } from '../state/store';
 import { MusicIcon, PauseIcon, PlayIcon, PrintIcon } from './Icons';
@@ -23,6 +24,7 @@ import { Modal } from './Modal';
 import {
   framePositions,
   SHEET_CONTENT_WIDTH,
+  SHEET_NARROW_CONTENT_WIDTH,
   SHEET_THEMES,
   SHEET_WIDTH,
   SheetSvg,
@@ -62,7 +64,7 @@ function reveal(svg: SVGSVGElement, y: number, geometry: SheetGeometry) {
   const scroller = svg.closest<HTMLElement>('.modal-body');
   if (!scroller) return;
   const box = svg.getBoundingClientRect();
-  const scale = box.width / SHEET_WIDTH;
+  const scale = box.width / svg.viewBox.baseVal.width;
   const top = box.top - scroller.getBoundingClientRect().top + y * scale;
   const bottom = top + geometry.frameHeight * scale;
   const toolbar = 84;
@@ -82,6 +84,9 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
   const [labels, setLabels] = useState<SheetLabels>('shapes');
   const [printing, setPrinting] = useState(false);
   const svgs = useRef(new Map<string, SVGSVGElement>());
+  const touch = useTouch();
+  // On screen the sheet fits the window; printed, it always fills a page.
+  const contentWidth = useNarrow() ? SHEET_NARROW_CONTENT_WIDTH : SHEET_CONTENT_WIDTH;
 
   const shown = choice === ALL || !playable.some((track) => track.id === choice) ? ALL : choice;
   const sections = useMemo<Section[]>(() => {
@@ -91,7 +96,7 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
       .filter((track) => shown === ALL || track.id === shown)
       .map((track) => {
         const instrument = getInstrument(track.instrumentId);
-        const geometry = sheetGeometry(instrument, SHEET_CONTENT_WIDTH);
+        const geometry = sheetGeometry(instrument, contentWidth);
         const frames = buildSheetFrames(track.notes, instrument, beatsPerBar);
         const lines = layoutSheet(frames, geometry.columns);
         return {
@@ -104,7 +109,7 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
           title: { heading: project.title, detail: `${trackLabel(track, instrument)} · ${detail}` },
         };
       });
-  }, [playable, shown, project.timeSignature, project.bpm, project.key, project.title]);
+  }, [playable, shown, contentWidth, project.timeSignature, project.bpm, project.key, project.title]);
   const single = sections.length === 1 ? sections[0] : null;
 
   // The cursor follows the playhead by moving one outline, so playing never redraws the sheet.
@@ -260,6 +265,7 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
                 instrument={section.instrument}
                 projectKey={project.key}
                 geometry={section.geometry}
+                contentWidth={contentWidth}
                 theme={SHEET_THEMES.screen}
                 labels={labels}
                 onFrame={handlers.get(section.track.id)}
@@ -270,17 +276,18 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
           <p className="sheet-legend">
             <span><i className="sheet-key" /> Press the filled keys together, one frame after another.</span>
             <span>The small number is the bar each line starts on.</span>
-            <span>Click a frame to hear it{single ? ', or step with ← and →' : ''}.</span>
+            <span>{touch ? 'Tap' : 'Click'} a frame to hear it{single && !touch ? ', or step with ← and →' : ''}.</span>
           </p>
 
           {printing &&
             createPortal(
               <div className="print-root">
                 {sections.flatMap((section) => {
+                  const geometry = sheetGeometry(section.instrument, SHEET_CONTENT_WIDTH);
                   const pages = paginateSheet(
-                    section.lines,
-                    sheetLinesPerPage(PAGE_HEIGHT, section.geometry, true),
-                    sheetLinesPerPage(PAGE_HEIGHT, section.geometry, false),
+                    layoutSheet(section.frames, geometry.columns),
+                    sheetLinesPerPage(PAGE_HEIGHT, geometry, true),
+                    sheetLinesPerPage(PAGE_HEIGHT, geometry, false),
                   );
                   return pages.map((lines, page) => (
                     <div key={`${section.track.id}-${page}`} className="print-page">
@@ -288,7 +295,7 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
                         lines={lines}
                         instrument={section.instrument}
                         projectKey={project.key}
-                        geometry={section.geometry}
+                        geometry={geometry}
                         theme={SHEET_THEMES.paper}
                         labels={labels}
                         title={page === 0 ? section.title : undefined}

@@ -50,6 +50,8 @@ export const SHEET_THEMES: Record<'screen' | 'paper', SheetTheme> = {
 export const SHEET_MARGIN = 24;
 /** Width the lines of frames fill; the drawing adds a margin either side. */
 export const SHEET_CONTENT_WIDTH = 992;
+/** The same on a phone held upright: fewer frames to a line, so each stays large enough to read. */
+export const SHEET_NARROW_CONTENT_WIDTH = 440;
 export const SHEET_WIDTH = SHEET_CONTENT_WIDTH + SHEET_MARGIN * 2;
 const TITLE_HEIGHT = 58;
 const TOP_SPACE = 12;
@@ -119,6 +121,8 @@ interface SheetSvgProps {
   instrument: InstrumentDefinition;
   projectKey: number;
   geometry: SheetGeometry;
+  /** The width `geometry` was made for. A printed page's by default. */
+  contentWidth?: number;
   theme: SheetTheme;
   labels: SheetLabels;
   title?: SheetTitle;
@@ -138,6 +142,7 @@ export const SheetSvg = memo(function SheetSvg({
   instrument,
   projectKey,
   geometry,
+  contentWidth = SHEET_CONTENT_WIDTH,
   theme,
   labels,
   title,
@@ -145,6 +150,7 @@ export const SheetSvg = memo(function SheetSvg({
   onFrame,
   svgRef,
 }: SheetSvgProps) {
+  const width = contentWidth + SHEET_MARGIN * 2;
   const dotsId = `sheet-dots-${useId().replace(/[^a-zA-Z0-9]/g, '')}`;
   const { cell, inset, frameWidth, frameHeight, lineGap, lineHeight } = geometry;
   const top = sheetTop(Boolean(title));
@@ -164,13 +170,13 @@ export const SheetSvg = memo(function SheetSvg({
     <svg
       ref={svgRef}
       xmlns="http://www.w3.org/2000/svg"
-      viewBox={`0 0 ${SHEET_WIDTH} ${height}`}
-      width={SHEET_WIDTH}
+      viewBox={`0 0 ${width} ${height}`}
+      width={width}
       height={height}
       fontFamily={FONT}
       onClick={onFrame ? click : undefined}
     >
-      {theme.background && <rect width={SHEET_WIDTH} height={height} fill={theme.background} />}
+      {theme.background && <rect width={width} height={height} fill={theme.background} />}
       <defs>
         <g id={dotsId}>
           {instrument.pads.map((pad) => {
@@ -196,7 +202,7 @@ export const SheetSvg = memo(function SheetSvg({
           {row > 0 && (
             <line
               x1={SHEET_MARGIN}
-              x2={SHEET_WIDTH - SHEET_MARGIN}
+              x2={width - SHEET_MARGIN}
               y1={-lineGap / 2}
               y2={-lineGap / 2}
               stroke={theme.rule}

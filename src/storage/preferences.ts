@@ -1,3 +1,4 @@
+import { isCompact } from '../state/layout';
 import { clamp, clampNumber } from '../util';
 
 export interface Preferences {
@@ -50,7 +51,8 @@ function normalizePreferences(raw: unknown): Preferences {
     preserveOriginalTiming: source.preserveOriginalTiming !== false,
     snap: clampNumber(source.snap, 0, 4, DEFAULT_PREFERENCES.snap),
     zoom: clampNumber(source.zoom, MIN_ZOOM, MAX_ZOOM, DEFAULT_PREFERENCES.zoom),
-    keysOpen: source.keysOpen !== false,
+    // Until someone chooses, a phone starts with the keys folded away so the notes have the screen.
+    keysOpen: typeof source.keysOpen === 'boolean' ? source.keysOpen : !isCompact(),
     notePreview: source.notePreview !== false,
     stepInput: source.stepInput === true,
   };
@@ -59,10 +61,9 @@ function normalizePreferences(raw: unknown): Preferences {
 export function loadPreferences(): Preferences {
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return normalizePreferences(DEFAULT_PREFERENCES);
-    return normalizePreferences(JSON.parse(raw));
+    return normalizePreferences(raw ? JSON.parse(raw) : null);
   } catch {
-    return normalizePreferences(DEFAULT_PREFERENCES);
+    return normalizePreferences(null);
   }
 }
 

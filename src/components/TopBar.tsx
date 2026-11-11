@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAppStore, type SaveState } from '../state/store';
 import { useAudioStore } from '../state/clock';
+import { useCompact } from '../state/layout';
 import { playback } from '../state/playback';
 import { MAX_TITLE_LENGTH } from '../music/validation';
 import { AudioIcon, SparkIcon } from './Icons';
@@ -24,6 +25,8 @@ export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
   const audioStatus = useAudioStore((state) => state.status);
   const [title, setTitle] = useState(project.title);
   const [editingTitle, setEditingTitle] = useState(false);
+  // A phone keeps Play, the title and More here; the rest moves into More and the toolbar.
+  const compact = useCompact();
 
   useEffect(() => {
     if (!editingTitle) setTitle(project.title);
@@ -66,21 +69,23 @@ export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
         </span>
       </div>
 
-      <SongFields />
-      <HistoryButtons />
+      {!compact && <SongFields />}
+      {!compact && <HistoryButtons />}
 
       <nav className="top-actions" aria-label="Project actions">
-        <QuickActions />
-        <button
-          type="button"
-          className={`btn top-icon audio-pill ${audioStatus}`}
-          onClick={() => void playback.enableAudio()}
-          aria-label={audioLabel}
-          title={audioLabel}
-        >
-          {audioStatus === 'ready' ? <AudioIcon size={18} /> : <SparkIcon size={17} />}
-        </button>
-        <MoreMenu onOpenCatalog={onOpenCatalog} />
+        {!compact && <QuickActions />}
+        {!compact && (
+          <button
+            type="button"
+            className={`btn top-icon audio-pill ${audioStatus}`}
+            onClick={() => void playback.enableAudio()}
+            aria-label={audioLabel}
+            title={audioLabel}
+          >
+            {audioStatus === 'ready' ? <AudioIcon size={18} /> : <SparkIcon size={17} />}
+          </button>
+        )}
+        <MoreMenu onOpenCatalog={onOpenCatalog} compact={compact} />
       </nav>
     </header>
   );
