@@ -21,6 +21,8 @@ import { TracksPanel } from './components/TracksPanel';
 import { lastOpenedProjectId } from './storage/library';
 import { SparkIcon } from './components/Icons';
 
+const closePanel = () => useAppStore.getState().setPanel(null);
+
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null as Error | null };
 
@@ -124,18 +126,18 @@ export default function App() {
         <StatusBar />
         <NoteFlash />
 
-        {panel === 'catalog' && <CatalogPanel intent={catalogIntent} onClose={() => useAppStore.getState().setPanel(null)} />}
-        {panel === 'library' && <LibraryPanel onClose={() => useAppStore.getState().setPanel(null)} />}
-        {panel === 'songs' && <SongbookPanel onClose={() => useAppStore.getState().setPanel(null)} />}
-        {panel === 'sheet' && <SheetPanel onClose={() => useAppStore.getState().setPanel(null)} />}
-        {panel === 'export' && <ExportPanel onClose={() => useAppStore.getState().setPanel(null)} />}
-        {panel === 'settings' && <SettingsPanel onClose={() => useAppStore.getState().setPanel(null)} />}
-        {panel === 'help' && <HelpPanel onClose={() => useAppStore.getState().setPanel(null)} />}
-        {panel === 'about' && <AboutPanel onClose={() => useAppStore.getState().setPanel(null)} />}
+        {panel === 'catalog' && <CatalogPanel intent={catalogIntent} onClose={closePanel} />}
+        {panel === 'library' && <LibraryPanel onClose={closePanel} />}
+        {panel === 'songs' && <SongbookPanel onClose={closePanel} />}
+        {panel === 'sheet' && <SheetPanel onClose={closePanel} />}
+        {panel === 'export' && <ExportPanel onClose={closePanel} />}
+        {panel === 'settings' && <SettingsPanel onClose={closePanel} />}
+        {panel === 'help' && <HelpPanel onClose={closePanel} />}
+        {panel === 'about' && <AboutPanel onClose={closePanel} />}
         {panel === 'tracks' && (
           <TracksPanel
             onOpenCatalog={openCatalog}
-            onClose={() => useAppStore.getState().setPanel(null)}
+            onClose={closePanel}
           />
         )}
 
