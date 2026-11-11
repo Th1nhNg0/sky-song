@@ -1,5 +1,7 @@
+import { createHash } from 'node:crypto';
+import { readFileSync, statSync } from 'node:fs';
 import { expect, test, type Page } from '@playwright/test';
-import { createSoundPack, normalizeSlice, packToJson } from '../../src/audio/soundPack';
+import { createSoundPack, normalizeSlice, packFromJson, packToJson } from '../../src/audio/soundPack';
 
 // A phone: touch input, and a browser that only starts sound inside a gesture
 // (the shared config switches that rule off for the other suites).
@@ -97,4 +99,49 @@ test('a pack that never arrives does not keep the song silent', async ({ page })
   await page.locator('.play-button').tap();
   await expect.poll(() => app(page, 's.isPlaying'), { timeout: 15_000 }).toBe(true);
   await expect(page.locator('.play-button')).toHaveAttribute('aria-busy', 'false');
+});
+
+test('the deployed packs are a fraction of the size and play the very same samples', async ({ page }) => {
+  // No routes here: this reads the build's own manifest and packed files.
+  const fetched: string[] = [];
+  page.on('response', (response) => {
+    if (response.url().includes('/sound-packs/')) fetched.push(response.url().split('/').pop()!.split('?')[0]);
+  });
+  await page.goto('/');
+  await page.waitForFunction(() => window.__SKY_MUSIC_STUDIO__);
+  for (const [instrumentId, file] of [['harp', 'Game-harp-harp'], ['violin', 'Game-violin-violin']]) {
+    const source = packFromJson(readFileSync(`public/sound-packs/${file}.skypack.json`, 'utf8'));
+    // Each sample is compared by a digest of the 16-bit values its audio is made of.
+    const played = await page.evaluate(async (id) => {
+      const studio = window.__SKY_MUSIC_STUDIO__!;
+      await studio.playback.ensureAudio([id]);
+      const pack = studio.soundSourceInfo(id).pack!;
+      const samples = [];
+      for (const sample of pack.samples) {
+        const digests = [];
+        for (const channel of sample.channels) {
+          const digest = await crypto.subtle.digest('SHA-256', Int16Array.from(channel, (value) => value * 32768));
+          digests.push(Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join(''));
+        }
+        samples.push([sample.id, sample.midi, sample.gain, sample.sampleRate, ...digests]);
+      }
+      return { id: pack.id, name: pack.name, updatedAt: pack.updatedAt, samples };
+    }, instrumentId);
+    expect(played).toEqual({
+      id: source.id,
+      name: source.name,
+      updatedAt: source.updatedAt,
+      samples: source.samples.map((sample) => [
+        sample.id, sample.midi, sample.gain, sample.sampleRate,
+        ...sample.channels.map((channel) =>
+          createHash('sha256').update(new Uint8Array(Int16Array.from(channel, (value) => value * 32768).buffer)).digest('hex'),
+        ),
+      ]),
+    });
+  }
+  const packs = fetched.filter((name) => name !== 'manifest.json');
+  expect(packs.every((name) => name.endsWith('.skyaudio'))).toBe(true);
+  const bytes = packs.reduce((total, name) => total + statSync(`dist/sound-packs/${name}`).size, 0);
+  const json = statSync('public/sound-packs/Game-harp-harp.skypack.json').size + statSync('public/sound-packs/Game-violin-violin.skypack.json').size;
+  expect(bytes).toBeLessThan(json / 2);
 });

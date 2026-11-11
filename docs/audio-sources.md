@@ -27,8 +27,15 @@ them in IndexedDB. Existing disabled packs stay disabled; newer browser edits ar
 preserved. A checkout with no personal packs uses the synth. No external audio
 service is contacted and nothing is uploaded.
 
-The packs add up to about 285 MB, so a pack is fetched only when its instrument is
-needed: when a song that uses it is opened, when it is auditioned in the picker, or
+In the repository the packs are JSON with the audio as text, about 285 MB in all. A
+build does not ship them that way. It rewrites each one as a `.skyaudio` file
+(`scripts/compactSoundPacks.ts`), which holds the same 16-bit audio packed without
+loss, and names the file after its contents so instruments that play the same
+recordings share it. The built packs come to about 58 MB in 34 files, the largest
+under 8 MB, and every sample unpacks to exactly the values in its JSON. The dev
+server serves the JSON files as they are.
+
+Even so, a pack is fetched only when its instrument is needed: when a song that uses it is opened, when it is auditioned in the picker, or
 when it is chosen in Settings. Play waits for the song's packs so the first note is
 the recorded one, for at most 8 seconds; on a slow connection the song then starts
 on the synth and each instrument switches to its recording as its pack arrives.
@@ -36,8 +43,8 @@ The audio context itself is started inside the tap or key press and never waits 
 download, because phones only let sound begin within a gesture. A manifest entry
 without an `instrumentId` is read up front, as every pack once was.
 
-Builds include the same audio files in `dist/sound-packs/`. The source packs and
-their manifest are tracked in Git; generated `dist/` is ignored. To add
+Builds include the same audio in `dist/sound-packs/`, packed as described above. The
+source packs and their manifest are tracked in Git; generated `dist/` is ignored. To add
 or replace a pack, put its `.skypack.json` file in `public/sound-packs/` and restart
 dev or rebuild. You can still use **Settings → Import pack files** for packs kept
 only in one browser.

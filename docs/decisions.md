@@ -214,3 +214,24 @@ song did not use.
 in memory (`soundSourceInfo(...).pack` is null until then). On a slow connection a
 song can start on the synth and change to recordings as they arrive. A manifest entry
 without `instrumentId` is still read up front.
+
+## D020 — Built sound packs are packed without loss (2026-11-11)
+
+**Decision:** A build rewrites each shipped `.skypack.json` as a `.skyaudio` file:
+the samples' details as a small header, and their audio as prediction differences in
+Rice code (`src/audio/lossless.ts`, the method of FLAC's fixed predictors). The pack's
+own details move into the manifest, and a file is named after its contents, so the
+nine groups of instruments that play the same recordings share one file each. The
+repository keeps the JSON packs, and the dev server serves them unchanged.
+
+**Why:** The packs were 285 MB to deploy and 5 to 27 MB per instrument to download,
+almost all of it 16-bit audio written as base64 text. Packed, they are 58 MB, and an
+instrument is a third of what it was. A lossy codec would be three times smaller
+again, but it would change recordings the project describes as exact, shift attacks
+by its encoder delay, and depend on what each browser can decode. This decoder is the
+app's own, so it behaves the same everywhere and is checked bit for bit.
+
+**Consequence:** Nothing about the sound changes. A build takes a few seconds longer
+and needs no outside tool. Largest file is under 8 MB, so no pack is split for the
+host's 25 MB limit any more; the splitting step stays for a pack that would be.
+

@@ -11,6 +11,7 @@
  */
 
 import { getSoundPackStorage } from '../storage/soundPacks';
+import { readCompactPack, type CompactPackEntry } from './compactPack';
 import { reverbSendLevel } from './graph';
 import {
   packFromJson,
@@ -41,9 +42,12 @@ export interface SoundSourceInfo {
 interface ShippedPack {
   id: string;
   updatedAt: string;
+  /** `.skypack.json` files that together hold the pack. Empty when `compact` is set. */
   files: string[];
   /** Named by current manifests. Without it the pack must be read to learn what it plays. */
   instrumentId: string | null;
+  /** Set in a build, where the pack's audio is one losslessly packed `.skyaudio` file. */
+  compact: { file: string; entry: CompactPackEntry } | null;
 }
 
 const SHIPPED_BASE = `${import.meta.env.BASE_URL}sound-packs/`;
@@ -264,6 +268,8 @@ async function readManifest(): Promise<ShippedPack[]> {
       instrumentId?: string;
       file?: string;
       parts?: string[];
+      audio?: string;
+      pack?: { name?: string; notes?: string; createdAt?: string; sampleIds?: string[] };
     }[];
     if (!Array.isArray(manifest)) return [];
     const entries: ShippedPack[] = [];
@@ -271,14 +277,32 @@ async function readManifest(): Promise<ShippedPack[]> {
       // Only filenames on this app's origin are allowed, including when hosted
       // below a subdirectory. A manifest cannot redirect a pack request elsewhere.
       if (!entry || typeof entry.id !== 'string' || typeof entry.updatedAt !== 'string') continue;
+      const instrumentId = typeof entry.instrumentId === 'string' ? entry.instrumentId : null;
+      if (typeof entry.audio === 'string') {
+        if (!instrumentId || !/^[\w-]+\.skyaudio$/.test(entry.audio)) continue;
+        entries.push({
+          id: entry.id,
+          updatedAt: entry.updatedAt,
+          files: [],
+          instrumentId,
+          compact: {
+            file: entry.audio,
+            entry: {
+              id: entry.id,
+              updatedAt: entry.updatedAt,
+              instrumentId,
+              name: typeof entry.pack?.name === 'string' ? entry.pack.name : entry.id,
+              notes: typeof entry.pack?.notes === 'string' ? entry.pack.notes : '',
+              createdAt: typeof entry.pack?.createdAt === 'string' ? entry.pack.createdAt : entry.updatedAt,
+              sampleIds: Array.isArray(entry.pack?.sampleIds) ? entry.pack.sampleIds.map(String) : null,
+            },
+          },
+        });
+        continue;
+      }
       const files = Array.isArray(entry.parts) ? entry.parts : [entry.file];
       if (!files.length || !files.every((file) => typeof file === 'string' && /^[\w-]+\.skypack\.json$/.test(file))) continue;
-      entries.push({
-        id: entry.id,
-        updatedAt: entry.updatedAt,
-        files: files as string[],
-        instrumentId: typeof entry.instrumentId === 'string' ? entry.instrumentId : null,
-      });
+      entries.push({ id: entry.id, updatedAt: entry.updatedAt, files: files as string[], instrumentId, compact: null });
     }
     return entries;
   } catch (error) {
@@ -296,6 +320,12 @@ async function readShippedPack(entry: ShippedPack, available: Map<string, SoundP
   if (existing && existing.updatedAt >= entry.updatedAt) return;
   try {
     let pack: SoundPack | null = null;
+    if (entry.compact) {
+      // Named after its contents, so the copy the browser keeps never goes stale.
+      const file = await fetch(`${SHIPPED_BASE}${entry.compact.file}`);
+      if (!file.ok) throw new Error(`Could not load ${entry.compact.file}`);
+      pack = await readCompactPack(entry.compact.entry, await file.arrayBuffer());
+    }
     for (const filename of entry.files) {
       const file = await fetch(`${SHIPPED_BASE}${filename}?v=${encodeURIComponent(entry.updatedAt)}`);
       if (!file.ok) throw new Error(`Could not load ${filename}`);
