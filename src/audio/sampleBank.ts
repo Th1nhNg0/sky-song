@@ -96,6 +96,21 @@ export async function refreshSoundPacks(): Promise<void> {
   await ensureSoundPacksLoaded(true);
 }
 
+/**
+ * Saves a pack as the only one that can be active for its instrument: every other enabled
+ * pack for that instrument is switched off first, so "newest enabled" has one answer.
+ */
+export async function saveExclusivePack(pack: SoundPack): Promise<void> {
+  const storage = getSoundPackStorage();
+  for (const other of await storage.loadAll()) {
+    if (other.id !== pack.id && other.instrumentId === pack.instrumentId && other.enabled) {
+      await storage.save({ ...other, enabled: false });
+    }
+  }
+  await storage.save(pack);
+  await refreshSoundPacks();
+}
+
 function activePackFor(instrumentId: string): SoundPack | null {
   for (const pack of packs) {
     if (pack.instrumentId === instrumentId && pack.enabled) return pack;

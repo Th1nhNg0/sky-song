@@ -3,8 +3,10 @@ import { Transport, type TransportState } from '../audio/transport';
 import { useAppStore } from './store';
 import { useAudioStore, useClockStore } from './clock';
 import { PlayheadSmoother } from './smoothing';
+import type { SampleSelection } from '../audio/sampleBank';
+import { createSampleVoice } from '../audio/sampleVoice';
 import { getInstrument } from '../music/instruments';
-import type { Project } from '../music/types';
+import type { InstrumentDefinition, Project } from '../music/types';
 
 /** Only these fields reach the mixer, so note edits leave the audio graph alone. */
 function mixChanged(next: Project, previous: Project): boolean {
@@ -208,6 +210,33 @@ class PlaybackController {
     if (!(await this.ensureAudio())) return;
     const instrument = getInstrument(instrumentId);
     this.engine.playPad({ instrument, keyIndex: app.project.key, pad, velocity, durationSeconds: 0.45 });
+  }
+
+  /** Plays one chosen recording through the preview bus, whichever pack the bank would pick. */
+  async previewRecording(
+    instrument: InstrumentDefinition,
+    pad: number,
+    durationSeconds: number,
+    selection: SampleSelection,
+  ): Promise<void> {
+    const ok = await this.ensureAudio();
+    const { ctx, graph } = this.engine;
+    if (!ok || !ctx || !graph) return;
+    const start = ctx.currentTime + 0.02;
+    createSampleVoice(
+      ctx,
+      {
+        instrument,
+        keyIndex: useAppStore.getState().project.key,
+        pad,
+        startTime: start,
+        durationSeconds,
+        velocity: 0.85,
+        destination: graph.previewBus.input,
+      },
+      selection,
+      { start, velocity: 0.85 },
+    );
   }
 
   async enableAudio(): Promise<void> {

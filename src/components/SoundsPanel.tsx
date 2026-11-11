@@ -1,29 +1,21 @@
 /**
  * Sounds panel — user-recorded sound packs.
  *
- * This component is intentionally self-contained (it renders inside Settings) so it
- * does not fight the rest of the UI. It only handles the user's own recordings:
- * files are decoded locally, stored in IndexedDB, never uploaded and never bundled.
+ * It renders inside Settings and only handles the user's own recordings: files are
+ * decoded locally, stored in IndexedDB, never uploaded and never bundled.
  */
 
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-  type ChangeEvent,
-} from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from 'react';
 import { DEFAULT_INSTRUMENT_ID, getInstrument, hasInstrument, selectableInstruments } from '../music/instruments';
-import { getKey, midiToSpelledName } from '../music/keys';
 import { resolvePad } from '../music/pitch';
 import { useAppStore } from '../state/store';
 import { playback } from '../state/playback';
 import { useSoundBankVersion } from '../state/soundBank';
+import { decodeRecordingFile, type DecodedRecording } from '../audio/recording';
 import { analyzeFile, analyzeRecording } from '../audio/slicing';
 import {
   createSoundPack,
   nearestSample,
-  packBytes,
   packFileName,
   packFromJson,
   packToJson,
@@ -35,72 +27,14 @@ import {
   ensureSoundPacksLoaded,
   getLoadedSoundPacks,
   refreshSoundPacks,
+  saveExclusivePack,
   soundSourceInfo,
 } from '../audio/sampleBank';
-import { createSampleVoice } from '../audio/sampleVoice';
 import { getSoundPackStorage } from '../storage/soundPacks';
 import { downloadBlob } from '../export/exporters';
 import { clamp, plural } from '../util';
-
-interface DecodedRecording {
-  fileName: string;
-  sampleRate: number;
-  channels: Float32Array[];
-  durationSeconds: number;
-}
-
-function midiLabel(midi: number | null, keyIndex: number): string {
-  if (midi === null) return '—';
-  return midiToSpelledName(midi, getKey(keyIndex));
-}
-
-function formatSeconds(value: number): string {
-  return `${value.toFixed(2)} s`;
-}
-
-function formatMb(bytes: number): string {
-  return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
-}
-
-async function decodeRecordingFile(file: File): Promise<DecodedRecording> {
-  if (file.size > 64 * 1024 * 1024) {
-    throw new Error(`${file.name} is larger than 64 MB. Trim the recording first.`);
-  }
-  const AudioCtor =
-    window.OfflineAudioContext ??
-    (window as unknown as { webkitOfflineAudioContext?: typeof OfflineAudioContext }).webkitOfflineAudioContext;
-  if (!AudioCtor) throw new Error('This browser cannot decode audio (no OfflineAudioContext).');
-  const bytes = await file.arrayBuffer();
-  const ctx = new AudioCtor(2, 1, 44100);
-  let buffer: AudioBuffer;
-  try {
-    buffer = await ctx.decodeAudioData(bytes.slice(0));
-  } catch {
-    throw new Error(
-      `${file.name} could not be decoded. Use a WAV file if this browser cannot decode MP3/OGG.`,
-    );
-  }
-  const channelCount = Math.min(2, buffer.numberOfChannels);
-  const channels: Float32Array[] = [];
-  for (let channel = 0; channel < channelCount; channel++) {
-    channels.push(new Float32Array(buffer.getChannelData(channel)));
-  }
-  return {
-    fileName: file.name,
-    sampleRate: buffer.sampleRate,
-    channels,
-    durationSeconds: buffer.duration,
-  };
-}
-
-/** The active pack / synth state for one instrument, kept live via the bank. */
-function useSoundSource(instrumentId: string) {
-  const version = useSoundBankVersion();
-  return useMemo(() => {
-    void version;
-    return soundSourceInfo(instrumentId);
-  }, [instrumentId, version]);
-}
+import { formatSeconds, SoundDraftEditor } from './SoundDraftEditor';
+import { SoundPackList, SoundPadMap, type PadMapEntry } from './SoundPackList';
 
 export function SoundsPanel() {
   const project = useAppStore((state) => state.project);
@@ -113,7 +47,6 @@ export function SoundsPanel() {
   const pitched = instrument.renderingMode === 'pitched';
   const keyIndex = project.key;
 
-  const [packs, setPacks] = useState<SoundPack[]>([]);
   const [mode, setMode] = useState<'scale' | 'files'>('scale');
   const [name, setName] = useState('');
   const [thresholdDb, setThresholdDb] = useState(-32);
@@ -124,16 +57,12 @@ export function SoundsPanel() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const storage = getSoundPackStorage();
-  const source = useSoundSource(instrumentId);
-
-  const loadPacks = useCallback(async () => {
-    await ensureSoundPacksLoaded();
-    setPacks([...getLoadedSoundPacks()]);
-  }, []);
+  // The bank is the one copy of the packs; its version changes whenever they do.
+  const bankVersion = useSoundBankVersion();
 
   useEffect(() => {
-    void loadPacks();
-  }, [loadPacks]);
+    void ensureSoundPacksLoaded();
+  }, []);
 
   useEffect(() => {
     setRecording(null);
@@ -141,15 +70,19 @@ export function SoundsPanel() {
     setError(null);
   }, [instrumentId]);
 
-  const instrumentPacks = useMemo(
-    () =>
-      packs
-        .filter((pack) => pack.instrumentId === instrumentId)
-        .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)),
-    [packs, instrumentId],
-  );
+  const instrumentPacks = useMemo(() => {
+    void bankVersion;
+    return getLoadedSoundPacks()
+      .filter((pack) => pack.instrumentId === instrumentId)
+      .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  }, [bankVersion, instrumentId]);
+  const source = useMemo(() => {
+    void bankVersion;
+    return soundSourceInfo(instrumentId);
+  }, [bankVersion, instrumentId]);
+  const activePack = source.kind === 'sample' ? source.pack : null;
 
-  const padMapping = useMemo(() => {
+  const padMapping = useMemo<PadMapEntry[]>(() => {
     if (!pitched) return [];
     return instrument.pads.map((pad) => {
       const resolved = resolvePad(instrument, keyIndex, pad.index);
@@ -158,12 +91,23 @@ export function SoundsPanel() {
       return {
         pad: pad.index,
         name: resolved.noteName ?? `Pad ${pad.index + 1}`,
-        midi: resolved.midi,
         sampleMidi: sample?.midi ?? null,
         shift: sample && resolved.midi !== null && sample.midi !== null ? resolved.midi - sample.midi : null,
       };
     });
   }, [instrument, instrumentPacks, keyIndex, pitched]);
+
+  /** Runs a pack operation with the panel marked busy, and shows its error if it fails. */
+  const withBusy = async (fallback: string, task: () => Promise<void>) => {
+    setBusy(true);
+    try {
+      await task();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : fallback);
+    } finally {
+      setBusy(false);
+    }
+  };
 
   const updateSample = (index: number, patch: Partial<PackSample>) => {
     setDraft((current) => current.map((sample, i) => (i === index ? { ...sample, ...patch } : sample)));
@@ -179,6 +123,7 @@ export function SoundsPanel() {
     );
   };
 
+  /** Percussion has no pitch: its slices start out on the pads in the order they were played. */
   const makeDraft = useCallback(
     (samples: PackSample[]): PackSample[] => {
       if (pitched) return samples;
@@ -238,11 +183,10 @@ export function SoundsPanel() {
     const files = [...(event.target.files ?? [])];
     event.target.value = '';
     if (files.length === 0) return;
-    setBusy(true);
     setError(null);
     setDraft([]);
     setRecording(null);
-    try {
+    await withBusy('Could not read those audio files.', async () => {
       const samples: PackSample[] = [];
       for (const file of files) {
         const audio = await decodeRecordingFile(file);
@@ -255,103 +199,58 @@ export function SoundsPanel() {
           pitched ? 'Detected notes are shown; correct any octave errors.' : 'Assign each sample to a pad below.'
         }`,
       );
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not read those audio files.');
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
-  const previewSample = async (sample: PackSample) => {
-    const ok = await playback.ensureAudio();
-    const ctx = playback.engine.ctx;
-    const graph = playback.engine.graph;
-    if (!ok || !ctx || !graph) return;
-    const start = ctx.currentTime + 0.02;
+  const previewSample = (sample: PackSample) => {
+    const now = new Date().toISOString();
     const draftPack: SoundPack = {
       id: 'draft-preview',
       name: name || 'Draft preview',
       instrumentId,
       enabled: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       notes: '',
       samples: draft,
     };
-    createSampleVoice(
-      ctx,
-      {
-        instrument,
-        keyIndex,
-        pad: sample.padIndex ?? 0,
-        startTime: start,
-        durationSeconds: 1.2,
-        velocity: 0.85,
-        destination: graph.previewBus.input,
-      },
-      { pack: draftPack, sample, targetMidi: sample.midi, playbackRate: 1 },
-      { start, velocity: 0.85 },
-    );
+    void playback.previewRecording(instrument, sample.padIndex ?? 0, 1.2, {
+      pack: draftPack,
+      sample,
+      targetMidi: sample.midi,
+      playbackRate: 1,
+    });
   };
 
-  const previewPad = async (padIndex: number) => {
-    if (!pitched) {
-      const sample = draft.find((item) => item.padIndex === padIndex) ?? null;
-      if (sample) await previewSample(sample);
-      return;
-    }
-    const activePack = instrumentPacks.find((pack) => pack.enabled);
-    if (!activePack) {
+  const previewPad = (padIndex: number) => {
+    const enabledPack = instrumentPacks.find((pack) => pack.enabled);
+    if (!enabledPack) {
       notify('No active pack for this instrument yet — save one first.', 'warning');
       return;
     }
     const resolved = resolvePad(instrument, keyIndex, padIndex);
     if (resolved.midi === null) return;
-    const sample = nearestSample(activePack, resolved.midi);
+    const sample = nearestSample(enabledPack, resolved.midi);
     if (!sample) return;
-    const ok = await playback.ensureAudio();
-    const ctx = playback.engine.ctx;
-    const graph = playback.engine.graph;
-    if (!ok || !ctx || !graph) return;
-    const start = ctx.currentTime + 0.02;
-    createSampleVoice(
-      ctx,
-      {
-        instrument,
-        keyIndex,
-        pad: padIndex,
-        startTime: start,
-        durationSeconds: 0.9,
-        velocity: 0.85,
-        destination: graph.previewBus.input,
-      },
-      { pack: activePack, sample, targetMidi: resolved.midi, playbackRate: playbackRateFor(sample, resolved.midi) },
-      { start, velocity: 0.85 },
-    );
+    void playback.previewRecording(instrument, padIndex, 0.9, {
+      pack: enabledPack,
+      sample,
+      targetMidi: resolved.midi,
+      playbackRate: playbackRateFor(sample, resolved.midi),
+    });
   };
 
   const saveDraft = async () => {
     if (draft.length === 0) return;
-    setBusy(true);
     setError(null);
-    try {
+    await withBusy('Could not save the sound pack.', async () => {
       const pack = createSoundPack({
         name: name.trim() || `${instrument.displayName} recording`,
         instrumentId,
         enabled: true,
         samples: draft,
       });
-      // Only one pack is active per instrument: disable older ones first so the
-      // engine's "newest enabled" choice is unambiguous.
-      const existing = await storage.loadAll();
-      for (const other of existing) {
-        if (other.id !== pack.id && other.instrumentId === instrumentId && other.enabled) {
-          await storage.save({ ...other, enabled: false });
-        }
-      }
-      await storage.save(pack);
-      await refreshSoundPacks();
-      setPacks([...getLoadedSoundPacks()]);
+      await saveExclusivePack(pack);
       setNotice(
         storage.persistent
           ? `Saved “${pack.name}” for ${instrument.displayName}. ${pack.samples.length} sample${plural(pack.samples.length)}, stored only in this browser.`
@@ -359,49 +258,25 @@ export function SoundsPanel() {
       );
       setDraft([]);
       setRecording(null);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not save the sound pack.');
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
-  const activatePack = async (pack: SoundPack, enabled: boolean) => {
-    setBusy(true);
-    try {
-      const all = await storage.loadAll();
-      for (const other of all) {
-        if (other.id !== pack.id && other.instrumentId === pack.instrumentId && other.enabled) {
-          await storage.save({ ...other, enabled: false });
-        }
-      }
-      await storage.save({ ...pack, enabled, updatedAt: new Date().toISOString() });
-      await refreshSoundPacks();
-      setPacks([...getLoadedSoundPacks()]);
+  const activatePack = (pack: SoundPack, enabled: boolean) =>
+    withBusy('Could not update the pack.', async () => {
+      await saveExclusivePack({ ...pack, enabled, updatedAt: new Date().toISOString() });
       notify(
         enabled ? `Using “${pack.name}” for ${instrument.displayName}.` : `Back to the synthesizer for ${instrument.displayName}.`,
         'success',
       );
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not update the pack.');
-    } finally {
-      setBusy(false);
-    }
-  };
+    });
 
   const deletePack = async (pack: SoundPack) => {
     if (!window.confirm(`Delete “${pack.name}”? The recordings will be removed from this browser.`)) return;
-    setBusy(true);
-    try {
+    await withBusy('Could not delete the pack.', async () => {
       await storage.remove(pack.id);
       await refreshSoundPacks();
-      setPacks([...getLoadedSoundPacks()]);
       setNotice(`Deleted “${pack.name}”.`);
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not delete the pack.');
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   const exportPack = (pack: SoundPack) => {
@@ -413,9 +288,8 @@ export function SoundsPanel() {
     const files = Array.from(event.target.files ?? []);
     event.target.value = '';
     if (files.length === 0) return;
-    setBusy(true);
     setError(null);
-    try {
+    await withBusy('Could not import that pack file.', async () => {
       let last: SoundPack | null = null;
       for (const file of files) {
         const pack = packFromJson(await file.text());
@@ -426,22 +300,14 @@ export function SoundsPanel() {
         last = pack;
       }
       await refreshSoundPacks();
-      setPacks([...getLoadedSoundPacks()]);
       if (last) setInstrumentId(last.instrumentId);
       setNotice(
         files.length === 1 && last
           ? `Imported “${last.name}” for ${getInstrument(last.instrumentId).displayName}.`
           : `Imported ${files.length} sound packs.`,
       );
-    } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Could not import that pack file.');
-    } finally {
-      setBusy(false);
-    }
+    });
   };
-
-  const hasDraft = draft.length > 0;
-  const activePack = source.kind === 'sample' ? source.pack : null;
 
   return (
     <section className="settings-card wide sounds-panel">
@@ -496,49 +362,15 @@ export function SoundsPanel() {
         </p>
       )}
 
-      <div className="sounds-block">
-        <div className="sounds-block-head">
-          <h4>Your packs for {instrument.displayName}</h4>
-          <label className="mini-btn sounds-file-button">
-            Import pack files
-            <input type="file" accept="application/json,.json" multiple onChange={(event) => void importPack(event)} hidden />
-          </label>
-        </div>
-        {instrumentPacks.length === 0 ? (
-          <p className="fine-print">No packs yet. Record a scale from your own game, or load one file per note below.</p>
-        ) : (
-          <ul className="sounds-pack-list">
-            {instrumentPacks.map((pack) => (
-              <li key={pack.id} className="sounds-pack-row">
-                <div className="sounds-pack-info">
-                  <strong>{pack.name}</strong>
-                  <span>
-                    {pack.samples.length} sample{plural(pack.samples.length)} ·{' '}
-                    {formatMb(packBytes(pack))} ·{' '}
-                    {pack.samples.some((sample) => sample.midi !== null) ? 'pitched' : 'pad-mapped'} · updated{' '}
-                    {new Date(pack.updatedAt).toLocaleDateString()}
-                  </span>
-                </div>
-                <label className="toggle-row sounds-pack-active">
-                  <input
-                    type="checkbox"
-                    checked={pack.enabled}
-                    onChange={(event) => void activatePack(pack, event.target.checked)}
-                    disabled={busy}
-                  />
-                  <span>{pack.enabled ? 'Active' : 'Use'}</span>
-                </label>
-                <button type="button" className="mini-btn" onClick={() => exportPack(pack)}>
-                  Export
-                </button>
-                <button type="button" className="mini-btn danger" onClick={() => void deletePack(pack)} disabled={busy}>
-                  Delete
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+      <SoundPackList
+        packs={instrumentPacks}
+        instrumentName={instrument.displayName}
+        busy={busy}
+        onImport={(event) => void importPack(event)}
+        onActivate={(pack, enabled) => void activatePack(pack, enabled)}
+        onExport={exportPack}
+        onDelete={(pack) => void deletePack(pack)}
+      />
 
       <div className="sounds-block">
         <h4>Create a pack from your own recording</h4>
@@ -650,122 +482,24 @@ export function SoundsPanel() {
           </p>
         )}
 
-        {hasDraft && (
-          <div className="sounds-draft">
-            <div className="sounds-block-head">
-              <h4>{draft.length} prepared sample{plural(draft.length)}</h4>
-              <span className="mini-chip">{pitched ? 'auto-detected MIDI, editable' : 'assign to pads'}</span>
-            </div>
-            <div className="sounds-rows">
-              {draft.map((sample, index) => (
-                <div className="sounds-row" key={sample.id}>
-                  <span className="sounds-row-index">{index + 1}</span>
-                  <span className="sounds-row-time">
-                    {formatSeconds(sample.sourceStartSeconds)} · {formatSeconds(sample.durationSeconds)}
-                  </span>
-                  {pitched ? (
-                    <div className="sounds-note">
-                      <button type="button" className="mini-btn" onClick={() => shiftSample(index, -1)} aria-label="One semitone lower">
-                        −
-                      </button>
-                      <input
-                        type="number"
-                        className="input sounds-midi-input"
-                        min={0}
-                        max={127}
-                        value={sample.midi ?? ''}
-                        onChange={(event) => {
-                          const value = event.target.value === '' ? null : Number(event.target.value);
-                          updateSample(index, { midi: value === null ? null : clamp(Math.round(value), 0, 127) });
-                        }}
-                        aria-label={`Note for sample ${index + 1}`}
-                      />
-                      <span className="sounds-note-name">{midiLabel(sample.midi, keyIndex)}</span>
-                      <button type="button" className="mini-btn" onClick={() => shiftSample(index, 1)} aria-label="One semitone higher">
-                        +
-                      </button>
-                      <span className="mini-chip">
-                        detected {midiLabel(sample.detectedMidi, keyIndex)} · {Math.round(sample.confidence * 100)}%
-                      </span>
-                    </div>
-                  ) : (
-                    <select
-                      className="input select sounds-pad-select"
-                      value={sample.padIndex ?? ''}
-                      onChange={(event) =>
-                        updateSample(index, {
-                          padIndex: event.target.value === '' ? null : Number(event.target.value),
-                        })
-                      }
-                      aria-label={`Pad for sample ${index + 1}`}
-                    >
-                      <option value="">Unassigned</option>
-                      {instrument.pads.map((pad) => (
-                        <option key={pad.index} value={pad.index}>
-                          Pad {pad.index + 1} · {pad.label ?? 'percussion'}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                  <button type="button" className="mini-btn" onClick={() => void previewSample(sample)}>
-                    ▶ Preview
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <div className="sounds-save-row">
-              <label className="field sounds-name-field">
-                <span className="field-label">Pack name</span>
-                <input
-                  className="input"
-                  value={name}
-                  placeholder={`${instrument.displayName} recording`}
-                  onChange={(event) => setName(event.target.value)}
-                  maxLength={80}
-                />
-              </label>
-              <button
-                type="button"
-                className="btn primary"
-                onClick={() => void saveDraft()}
-                disabled={busy || draft.length === 0}
-              >
-                Save pack in this browser
-              </button>
-            </div>
-          </div>
+        {draft.length > 0 && (
+          <SoundDraftEditor
+            draft={draft}
+            instrument={instrument}
+            keyIndex={keyIndex}
+            name={name}
+            busy={busy}
+            onRename={setName}
+            onUpdate={updateSample}
+            onShift={shiftSample}
+            onPreview={previewSample}
+            onSave={() => void saveDraft()}
+          />
         )}
       </div>
 
       {pitched && activePack && padMapping.length > 0 && (
-        <div className="sounds-block">
-          <h4>How the recorded notes map to {instrument.displayName} pads</h4>
-          <p className="fine-print">
-            Pads whose note matches a recording play it unchanged. Other pads pitch-shift the nearest recording. Large
-            shifts (more than a few semitones) change the character; record more notes for a closer match.
-          </p>
-          <div className="sounds-map-grid">
-            {padMapping.map((entry) => (
-              <button
-                key={entry.pad}
-                type="button"
-                className="sounds-map-cell"
-                onClick={() => void previewPad(entry.pad)}
-                title={`Pad ${entry.pad + 1}: ${entry.name}`}
-              >
-                <strong>{entry.name}</strong>
-                <span>
-                  {entry.sampleMidi === null
-                    ? 'no sample'
-                    : entry.shift === 0
-                      ? 'exact recording'
-                      : `shift ${entry.shift && entry.shift > 0 ? '+' : ''}${entry.shift} semitones`}
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
+        <SoundPadMap instrumentName={instrument.displayName} entries={padMapping} onPreview={previewPad} />
       )}
 
       <div className="sounds-block sounds-privacy">
