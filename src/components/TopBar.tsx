@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore, type SaveState } from '../state/store';
 import { useAudioStore } from '../state/clock';
 import { playback } from '../state/playback';
@@ -7,6 +7,7 @@ import { AudioIcon, SparkIcon } from './Icons';
 import { MoreMenu } from './MoreMenu';
 import { QuickActions } from './QuickActions';
 import { HistoryButtons, SongFields, TransportControls } from './Transport';
+import { useCancellableEdit } from './useCancellableEdit';
 
 const SAVE_LABEL: Record<SaveState, string> = {
   saved: 'Saved locally',
@@ -23,24 +24,22 @@ export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
   const audioStatus = useAudioStore((state) => state.status);
   const [title, setTitle] = useState(project.title);
   const [editingTitle, setEditingTitle] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  // Escape blurs the field too; the blur must not save the text being thrown away.
-  const cancelledRef = useRef(false);
 
   useEffect(() => {
     if (!editingTitle) setTitle(project.title);
   }, [project.title, project.id, editingTitle]);
 
-  const commitTitle = () => {
-    setEditingTitle(false);
-    if (cancelledRef.current) {
-      cancelledRef.current = false;
+  const titleEdit = useCancellableEdit(
+    () => {
+      setEditingTitle(false);
+      if (title.trim() && title.trim() !== project.title) setProjectTitle(title.trim());
+      else setProjectTitle(project.title);
+    },
+    () => {
+      setEditingTitle(false);
       setTitle(project.title);
-      return;
-    }
-    if (title.trim() && title.trim() !== project.title) setProjectTitle(title.trim());
-    else setProjectTitle(project.title);
-  };
+    },
+  );
 
   const audioLabel = audioStatus === 'ready' ? 'Sound on' : audioStatus === 'starting' ? 'Starting sound' : 'Turn on sound';
 
@@ -50,23 +49,12 @@ export function TopBar({ onOpenCatalog }: { onOpenCatalog: () => void }) {
 
       <div className="project-title-block">
         <input
-          ref={inputRef}
           className={`project-title ${editingTitle ? 'is-editing' : ''}`}
           value={title}
           aria-label="Project title"
           onFocus={() => setEditingTitle(true)}
           onChange={(event) => setTitle(event.target.value.slice(0, MAX_TITLE_LENGTH))}
-          onBlur={commitTitle}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              inputRef.current?.blur();
-            }
-            if (event.key === 'Escape') {
-              cancelledRef.current = true;
-              inputRef.current?.blur();
-            }
-          }}
+          {...titleEdit}
         />
         <span
           className={`save-indicator save-${saveState}`}

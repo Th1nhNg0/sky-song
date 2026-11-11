@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { getInstrument } from '../music/instruments';
 import { TRACK_COLORS } from '../music/project';
@@ -16,35 +16,26 @@ import {
   TrashIcon,
   VolumeIcon,
 } from './Icons';
+import { useCancellableEdit } from './useCancellableEdit';
 
 function TrackNameInput({ track }: { track: Track }) {
   const renameTrack = useAppStore((state) => state.renameTrack);
   const [name, setName] = useState(track.name);
-  // Escape blurs the field too; the blur must not save the text being thrown away.
-  const cancelledRef = useRef(false);
   useEffect(() => setName(track.name), [track.name]);
+  const edit = useCancellableEdit(
+    () => {
+      if (name.trim() && name.trim() !== track.name) renameTrack(track.id, name);
+      else setName(track.name);
+    },
+    () => setName(track.name),
+  );
   return (
     <input
       className="track-name-input"
       value={name}
       aria-label={`Rename ${track.name}`}
       onChange={(event) => setName(event.target.value.slice(0, MAX_TRACK_NAME_LENGTH))}
-      onBlur={() => {
-        if (cancelledRef.current) {
-          cancelledRef.current = false;
-          setName(track.name);
-          return;
-        }
-        if (name.trim() && name.trim() !== track.name) renameTrack(track.id, name);
-        else setName(track.name);
-      }}
-      onKeyDown={(event) => {
-        if (event.key === 'Enter') event.currentTarget.blur();
-        if (event.key === 'Escape') {
-          cancelledRef.current = true;
-          event.currentTarget.blur();
-        }
-      }}
+      {...edit}
     />
   );
 }

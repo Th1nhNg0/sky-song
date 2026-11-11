@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { playback } from '../state/playback';
 import { useClockStore } from '../state/clock';
@@ -12,6 +12,7 @@ import {
   StopIcon,
   UndoIcon,
 } from './Icons';
+import { useCancellableEdit } from './useCancellableEdit';
 
 function TimeReadout() {
   const meter = useAppStore((state) => state.project.timeSignature);
@@ -97,23 +98,20 @@ export function SongFields() {
   const setBpm = useAppStore((state) => state.setBpm);
   const setMeter = useAppStore((state) => state.setMeter);
   const [bpmDraft, setBpmDraft] = useState(String(project.bpm));
-  const cancelledRef = useRef(false);
 
   useEffect(() => {
     setBpmDraft(String(project.bpm));
   }, [project.bpm]);
 
-  const commitBpm = () => {
-    if (cancelledRef.current) {
-      cancelledRef.current = false;
-      setBpmDraft(String(project.bpm));
-      return;
-    }
-    // An emptied field is a cancelled edit, not a tempo of 0 (which would clamp to 40).
-    const value = bpmDraft.trim() === '' ? NaN : Number(bpmDraft);
-    if (Number.isFinite(value)) setBpm(value);
-    setBpmDraft(String(Number.isFinite(value) ? clampBpm(value) : project.bpm));
-  };
+  const bpmEdit = useCancellableEdit(
+    () => {
+      // An emptied field is a cancelled edit, not a tempo of 0 (which would clamp to 40).
+      const value = bpmDraft.trim() === '' ? NaN : Number(bpmDraft);
+      if (Number.isFinite(value)) setBpm(value);
+      setBpmDraft(String(Number.isFinite(value) ? clampBpm(value) : project.bpm));
+    },
+    () => setBpmDraft(String(project.bpm)),
+  );
 
   return (
     <div className="song-fields">
@@ -127,14 +125,7 @@ export function SongFields() {
           step={1}
           value={bpmDraft}
           onChange={(event) => setBpmDraft(event.target.value)}
-          onBlur={commitBpm}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') event.currentTarget.blur();
-            if (event.key === 'Escape') {
-              cancelledRef.current = true;
-              event.currentTarget.blur();
-            }
-          }}
+          {...bpmEdit}
           aria-label="Tempo in beats per minute"
         />
       </label>
