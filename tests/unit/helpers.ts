@@ -34,6 +34,7 @@ export function songWithBeats(beats: number[], patch: Partial<Project> = {}): Pr
   return { ...project, ...patch };
 }
 
+/** `settings` is read on every use, so a test can change it while the transport runs. */
 export function makeTransport(project: Project, settings: Partial<TransportSettings> = {}) {
   const engine = new FakeEngine();
   let current = project;
