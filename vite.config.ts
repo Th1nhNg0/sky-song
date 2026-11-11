@@ -4,6 +4,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { prepareCloudflareAssets } from './scripts/cloudflareAssets';
+import { compactSoundPacks } from './scripts/compactSoundPacks';
 
 // Project packs are versioned alongside the app. Vite's public directory serves
 // the same files in dev and copies them into production builds and previews.
@@ -31,10 +32,12 @@ prepareProjectSoundPacks();
 export default defineConfig({
   base: './',
   plugins: [react(), {
-    name: 'cloudflare-sound-pack-assets',
+    name: 'sound-pack-assets',
     apply: 'build',
     writeBundle(options) {
-      prepareCloudflareAssets(path.join(options.dir!, 'sound-packs'));
+      const packs = path.join(options.dir!, 'sound-packs');
+      compactSoundPacks(packs);
+      prepareCloudflareAssets(packs);
     },
   }],
   server: {

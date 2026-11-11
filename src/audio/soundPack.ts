@@ -11,8 +11,8 @@
 import { newId } from '../music/project';
 import { clamp, clampNumber } from '../util';
 
-const SOUND_PACK_FORMAT = 'skymusic-soundpack';
-const SOUND_PACK_VERSION = 1;
+export const SOUND_PACK_FORMAT = 'skymusic-soundpack';
+export const SOUND_PACK_VERSION = 1;
 const MAX_PACK_SAMPLES = 128;
 const MAX_SAMPLE_SECONDS = 12;
 const MAX_PACK_BYTES = 96 * 1024 * 1024;
@@ -335,7 +335,7 @@ function pcm16Base64ToFloat(value: string): Float32Array {
   return output;
 }
 
-interface PackFileSample {
+export interface PackFileSample {
   id: string;
   midi: number | null;
   padIndex: number | null;
@@ -346,10 +346,11 @@ interface PackFileSample {
   gain: number;
   sampleRate: number;
   channels: number;
-  data: string[];
+  /** One base64 string of 16-bit PCM per channel. Absent where the audio is kept elsewhere. */
+  data?: string[];
 }
 
-interface PackFile {
+export interface PackFile {
   format: typeof SOUND_PACK_FORMAT;
   version: number;
   id: string;
@@ -403,7 +404,22 @@ export function packFromJson(text: string): SoundPack {
   } catch {
     throw new Error('That file is not valid JSON.');
   }
-  const file = parsed as Partial<PackFile>;
+  return packFromFile(parsed as Partial<PackFile>, (sample) => {
+    if (!Array.isArray(sample.data) || sample.data.length === 0) {
+      throw new Error('A sample in the pack has no audio data.');
+    }
+    return sample.data.slice(0, 2).map((value) => pcm16Base64ToFloat(String(value)));
+  });
+}
+
+/**
+ * Checks a pack file's fields and builds the pack from them. `audioOf` supplies each
+ * sample's channels, from the file itself or from wherever its audio is kept.
+ */
+export function packFromFile(
+  file: Partial<PackFile>,
+  audioOf: (sample: PackFileSample, index: number) => Float32Array[],
+): SoundPack {
   if (!file || file.format !== SOUND_PACK_FORMAT) {
     throw new Error('That file is not a Sky Music Studio sound pack.');
   }
@@ -419,12 +435,10 @@ export function packFromJson(text: string): SoundPack {
   if (file.samples.length > MAX_PACK_SAMPLES) {
     throw new Error(`The sound pack has more than ${MAX_PACK_SAMPLES} samples.`);
   }
-  const samples: PackSample[] = file.samples.map((sample) => {
-    if (!sample || !Array.isArray(sample.data) || sample.data.length === 0) {
-      throw new Error('A sample in the pack has no audio data.');
-    }
-    const channels = sample.data.slice(0, 2).map((value) => pcm16Base64ToFloat(String(value)));
-    if (channels.every((channel) => channel.length === 0)) {
+  const samples: PackSample[] = file.samples.map((sample, index) => {
+    if (!sample) throw new Error('A sample in the pack has no audio data.');
+    const channels = audioOf(sample, index).slice(0, 2);
+    if (channels.length === 0 || channels.every((channel) => channel.length === 0)) {
       throw new Error('A sample in the pack has empty audio data.');
     }
     const frames = Math.min(...channels.map((channel) => channel.length));
