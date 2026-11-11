@@ -52,6 +52,13 @@ export function snapBeat(beat: number, snap: number): number {
   return Math.max(0, Math.round(beat / snap) * snap);
 }
 
+export const COUNT_IN_OPTIONS: ReadonlyArray<{ label: string; value: number }> = [
+  { label: 'Off', value: 0 },
+  { label: '1 bar', value: 1 },
+  { label: '2 bars', value: 2 },
+  { label: '4 bars', value: 4 },
+];
+
 export const SNAP_OPTIONS: ReadonlyArray<{ label: string; value: number }> = [
   { label: '1 bar', value: 4 },
   { label: '1/2', value: 2 },

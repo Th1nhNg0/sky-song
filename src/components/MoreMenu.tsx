@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../state/store';
 import type { PanelKind } from '../state/store';
-import { plural } from '../util';
+import { COUNT_IN_OPTIONS } from '../music/time';
 import {
   HelpIcon,
   InfoIcon,
@@ -94,9 +94,9 @@ export function MoreMenu({ onOpenCatalog }: { onOpenCatalog: () => void }) {
                 onChange={(event) => setPreferences({ countInMeasures: Number(event.target.value) })}
                 aria-label="Count-in measures"
               >
-                {[0, 1, 2, 4].map((value) => (
-                  <option key={value} value={value}>
-                    {value === 0 ? 'Off' : `${value} bar${plural(value)}`}
+                {COUNT_IN_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
                   </option>
                 ))}
               </select>
