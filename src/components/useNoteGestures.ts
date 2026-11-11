@@ -5,6 +5,7 @@ import type { Note } from '../music/types';
 import { LABEL_WIDTH, useViewStore } from '../state/clock';
 import { playback } from '../state/playback';
 import { useAppStore } from '../state/store';
+import type { EditTool } from '../state/storeTypes';
 import { clamp } from '../util';
 
 type NoteOrigin = Record<string, { startBeat: number; pad: number }>;
@@ -34,7 +35,7 @@ interface NoteGestureOptions {
   keyCount: number;
   px: number;
   snap: number;
-  editTool: 'select' | 'draw';
+  editTool: EditTool;
   rowHeight: number;
   rollHeight: number;
   noteSize: number;
