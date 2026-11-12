@@ -77,7 +77,7 @@ MIDI.
 In a window under 900 px wide, or a phone on its side, the studio folds down:
 
 - **Top bar:** Play, stop, position, the song name and **⋯**. Songs, My songs, Import,
-  Sheet and Export sit at the top of **⋯**, with the tempo and meter below them.
+  Sheet and Export sit at the top of **⋯**, with the tempo, meter and **Changes…** below them.
 - **Toolbar:** one row that scrolls sideways: Add note / Edit, undo, redo, Keys, Snap,
   Loop, Click, zoom and Mix.
 - **Tracks:** the label column narrows to the pad names. A lane shows its
@@ -129,8 +129,15 @@ ringer switch off.
   audible while other buses are muted, without altering the saved mix.
 - **Catalog → Audition** plays a short original phrase on any selectable instrument
   in the current project key, so you can compare timbres before assigning one.
-- **Click**, **meter**, **count-in**, **snap** and **zoom** live under More → Grid &
-  timing. They are scheduled with the audio clock.
+- **Click**, **snap**, **loop** and **zoom** are in the toolbar; **count-in** is under
+  **⋯**. The click and count-in are scheduled with the audio clock.
+- **Tempo and meter changes:** the BPM and Meter fields in the top bar set what the
+  song starts in. To change either part-way through, press **Changes…** beside them,
+  choose the bar, the tempo and the meter, and press **Add change**. Each row in the
+  list holds from its bar to the next row; edit a row's values in place or remove it.
+  The ruler marks every change (for example `♩=120 · 3/4`), bars are numbered through
+  meter changes, and the click accents each bar's first beat. A meter can only change
+  on a bar line. The count-in uses the tempo and meter of the place you start from.
 - Playback is entirely inside this app; it never sends keys or input to Sky.
 
 ## 6. Saving, library, importing
@@ -152,7 +159,7 @@ ringer switch off.
 
 ## 7. Saving and exporting
 
-- **MIDI:** Type-1 file; conductor track with tempo/meter/key signature; one named
+- **MIDI:** Type-1 file; conductor track with every tempo and meter change and the key signature; one named
   track per performer; GM programs; unpitched percussion on channel 10. DAW timbres
   will differ from this app's synthesis.
 - **Project JSON:** complete native project; load it back with Import in the Library.

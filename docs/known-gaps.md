@@ -67,33 +67,35 @@ This is the unvarnished list, current as of the delivery build. Items marked
     five spaces in Settings (Open sky, Cave, Temple hall, Great vault, Canyon echo)
     are original approximations; how the game shapes sound per area is not documented.
 15. **Percussion voices and some registers are approximations**, as above.
-16. **Browser audio support:** Chrome/Chromium is the primary tested target. A Firefox
-    smoke check passed (Web Audio playback, note editing, WAV export). Safari
+16. **Browser audio support:** Chrome/Chromium is the primary tested target. An
+    earlier Firefox smoke check passed (Web Audio playback, note editing). Safari
     was not tested in this environment; `AudioContext` unlock/latency behavior can
     differ. Sample-pack file decoding also depends on the browser (WAV is safest;
-    some browsers cannot decode OGG/MP3 fixtures).
-17. **Sound packs are lazy in the sense that they are user-supplied.** There is no
-    bundled sample payload; the initial production bundle remains synth-only (about
-    511 KB JS / 87 KB CSS, ≈156 KB / 17 KB gzip). The MP3 encoder is lazy-loaded as a
-    separate 169 KB (58 KB gzip) chunk only when exporting MP3. User packs can add
-    megabytes of local IndexedDB data depending on how many notes were recorded.
+    some browsers cannot decode OGG/MP3 recordings).
+17. **The game recordings are a large download kept apart from the app.** The app
+    itself starts on the synth; each instrument's pack (45 packs, about 58 MB built)
+    is fetched only when a song, the picker or Settings needs it, then cached in
+    IndexedDB. On a slow connection a song can start on the synth and switch to the
+    recordings as they arrive (see `docs/audio-sources.md`). Packs a user records
+    add more IndexedDB data, depending on how many notes were recorded.
 18. **Latency calibration is manual.** The app uses `AudioContext.outputLatency` and
     `baseLatency` plus the user's offset to align the visual playhead with audio; it does
     not run a click-measurement calibration routine.
-19. **Peak normalization only on export.** Live playback relies on the master
-    compressor and sensible gains; it is not hard-limited per sample like a broadcast
-    master. Exported WAV/MP3 are peak-normalised below clipping.
-20. **MP3 metadata** is minimal ID3v2.3 (title, artist, album, comment). No cover art.
-    Some strict tag readers may interpret the UTF-8 text encoding differently; ffmpeg
-    reads it correctly.
-
+19. **Live playback is not hard-limited.** It relies on the master compressor and
+    sensible gains, so a very dense song can still clip.
+20. **No audio export.** WAV and MP3 export were removed (D016). MIDI and the
+    project file are the ways out; record the browser's output to get audio.
 ## Product scope
 
 21. **MIDI import is exact only for this app's own files.** A file exported here comes
-    back note for note, with its tracks, instruments and pads. Other MIDI files are
-    arranged onto real game keys: they are transposed to the white notes, capped at six
-    parts and four-note chords, and only the first tempo is read. Songs over 20,000
-    notes lose their ending, and the app says how many notes were left out.
+    back note for note, with its tracks, instruments, pads and every tempo and meter
+    change. Other MIDI files are arranged onto real game keys: they are transposed to
+    the white notes and capped at six parts and four-note chords. Their tempo changes
+    are kept from the first note on (a count-in at another speed is not), up to 256;
+    a file with more, usually a recorded performance, keeps only the tempo it spends
+    the most time in. Tempos outside 40–240 BPM are clamped, meters the app does not
+    offer are read as 4/4, and a 6/8 file read as a fast 3/4 keeps one meter. Songs
+    over 20,000 notes lose their ending, and the app says how many notes were left out.
 22. **No Sky Studio / Sky Music Nightly / `.skysheet` interoperability.** This was
     investigated as optional compatibility. No verified public format was adopted,
     so the app does not claim or partially implement it.
@@ -141,9 +143,12 @@ This is the unvarnished list, current as of the delivery build. Items marked
     additional melodic performers reuse channels. The MIDI file remains valid and
     each track has its own name/program change, but some DAWs may merge patch
     assignments for reused channels. Typical 2–8 performer projects are unaffected.
-40. **No time-signature changes mid-song.** The project has one meter; the goal did
-    not require a meter map. The ruler/count-in follow that meter.
-
+40. **Tempo and meter changes are edited bar by bar.** The dialog places a change at
+    the start of a bar; there is no dragging of changes on the ruler and no gradual
+    ritardando (a slowdown is a series of steps). A tempo change inside a bar can
+    only come from an imported MIDI file. The key cannot change during a song, and
+    the sky-mod export states only the opening tempo, though its note times follow
+    every change.
 ## User-recorded sound packs
 
 41. **A pack is exact only at the recorded pitch.** Notes between recordings are
@@ -172,10 +177,6 @@ This is the unvarnished list, current as of the delivery build. Items marked
 47. **Packs are not embedded in project files.** A collaborator hears
     the project's versioned packs when available, or the synth fallback unless they
     import any additional browser-only packs used by that song.
-48. **The MP3 ID3 comment is generic.** It says “Sky Music Studio export — unofficial
-    fan software; see docs/audio-sources.md”, which is not an audit of which
-    instruments used user packs. WAV is the archival export; listen to the file and
-    check the catalog badges for provenance.
 49. **Pack audio is stored unencrypted in the browser.** Anyone with access to the
     browser profile can read it. Do not load recordings you are not allowed to keep.
 50. **Timing tests use a fake audio clock.** `npm test` checks the transport's schedule

@@ -53,6 +53,9 @@ are not selectable track instruments.
 
 ## D005 — Shared realtime/offline synthesis path
 
+> The offline WAV/MP3 half of this was removed by D016. Live playback still uses the
+> one voice implementation described here.
+
 **Decision:** Use one synth voice implementation and one mixer topology for live
 `AudioContext` playback and `OfflineAudioContext` WAV/MP3 rendering.
 
@@ -71,11 +74,13 @@ clock.
 
 **Consequence:** Transport uses deterministic beat↔time mapping, loop-unrolled virtual
 beat scheduling, and re-anchors after tab suspension. Unit tests simulate the clock.
+Since D022 the mapping goes through the song's tempo map.
 
 ## D007 — Own MIDI writer instead of relying on a library encoder
 
-**Decision:** Implement the Type-1 Standard MIDI File writer directly. Use
-`@tonejs/midi` only in tests as an independent parser.
+**Decision:** Implement the Type-1 Standard MIDI File writer directly. `@tonejs/midi`
+reads files (MIDI import, and the tests that parse our own export back); it never
+writes them.
 
 **Why:** During verification, the tested library wrote key-signature meta events with
 an incorrect signed value (writer/parser mismatch), and we needed exact control over
@@ -87,6 +92,8 @@ GM programs, channel-10 percussion, and instrument/part names. Tests parse it ba
 
 ## D008 — WAV by hand, MP3 by LAME
 
+> Retired by D016: the app no longer exports audio.
+
 **Decision:** Encode WAV as 16-bit PCM ourselves; use `@breezystack/lamejs` (LGPL) for
 real MPEG-1 Layer III at 192 kbps with ID3 tags.
 
@@ -97,6 +104,8 @@ required by the goal; renaming WAV is explicitly forbidden.
 the UI responsive. MP3 is never used as an internal audio format.
 
 ## D009 — Compressed share links with an honest fallback
+
+> Retired by D016: share links were removed.
 
 **Decision:** Deflate the project JSON, base64url-encode it into `#/song/v1...`.
 Use a 24 KB soft warning and a 60 KB hard cutoff, falling back to project-file
@@ -173,6 +182,8 @@ supersedes the WAV/MP3 parts of D005 and all of D008 and D009.
 
 ## D017 — Automated tests removed (2026-10-31)
 
+> Superseded by D021: the suites came back the next day and now run in CI.
+
 **Decision:** The unit and browser test suites and their tooling were removed at the
 owner's request. `npm run verify` now runs lint, typecheck and build. Older docs that
 mention test evidence describe past checks, not anything that can be re-run.
@@ -234,4 +245,44 @@ app's own, so it behaves the same everywhere and is checked bit for bit.
 **Consequence:** Nothing about the sound changes. A build takes a few seconds longer
 and needs no outside tool. Largest file is under 8 MB, so no pack is split for the
 host's 25 MB limit any more; the splitting step stays for a pack that would be.
+
+## D021 — Automated tests are back, and CI runs them (2026-11-12)
+
+**Decision:** The unit suite (`tests/unit`, Vitest) and the browser suite (`tests/e2e`,
+Playwright on Chromium) are part of the project again; they returned on 2026-11-01,
+one day after D017 removed them. `npm run verify` runs lint, typecheck, the unit tests
+and a production build. `.github/workflows/ci.yml` runs `npm run verify` and
+`npm run test:e2e` on every push and pull request.
+
+**Why:** The tests existed but only ran when someone remembered to. The transport's
+timing and the MIDI round trip are easy to break without noticing.
+
+**Consequence:** A red check on a push means lint, types, a unit test, the build or a
+browser test failed. CI does not deploy; Cloudflare still builds and deploys `main`
+on its own.
+
+## D022 — Tempo and meter can change during a song (2026-11-12)
+
+**Decision:** A project keeps `bpm` and `timeSignature` as the tempo and meter it
+starts in, and may add `tempoChanges` and `meterChanges`: lists of `{ beat, … }`
+entries that hold from that beat on. Note times stay in beats. One class,
+`Timing` (`src/music/timing.ts`), turns beats into seconds and bars for everything
+that needs them: the transport, the ruler and grid, the position readouts, the sheet,
+and the MIDI and sky-mod exports.
+
+**Why:** A song with a ritardando or a bar of 3/4 could not be written, and a MIDI
+file that had them was flattened to one tempo and one meter on import.
+
+**Consequence:**
+- The two fields are optional and the schema version is unchanged, so older songs open
+  as they are and a song without changes saves exactly as before.
+- A meter change always sits on a bar line of the meter before it; one that does not
+  is moved to the nearest. A tempo change can sit on any beat.
+- Changes are edited in the **Tempo and meter changes** dialog, bar by bar. A tempo
+  change inside a bar can only come from an imported MIDI file.
+- A loop that holds a tempo change takes the same time on every pass. The count-in
+  uses the tempo and meter of the place playback starts from.
+- MIDI export writes every change to the conductor track, and importing that file
+  restores them. For other MIDI files see known gap 21.
+- At most 256 changes of each kind are kept.
 

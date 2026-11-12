@@ -10,15 +10,18 @@ metronome, count-in, snap and zoom) are separate browser preferences.
 interface Project {
   schemaVersion: 1;
   app: 'sky-music-studio';
-  catalogVersion: string;       // e.g. "2026.10.1"
+  catalogVersion: string;       // e.g. "2026.11.1"
   id: string;                   // stable project id
   title: string;                // 1..120 chars
-  bpm: number;                  // 40..240 (rounded on edit)
-  timeSignature: [number, number]; // one of 4/4, 3/4, 2/4, 6/8, 5/4, 7/8
+  bpm: number;                  // 40..240 (rounded on edit): the tempo the song starts in
+  timeSignature: [number, number]; // one of 4/4, 3/4, 2/4, 6/8, 5/4, 7/8: the meter it starts in
+  tempoChanges?: { beat: number; bpm: number }[];                       // later tempos, by beat
+  meterChanges?: { beat: number; timeSignature: [number, number] }[];   // later meters, by beat
   key: number;                  // 0..11 major tonic: C, D♭, D, E♭, E, F, G♭, G, A♭, A, B♭, B
   tracks: Track[];              // 1..24
   loop: { enabled: boolean; startBeat: number; endBeat: number };
   createdAt: string;            // ISO timestamp
+  updatedAt: string;            // ISO timestamp
 }
 
 interface Track {
@@ -63,23 +66,34 @@ pitch from the project key at export time.
 ### Instrument catalog
 
 `instrumentId` must exist in the versioned catalog (`src/music/instruments.ts`,
-catalog `2026.10.1` at the time of writing). Unknown IDs are rejected rather than
+catalog `2026.11.1` at the time of writing). Unknown IDs are rejected rather than
 silently replaced, so a project can never quietly change instrument. The catalog
 also declares `keyCount`, `padLayout`, `pads`, `nativeSheetPart`, `supportsHold`,
 `renderingMode`, confidence, status, evidence URLs and notes.
 
 ### Timing
 
-All note and loop times are in quarter-note beats, independent of tempo. The audio
-transport converts beats to seconds with the audio clock:
+All note and loop times are in quarter-note beats, independent of tempo. With one
+tempo the audio transport converts beats to seconds as
 
 ```
 seconds = beats * 60 / bpm
 ```
 
-Changing BPM does not alter stored timings; the transport re-anchors on a live tempo
-change. Time signatures affect measure/beat display and count-in length, not the
-stored beat unit.
+`tempoChanges` and `meterChanges` are optional. Each entry holds from its `beat` to
+the next entry, and `bpm` / `timeSignature` hold from beat 0 to the first one. With
+tempo changes, the seconds to a beat are the sum of each stretch at its own tempo
+(`Timing` in `src/music/timing.ts`). A file without the two lists means exactly what
+it did before they existed, so the schema version is still 1.
+
+On load and on every edit the lists are tidied: sorted by beat, one entry per beat,
+entries that change nothing removed, and each meter change moved to the nearest bar
+line of the meter before it, because a bar cannot change meter part-way through. An
+empty list is left out of the file.
+
+Changing a tempo does not alter stored timings; the transport re-anchors on a live
+tempo change. Meters affect measure/beat display, the metronome's accents and the
+count-in length, not the stored beat unit.
 
 ## Validation and limits
 
@@ -90,6 +104,8 @@ field paths. Current limits:
 - ≤ 20,000 notes in the project, on any mix of tracks
 - title ≤ 120 chars; track name ≤ 60 chars
 - BPM 40–240; supported meters only; key integer 0–11
+- at most 256 tempo changes and 256 meter changes; invalid entries are dropped with a
+  warning rather than rejecting the file
 - note pad must be within the instrument's `keyCount`; times must be finite and valid
 - note durations above 512 beats are clamped with a warning (app safety limit)
 - import files larger than 5 MB are rejected
@@ -121,7 +137,7 @@ A minimal project (one harp note, C major, 90 BPM):
 {
   "schemaVersion": 1,
   "app": "sky-music-studio",
-  "catalogVersion": "2026.10.1",
+  "catalogVersion": "2026.11.1",
   "id": "proj_example",
   "title": "First Light",
   "bpm": 90,
@@ -155,9 +171,10 @@ A minimal project (one harp note, C major, 90 BPM):
 
 ## Interoperability status
 
-- **Implemented and tested:** native JSON, share links, WAV, MP3, MIDI export,
+- **Implemented and tested:** native JSON, MIDI export, sky-mod song export, and
   Type-1 MIDI import (`src/music/midiImport.ts`, headless via
-  `npm run midi2sky -- song.mid`).
+  `npm run midi2sky -- song.mid`). MIDI carries every tempo and meter change both
+  ways. Share links and WAV/MP3 export were removed (D016 in `decisions.md`).
 - **Not implemented:** Sky Studio JSON, Sky Music Nightly JSON/TXT, `.skysheet`
   files, official in-game sheet import. These were investigated as optional
   compatibility work; no verified public format was adopted. The app does not claim

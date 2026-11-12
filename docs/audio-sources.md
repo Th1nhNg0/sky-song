@@ -126,7 +126,7 @@ recording of your own game session:
    plays at rate 1 (exact); a shifted note is a practical approximation (large
    shifts change formants and character). The mapping table in the panel shows
    “exact recording” or the number of shifted semitones per pad.
-9. **Project files do not contain audio.** A `.skymusic.json` or share link only
+9. **Project files do not contain audio.** A `.skymusic.json` file only
    contains notes and settings; a collaborator needs their own pack file.
 
 The app does not record the game for you (no screen capture, no automation, no
@@ -147,19 +147,15 @@ memory store and the UI warns that they will not survive a reload. If IndexedDB 
 present but blocked or full, saving reports an error instead of pretending to save.
 Audio is never written to localStorage, the repository or a server.
 
-## Live playback and export share one path
+## One playback path for packs and synth
 
 `createNoteVoice` (`src/audio/synth.ts`) checks the active pack first. If a sample
 matches, `createSampleVoice` (`src/audio/sampleVoice.ts`) schedules an
 `AudioBufferSourceNode` with a playback-rate pitch shift. Otherwise the same
-function schedules the synth profile. The exact same `createNoteVoice` is used by:
-
-- the realtime `AudioContext` in `src/audio/engine.ts`, and
-- the `OfflineAudioContext` in `src/audio/render.ts` for WAV and MP3.
-
-So a project with samples renders those samples into the export; an instrument
-without a pack falls back to the synth in both places. Sound packs must be in the
-bank before scheduling, which `AudioEngine.init()` and `renderProject()` ensure.
+function schedules the synth profile. The realtime `AudioContext` in
+`src/audio/engine.ts` is its only caller: the app plays songs and does not render
+them to audio files (WAV and MP3 export were removed, see D016 in
+[`decisions.md`](decisions.md)).
 
 ## Sound pack privacy and the project rule
 
@@ -178,11 +174,9 @@ default synth was reworked around the qualities that read as “Sky”: a soft a
 a warm rounded body, a long airy release and a large cave-like reverb. It is
 **still original synthesis, not a recording**, and the app says so everywhere.
 
-Measured targets are checked by `tests/audio-targets.test.ts`; the test writes a
-real 44.1 kHz/16-bit stereo WAV for **every** profile (`all-<profile>.wav`) and a
-measured one for the headline instruments to `test-results/audio-wavs/`
-(gitignored), plus `measurements.json`. The generated test-tone pack phrase is
-`generated-pack-phrase.wav` in the same folder. Current results:
+These figures were measured when the profiles were reworked, by an offline render
+that was removed together with audio export (D016). They record what the rework aimed
+for; nothing in the repository re-measures them today:
 
 | Instrument | Spectral centroid | Attack (to 50%) | Decay (to −30 dB) |
 |---|---|---|---|
@@ -217,18 +211,14 @@ What changed in the profiles:
   pre-delay, damped diffuse tail, early reflections and stereo decorrelation. Bus
   sends are lifted (with the same 0–100% user control) so the default mix sits in a
   large space rather than a dry room. This is an original synthetic cave, not a
-  sampled Sky area. WAV/MP3 exports keep a 9.5 s tail by default so long bell/harp
-  decays and the reverb are not cut off.
+  sampled Sky area.
 
-The Node tests measure a pure-JS numeric mirror (`src/audio/offlineRender.ts`) of
-the same profile data because Node has no Web Audio. The browser's live and export
-paths use the shared `createNoteVoice` Web Audio function. The Playwright test
-“records a user sound pack: slices, detects, persists, plays and exports” covers the
-real browser flow end to end: it generates a synthetic played-scale WAV (no game
-audio), loads it through More → Settings → Sounds, checks eight detected slices and
-MIDI notes, saves the pack, confirms the catalog badge, reloads and verifies the
-pack is still in IndexedDB, auditions it (a sample voice is created), and exports a
-WAV with nonzero audio (sample voices also run during the offline render).
+What is checked automatically today: `tests/unit/soundPacks.test.ts`,
+`slicing.test.ts` and `compactPack.test.ts` cover pack files, onset slicing and the
+lossless build format, and the browser tests in `tests/e2e/` (`soundsPanel`,
+`projectSoundPacks`, `recordedGuitars`, `audio`) import, slice, save and play packs
+in Chromium and measure what reaches the mixer. Nothing compares the synth or the
+packs against the game by ear.
 
 ## Instrument → synthesis profile map
 
@@ -305,19 +295,20 @@ The app uses these runtime libraries:
 |---|---|---|---|---|
 | `react` / `react-dom` | 19.3.1 | MIT | UI | <https://github.com/facebook/react> |
 | `zustand` | 5.0.16 | MIT | state store | <https://github.com/pmndrs/zustand> |
+| `@tonejs/midi` | 2.0.28 | MIT | reading imported MIDI files | <https://github.com/Tonejs/Midi> |
 
-Development/test-only libraries (not shipped in the app bundle except test code):
-`@tonejs/midi` (MIT, MIDI reading and writing), `vite` (MIT), `typescript` (Apache-2.0),
-`eslint` (MIT),
-`typescript-eslint` (MIT). See `package.json` for the pinned versions.
+Development-only libraries (not shipped in the app bundle): `vite` (MIT),
+`typescript` (Apache-2.0), `eslint` and `typescript-eslint` (MIT), `vitest` (MIT),
+`@playwright/test` (Apache-2.0), `wrangler` (MIT or Apache-2.0). See `package.json`
+for the pinned versions.
 
 ## Honest audio limitations
 
 - The default synth cannot match the game's recorded instruments note-for-note. It
   is an approximation with per-family character and register.
 - A user pack is exact only at recorded pitches. Pitch-shifted notes are resampled
-  and lose formants/character, especially beyond ±2 semitones. A long held note may
-  outlast a short recording; the sample does not currently loop.
+  and lose formants/character, especially beyond ±2 semitones. A held note that
+  outlasts its recording loops the recording's last 1.5 seconds with a crossfade.
 - Onset detection is amplitude-based; slurred/legato notes or loud background music
   can merge or split slices. Every detected note is manually correctable, and the
   threshold/gap controls are exposed.
@@ -328,7 +319,5 @@ Development/test-only libraries (not shipped in the app bundle except test code)
   community-reported or inferred; see [`known-gaps.md`](known-gaps.md).
 - No latency compensation beyond the measured `AudioContext.outputLatency` +
   user offset is applied.
-- MP3 is lossy; WAV is the archival export. The MP3 ID3 comment is a generic
-  “Sky Music Studio export — unofficial fan software” string, not a per-project audit
-  of which instruments used user packs; listen to the file and check the instrument
-  badges if provenance matters. MIDI carries pitch/time but no timbre.
+- The app does not export audio (WAV and MP3 export were removed, see D016 in
+  [`decisions.md`](decisions.md)). MIDI carries pitch and time but no timbre.

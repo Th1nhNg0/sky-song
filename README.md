@@ -36,6 +36,7 @@ Sky's instruments aren't pianos. Each has a fixed set of keys, and some notes ri
 - Choose from 44 catalogued instruments and variants.
 - Set mute, solo, volume and color for each track.
 - Loop any region, and play from wherever you place the cursor.
+- Change tempo or meter part-way through a song; MIDI import and export carry the changes.
 - Zoom around the pointer, fit the whole song on screen, or jump around with the overview.
 
 **Stay true to the game**
@@ -108,6 +109,8 @@ npm run dev        # start the dev server
 npm run verify     # lint, typecheck, unit tests and production build
 npm run test:e2e   # browser tests (first run: npx playwright install chromium)
 ```
+
+GitHub Actions runs both on every push and pull request (`.github/workflows/ci.yml`).
 
 `npm run build` creates a static site in `dist/` that works on any static host, from a domain root or a subfolder. It needs no server, environment variables or API keys.
 
