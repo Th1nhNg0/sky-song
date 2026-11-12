@@ -130,7 +130,7 @@ The app uses React, TypeScript, Zustand and the Web Audio API:
 | --- | --- |
 | `src/music/` | Instruments, pitch, MIDI import, project format and validation |
 | `src/audio/` | Synth voices, mixer and playback scheduling |
-| `src/export/` | MIDI, sky-mod and song-file export |
+| `src/export/` | MIDI and song-file export |
 | `src/state/` | Editor state, playback control and keyboard shortcuts |
 | `src/components/` | The interface |
 | `src/storage/` | Song library and preferences |

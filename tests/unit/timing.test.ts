@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Midi } from '@tonejs/midi';
 import { exportProjectToMidi } from '../../src/export/midi';
-import { projectToSkyModSong } from '../../src/export/skymod';
 import { gridSpans } from '../../src/music/grid';
 import { midiToProject } from '../../src/music/midiImport';
 import { createNote, createProject, projectToJson } from '../../src/music/project';
@@ -201,14 +200,6 @@ describe('tempo and meter changes in files', () => {
     expect(project.meterChanges).toEqual([{ beat: 8, timeSignature: [3, 4] }]);
     expect(warnings.map((warning) => warning.path)).toEqual(expect.arrayContaining(['$.tempoChanges', '$.meterChanges']));
     expect(parseProjectJson(projectToJson(createProject())).project).not.toHaveProperty('tempoChanges');
-  });
-
-  it('times sky-mod notes through the tempo map', () => {
-    const project = { ...createProject({ bpm: 60 }), ...speedsUp };
-    project.tracks[0].notes = [createNote(0, 4, 1), createNote(0, 6, 1)];
-    const exported = projectToSkyModSong(project);
-    const countIn = exported.countIn.beats * exported.countIn.beatMs;
-    expect(exported.tracks[0].songNotes.map((note) => note.time - countIn)).toEqual([4000, 5000]);
   });
 });
 

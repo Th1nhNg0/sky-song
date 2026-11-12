@@ -2,8 +2,7 @@ import { describeTiming } from '../music/timing';
 import { useState } from 'react';
 import { useAppStore } from '../state/store';
 import { Modal } from './Modal';
-import { downloadProjectFile, estimateProjectJsonSize, exportMidiFile, exportSkyModFile, formatBytes, sanitizeFilename } from '../export/exporters';
-import { SHARED_MEMORY_LIMIT_MS } from '../export/skymod';
+import { downloadProjectFile, estimateProjectJsonSize, exportMidiFile, formatBytes, sanitizeFilename } from '../export/exporters';
 import { DownloadIcon, HelpIcon, SheetIcon, SparkIcon } from './Icons';
 
 export function ExportPanel({ onClose }: { onClose: () => void }) {
@@ -22,6 +21,7 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
         `File: ${sanitizeFilename(project.title)}.skymusic.json`,
         `Size: ${formatBytes(estimateProjectJsonSize(project))} · schema v1 · ${project.tracks.length} tracks · ${noteCount} notes`,
         'It keeps everything in the song. Open it again with Import, or drop it on the window.',
+        'sky-mod plays this same file in the game: copy it to sheets\\mine in the Sky game folder.',
       ],
     });
     notify('Song file downloaded.', 'success');
@@ -44,30 +44,8 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
     }
   };
 
-  const exportSkyMod = () => {
-    try {
-      const info = exportSkyModFile(project);
-      const seconds = Math.ceil(info.durationMs / 1000);
-      const lines = [
-        `File: ${info.filename} · ${formatBytes(info.bytes)}`,
-        `${info.trackCount} tracks · ${seconds} s including the count-in`,
-        'Copy it to sheets\\mine in the Sky game folder, then open F5 → Music → My songs.',
-      ];
-      if (info.durationMs > SHARED_MEMORY_LIMIT_MS) {
-        lines.push(`Longer than the ${SHARED_MEMORY_LIMIT_MS / 1000} s reported for one Shared Memory recording.`);
-      }
-      if (info.reducedPadTracks.length > 0) {
-        lines.push(`Check these in game first; their keyboard layout is unverified: ${info.reducedPadTracks.join(', ')}.`);
-      }
-      setResult({ title: 'sky-mod song downloaded', lines });
-      notify('sky-mod song downloaded.', 'success');
-    } catch (error) {
-      notify(error instanceof Error ? error.message : 'Export failed.', 'error');
-    }
-  };
-
   return (
-    <Modal title="Export" eyebrow="Song file · MIDI · sky-mod · sheet" onClose={onClose} size="large">
+    <Modal title="Export" eyebrow="Song file · MIDI · sheet" onClose={onClose} size="large">
       <div className="export-panel">
         <div className="export-grid">
           <article className="export-card">
@@ -84,14 +62,6 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
             <p>One MIDI track per instrument, with the tempo and meter, for music apps and DAWs. Sounds will differ from the app.</p>
             <button type="button" className="btn primary" onClick={exportMidi}>
               Export MIDI
-            </button>
-          </article>
-          <article className="export-card">
-            <div className="export-icon"><DownloadIcon size={18} /></div>
-            <h3>sky-mod song</h3>
-            <p>A <code>.skymod.json</code> for the separate sky-mod tool, which plays it in the game. Every track shares one count-in.</p>
-            <button type="button" className="btn primary" onClick={exportSkyMod}>
-              Export for sky-mod
             </button>
           </article>
           <article className="export-card">

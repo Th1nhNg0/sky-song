@@ -171,7 +171,7 @@ A minimal project (one harp note, C major, 90 BPM):
 
 ## Interoperability status
 
-- **Implemented and tested:** native JSON, MIDI export, sky-mod song export, and
+- **Implemented and tested:** native JSON, MIDI export, and
   Type-1 MIDI import (`src/music/midiImport.ts`, headless via
   `npm run midi2sky -- song.mid`). MIDI carries every tempo and meter change both
   ways. Share links and WAV/MP3 export were removed (D016 in `decisions.md`).

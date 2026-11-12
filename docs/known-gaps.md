@@ -100,9 +100,9 @@ This is the unvarnished list, current as of the delivery build. Items marked
     investigated as optional compatibility. No verified public format was adopted,
     so the app does not claim or partially implement it.
 23. **No official in-game sheet import, bots, macros, or key automation in the app.**
-    It cannot make Sky import a custom sheet. **Export for sky-mod** writes a file for
-    the separate sky-mod project, which does the in-game playback; nothing here sends
-    input to the game. The file's 4- and 8-pad key layout is unverified in game.
+    It cannot make Sky import a custom sheet. The separate sky-mod project reads a
+    `.skymusic.json` song file and does the in-game playback; nothing here sends
+    input to the game. How sky-mod plays 4- and 8-pad instruments is unverified in game.
 24. **No multiplayer, synchronized editing, accounts, or backend.** By design.
 25. **Phones are supported but only tested in emulation.** Windows under 900 px wide,
     or under 520 px tall, get the folded layout and touch gestures. They are covered by
@@ -146,9 +146,7 @@ This is the unvarnished list, current as of the delivery build. Items marked
 40. **Tempo and meter changes are edited bar by bar.** The dialog places a change at
     the start of a bar; there is no dragging of changes on the ruler and no gradual
     ritardando (a slowdown is a series of steps). A tempo change inside a bar can
-    only come from an imported MIDI file. The key cannot change during a song, and
-    the sky-mod export states only the opening tempo, though its note times follow
-    every change.
+    only come from an imported MIDI file. The key cannot change during a song.
 ## User-recorded sound packs
 
 41. **A pack is exact only at the recorded pitch.** Notes between recordings are

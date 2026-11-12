@@ -164,11 +164,11 @@ ringer switch off.
   track per performer; GM programs; unpitched percussion on channel 10. DAW timbres
   will differ from this app's synthesis.
 - **Project JSON:** complete native project; load it back with Import in the Library.
-- **sky-mod song:** one `.skymod.json` for the separate sky-mod project, with every
-  non-empty track on a shared count-in. Copy it to `sheets\mine` in the Sky game
-  folder and open F5 → Music → My songs. Mute and solo are ignored. The export warns
-  when the song runs past the 120 s reported for one Shared Memory recording. Notes
-  on instruments that can sustain keep their length, so sky-mod holds the key.
+  The separate sky-mod project plays this same file in the game: copy it to
+  `sheets\mine` in the Sky game folder and open F5 → Music → My songs. sky-mod gives
+  every non-empty track a shared count-in, ignores mute and solo, and holds the key
+  for notes on instruments that can sustain. If the song does not open there, rename
+  the file using only A–Z and 0–9.
 - **Sheet** (top bar, or Export → Sheet): the song as key frames for a player to read.
   Each frame is one press, and the filled keys go down together. Keys carry the same
   circle and diamond shapes as in the game, the small number at the left is the bar

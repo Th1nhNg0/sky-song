@@ -268,7 +268,7 @@ starts in, and may add `tempoChanges` and `meterChanges`: lists of `{ beat, … 
 entries that hold from that beat on. Note times stay in beats. One class,
 `Timing` (`src/music/timing.ts`), turns beats into seconds and bars for everything
 that needs them: the transport, the ruler and grid, the position readouts, the sheet,
-and the MIDI and sky-mod exports.
+and the MIDI export.
 
 **Why:** A song with a ritardando or a bar of 3/4 could not be written, and a MIDI
 file that had them was flattened to one tempo and one meter on import.

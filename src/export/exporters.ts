@@ -1,7 +1,6 @@
 import { exportProjectToMidi } from './midi';
 import { projectToJson } from '../music/project';
 import type { Project } from '../music/types';
-import { projectToSkyModSong, skyModFilename } from './skymod';
 
 export function sanitizeFilename(title: string, fallback = 'sky-song'): string {
   const cleaned = title
@@ -59,29 +58,5 @@ export function exportMidiFile(project: Project): MidiExportInfo {
     bytes: result.bytes.length,
     trackCount: result.trackCount,
     noteCount: result.noteCount,
-  };
-}
-
-export interface SkyModExportInfo {
-  filename: string;
-  bytes: number;
-  trackCount: number;
-  durationMs: number;
-  /** Tracks on 4- or 8-pad instruments, whose keyboard layout is unverified. */
-  reducedPadTracks: string[];
-}
-
-export function exportSkyModFile(project: Project): SkyModExportInfo {
-  const song = projectToSkyModSong(project);
-  if (song.tracks.length === 0) throw new Error('Add at least one note before exporting.');
-  const filename = skyModFilename(project.title);
-  const text = JSON.stringify(song);
-  downloadText(text, filename, 'application/json');
-  return {
-    filename,
-    bytes: new TextEncoder().encode(text).length,
-    trackCount: song.tracks.length,
-    durationMs: song.durationMs,
-    reducedPadTracks: song.tracks.filter((track) => track.pads < 15).map((track) => track.name),
   };
 }
