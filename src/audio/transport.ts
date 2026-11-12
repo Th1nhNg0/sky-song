@@ -1,6 +1,6 @@
 import { getInstrument } from '../music/instruments';
 import { lastNoteEnd } from '../music/project';
-import { beatsPerMeasure, beatsToSeconds } from '../music/time';
+import { timingOf, type Timing } from '../music/timing';
 import type { Project } from '../music/types';
 import type { PlaybackEngine } from './engine';
 import { createTicker, type Ticker } from './ticker';
@@ -63,7 +63,7 @@ export class Transport {
   private anchorVirtual = 0;
   private anchorTime = 0;
   private pausedBeat = 0;
-  private bps = 2;
+  private timing: Timing;
   private latencySeconds = 0;
   private countInBeats = 0;
 
@@ -90,6 +90,7 @@ export class Transport {
     this.clock = options.now ?? (() => this.engine.now());
     this.manualTick = options.manualTick ?? false;
     this.project = this.getProject();
+    this.timing = timingOf(this.project);
     this.rebuildEvents();
   }
 
@@ -120,17 +121,21 @@ export class Transport {
     events.sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
     this.events = events;
     this.contentEndBeat = Math.max(4, Math.ceil(lastNoteEnd(project)));
-    this.bps = project.bpm / 60;
+    this.timing = timingOf(project);
     const latency = (this.getSettings().latencyOffsetMs ?? 0) / 1000;
     const hardware = this.engine.outputLatencySeconds?.() ?? 0;
     this.latencySeconds = Math.max(0, latency + hardware);
     this.loopEvents = project.loop.enabled
       ? events.filter((event) => event.startBeat >= project.loop.startBeat && event.startBeat < project.loop.endBeat)
       : [];
-    const clickStart = Math.ceil(project.loop.startBeat - EPSILON);
-    const clickEnd = Math.ceil(project.loop.endBeat - EPSILON);
     this.loopClicks = [];
-    for (let beat = clickStart; beat < clickEnd; beat++) this.loopClicks.push(beat);
+    if (project.loop.enabled) {
+      let beat = this.timing.nextClick(project.loop.startBeat);
+      while (beat < project.loop.endBeat - EPSILON && this.loopClicks.length < 100000) {
+        this.loopClicks.push(beat);
+        beat = this.timing.nextClick(beat + 0.01);
+      }
+    }
   }
 
   /**
@@ -172,7 +177,7 @@ export class Transport {
 
   setProject(project: Project): void {
     const previous = this.project;
-    const timingChanged = project.bpm !== previous.bpm;
+    const timingChanged = project.bpm !== previous.bpm || project.tempoChanges !== previous.tempoChanges;
     const loopChanged =
       project.loop.enabled !== previous.loop.enabled ||
       project.loop.startBeat !== previous.loop.startBeat ||
@@ -201,17 +206,44 @@ export class Transport {
     this.anchorTime = now;
     this.lastScheduledV = virtual;
     this.recomputeIndicesAfter(virtual);
-    this.nextClickV = Math.ceil(virtual - EPSILON);
+    this.nextClickV = this.timing.nextClick(virtual);
     this.tick();
   }
 
+  /**
+   * Seconds of music up to a virtual beat. Virtual beats run on past the loop's end, one
+   * loop length per pass, and every pass takes as long as the looped stretch of the song,
+   * whatever tempo changes it holds.
+   */
+  private secondsForVirtual(virtualBeat: number): number {
+    const loop = this.project.loop;
+    if (!loop.enabled) return this.timing.secondsAt(virtualBeat);
+    const length = this.loopLength();
+    const pass = Math.max(0, Math.floor((virtualBeat - loop.startBeat) / length));
+    const passSeconds = this.timing.secondsBetween(loop.startBeat, loop.endBeat);
+    return pass * passSeconds + this.timing.secondsAt(virtualBeat - pass * length);
+  }
+
+  private virtualForSeconds(seconds: number): number {
+    const loop = this.project.loop;
+    if (!loop.enabled) return this.timing.beatAt(seconds);
+    const passSeconds = Math.max(1e-6, this.timing.secondsBetween(loop.startBeat, loop.endBeat));
+    const pass = Math.max(0, Math.floor((seconds - this.timing.secondsAt(loop.startBeat)) / passSeconds));
+    return pass * this.loopLength() + this.timing.beatAt(seconds - pass * passSeconds);
+  }
+
   private timeForVirtual(virtualBeat: number): number {
-    return this.anchorTime + (virtualBeat - this.anchorVirtual) / this.bps;
+    return this.anchorTime + this.secondsForVirtual(virtualBeat) - this.secondsForVirtual(this.anchorVirtual);
+  }
+
+  /** The virtual beat sounding at a clock time; the anchor itself until the clock reaches it. */
+  private virtualAtTime(time: number): number {
+    if (time <= this.anchorTime) return this.anchorVirtual;
+    return this.virtualForSeconds(this.secondsForVirtual(this.anchorVirtual) + time - this.anchorTime);
   }
 
   private currentVirtual(useLatency: boolean): number {
-    const now = this.clock() - (useLatency ? this.latencySeconds : 0);
-    return this.anchorVirtual + Math.max(0, now - this.anchorTime) * this.bps;
+    return this.virtualAtTime(this.clock() - (useLatency ? this.latencySeconds : 0));
   }
 
   private loopLength(): number {
@@ -236,7 +268,7 @@ export class Transport {
       keyIndex: event.keyIndex,
       pad: event.pad,
       startTime,
-      durationSeconds: beatsToSeconds(durationBeats, this.project.bpm),
+      durationSeconds: this.timing.secondsBetween(event.startBeat, event.startBeat + durationBeats),
       velocity: event.velocity,
       seed: event.seed,
     });
@@ -245,28 +277,29 @@ export class Transport {
   private scheduleSampleClick(virtualBeat: number, songBeat: number): void {
     const settings = this.getSettings();
     if (!settings.metronomeEnabled) return;
-    const perMeasure = beatsPerMeasure(this.project.timeSignature);
-    const accent = Math.abs(mod(songBeat, perMeasure)) < EPSILON;
-    this.engine.scheduleClick(this.timeForVirtual(virtualBeat), accent);
+    this.engine.scheduleClick(this.timeForVirtual(virtualBeat), this.timing.isBarLine(songBeat));
   }
 
-  private scheduleCountIn(): void {
-    this.countInBeats = Math.max(
-      0,
-      Math.round(this.getSettings().countInMeasures * beatsPerMeasure(this.project.timeSignature)),
-    );
+  /** Beats of count-in before `start`, counted in the meter playback starts in. */
+  private countInLength(start: number): number {
+    const perMeasure = this.timing.meterSpanAt(start).barBeats;
+    return Math.max(0, Math.round(this.getSettings().countInMeasures * perMeasure));
+  }
+
+  /** The count-in keeps the tempo and meter of the place playback starts from. */
+  private scheduleCountIn(start: number): void {
+    this.countInBeats = this.countInLength(start);
     if (this.countInBeats === 0) return;
-    const perMeasure = beatsPerMeasure(this.project.timeSignature);
+    const perMeasure = this.timing.meterSpanAt(start).barBeats;
+    const beatSeconds = 60 / this.timing.bpmAt(start);
     for (let i = 0; i < this.countInBeats; i++) {
-      const beatOffset = this.countInBeats - i;
-      const time = this.anchorTime - beatsToSeconds(beatOffset, this.project.bpm);
+      const time = this.anchorTime - (this.countInBeats - i) * beatSeconds;
       this.engine.scheduleClick(time, i % perMeasure === 0);
     }
   }
 
   play(fromBeat?: number): void {
     this.refresh();
-    const settings = this.getSettings();
     const loop = this.project.loop;
     let start = fromBeat ?? this.pausedBeat;
     if (fromBeat === undefined && !loop.enabled && start >= this.contentEndBeat - 0.01) start = 0;
@@ -288,11 +321,10 @@ export class Transport {
     this.lastTickAt = 0;
     this.countInBeats = 0;
     this.rebuildEvents();
-    const countIn = Math.max(0, settings.countInMeasures) * beatsPerMeasure(this.project.timeSignature);
     const lead = 0.09;
-    this.anchorTime = this.clock() + lead + beatsToSeconds(countIn, this.project.bpm);
-    this.nextClickV = Math.ceil(start - EPSILON);
-    this.scheduleCountIn();
+    this.anchorTime = this.clock() + lead + (this.countInLength(start) * 60) / this.timing.bpmAt(start);
+    this.nextClickV = this.timing.nextClick(start);
+    this.scheduleCountIn(start);
     this.onStateChange?.('playing');
     this.tick();
     this.startTimer();
@@ -357,8 +389,8 @@ export class Transport {
     this.loopIndex = 0;
     this.loopClickIndex = 0;
     this.lastTickAt = 0;
-    this.nextClickV = Math.ceil(target - EPSILON);
     this.rebuildEvents();
+    this.nextClickV = this.timing.nextClick(target);
     if (wasPlaying) {
       this.tick();
       this.startTimer();
@@ -400,7 +432,7 @@ export class Transport {
     }
     this.lastTickAt = now;
     if (now + this.lookaheadSeconds < this.anchorTime) return;
-    const horizon = this.anchorVirtual + (now + this.lookaheadSeconds - this.anchorTime) * this.bps;
+    const horizon = this.virtualAtTime(now + this.lookaheadSeconds);
     const loop = this.project.loop;
     if (loop.enabled) {
       this.scheduleLoop(horizon);
@@ -409,7 +441,7 @@ export class Transport {
     }
     this.lastScheduledV = Math.max(this.lastScheduledV, horizon);
     if (now > this.anchorTime && now - this.latencySeconds > this.anchorTime) {
-      const raw = this.anchorVirtual + (now - this.latencySeconds - this.anchorTime) * this.bps;
+      const raw = this.virtualAtTime(now - this.latencySeconds);
       if (!loop.enabled && raw > this.contentEndBeat + 0.05) {
         this.finishAtEnd();
       }
@@ -430,13 +462,13 @@ export class Transport {
     const settings = this.getSettings();
     if (!settings.metronomeEnabled) return;
     if (this.nextClickV < this.currentVirtual(false) - 2) {
-      this.nextClickV = Math.ceil(this.currentVirtual(false) - EPSILON);
+      this.nextClickV = this.timing.nextClick(this.currentVirtual(false));
     }
     while (this.nextClickV <= horizon) {
       if (this.nextClickV >= this.anchorVirtual - EPSILON) {
         this.scheduleSampleClick(this.nextClickV, this.nextClickV);
       }
-      this.nextClickV += 1;
+      this.nextClickV = this.timing.nextClick(this.nextClickV + 0.01);
     }
   }
 
@@ -502,7 +534,7 @@ export class Transport {
       anchorVirtual: this.anchorVirtual,
       anchorTime: this.anchorTime,
       lastScheduledV: this.lastScheduledV,
-      bps: this.bps,
+      bps: this.timing.bpmAt(this.positionBeats()) / 60,
       droppedLate: this.droppedLate,
     };
   }

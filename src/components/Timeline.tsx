@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getInstrument } from '../music/instruments';
 import { isTrackAudible, projectEndBeat } from '../music/project';
-import { beatsPerMeasure } from '../music/time';
+import { timingOf } from '../music/timing';
 import { soundSourceInfo } from '../audio/sampleBank';
 import { useViewStore } from '../state/clock';
 import { useCompact, useLabelWidth, useTouch } from '../state/layout';
@@ -79,7 +79,8 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
   const instrument = getInstrument(activeTrack.instrumentId);
   const hold = instrument.supportsHold;
   const minimized = minimizedId === activeTrack.id;
-  const beatsPerBar = beatsPerMeasure(project.timeSignature);
+  const timing = timingOf(project);
+  const beatsPerBar = timing.meters[0].barBeats;
   const contentEnd = Math.max(projectEndBeat(project), project.loop.endBeat);
   const totalBeats =
     Math.ceil(Math.max(contentEnd + beatsPerBar * 4, viewWidth / px) / beatsPerBar) * beatsPerBar;
@@ -119,14 +120,14 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
               <Ruler
                 px={px}
                 totalBeats={totalBeats}
-                meter={project.timeSignature}
+                timing={timing}
                 snap={snap}
                 windowStart={Math.max(0, windowStart - OVERSCAN)}
                 windowEnd={windowStart + viewWidth + OVERSCAN + WINDOW_STEP}
               />
             </div>
             {project.loop.enabled && (
-              <LoopLane totalBeats={totalBeats} px={px} loop={project.loop} meter={project.timeSignature} snap={snap} onChange={setLoop} />
+              <LoopLane totalBeats={totalBeats} px={px} loop={project.loop} timing={timing} snap={snap} onChange={setLoop} />
             )}
           </div>
 
@@ -180,7 +181,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
                     track={track}
                     instrument={instrument}
                     projectKey={project.key}
-                    meter={project.timeSignature}
+                    timing={timing}
                     px={px}
                     snap={snap}
                     rowHeight={rowHeight}

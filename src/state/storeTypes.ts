@@ -4,7 +4,7 @@ import type { Preferences } from '../storage/preferences';
 
 export type SaveState = 'saved' | 'unsaved' | 'saving' | 'error';
 export type EditTool = 'select' | 'draw';
-export type PanelKind = 'catalog' | 'library' | 'songs' | 'sheet' | 'about' | 'help' | 'settings' | 'export' | 'tracks' | null;
+export type PanelKind = 'catalog' | 'library' | 'songs' | 'sheet' | 'about' | 'help' | 'settings' | 'export' | 'tracks' | 'timing' | null;
 export type ToastKind = 'info' | 'success' | 'warning' | 'error';
 
 export interface Toast {
@@ -71,6 +71,10 @@ export interface AppState {
   setTitle(title: string): void;
   setBpm(bpm: number): void;
   setMeter(meter: [number, number]): void;
+  /** Sets the tempo and/or meter from `beat` on; beat 0 is the start of the song. */
+  setTimingChange(beat: number, change: { bpm?: number; timeSignature?: [number, number] }): void;
+  /** Removes the tempo and meter change at `beat`, so the earlier ones carry on. */
+  removeTimingChange(beat: number): void;
   setLoop(loop: LoopRegion): void;
   toggleLoop(): void;
 

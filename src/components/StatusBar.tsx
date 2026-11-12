@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { getInstrument } from '../music/instruments';
 import { resolvePad } from '../music/pitch';
-import { formatBarBeat } from '../music/time';
+import { timingOf } from '../music/timing';
 import { useClockStore, useViewStore } from '../state/clock';
 import { useAppStore } from '../state/store';
 
@@ -103,7 +103,7 @@ function Overview() {
 
 function PointerReadout() {
   const hover = useViewStore((state) => state.hover);
-  const meter = useAppStore((state) => state.project.timeSignature);
+  const timing = useAppStore((state) => timingOf(state.project));
   const key = useAppStore((state) => state.project.key);
   const instrumentId = useAppStore((state) => state.activeTrack().instrumentId);
   if (!hover) return <span className="pointer-readout is-idle">Point at the grid for position</span>;
@@ -111,7 +111,7 @@ function PointerReadout() {
   const resolved = hover.pad !== null && hover.pad < instrument.keyCount ? resolvePad(instrument, key, hover.pad) : null;
   return (
     <span className="pointer-readout">
-      <b>{formatBarBeat(hover.beat, meter)}</b>
+      <b>{timing.format(hover.beat)}</b>
       {resolved && <span>{resolved.noteName ?? resolved.label}</span>}
       {hover.pad !== null && <span>Pad {hover.pad + 1}</span>}
     </span>

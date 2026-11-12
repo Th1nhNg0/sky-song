@@ -12,7 +12,7 @@ import {
   type SheetGeometry,
   type SheetLine,
 } from '../music/sheet';
-import { beatsPerMeasure } from '../music/time';
+import { describeTiming, timingOf } from '../music/timing';
 import type { InstrumentDefinition, Track } from '../music/types';
 import { useClockStore } from '../state/clock';
 import { useNarrow, useTouch } from '../state/layout';
@@ -89,15 +89,16 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
   const contentWidth = useNarrow() ? SHEET_NARROW_CONTENT_WIDTH : SHEET_CONTENT_WIDTH;
 
   const shown = choice === ALL || !playable.some((track) => track.id === choice) ? ALL : choice;
+  const timing = timingOf(project);
+  const timingText = describeTiming(project);
   const sections = useMemo<Section[]>(() => {
-    const beatsPerBar = beatsPerMeasure(project.timeSignature);
-    const detail = `${project.bpm} BPM · ${project.timeSignature.join('/')} · key ${keyShortLabel(project.key)}`;
+    const detail = `${timingText} · key ${keyShortLabel(project.key)}`;
     return playable
       .filter((track) => shown === ALL || track.id === shown)
       .map((track) => {
         const instrument = getInstrument(track.instrumentId);
         const geometry = sheetGeometry(instrument, contentWidth);
-        const frames = buildSheetFrames(track.notes, instrument, beatsPerBar);
+        const frames = buildSheetFrames(track.notes, instrument, timing);
         const lines = layoutSheet(frames, geometry.columns);
         return {
           track,
@@ -109,7 +110,7 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
           title: { heading: project.title, detail: `${trackLabel(track, instrument)} · ${detail}` },
         };
       });
-  }, [playable, shown, contentWidth, project.timeSignature, project.bpm, project.key, project.title]);
+  }, [playable, shown, contentWidth, timing, timingText, project.key, project.title]);
   const single = sections.length === 1 ? sections[0] : null;
 
   // The cursor follows the playhead by moving one outline, so playing never redraws the sheet.

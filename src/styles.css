@@ -4055,3 +4055,90 @@ html {
     display: none;
   }
 }
+
+/* Tempo and meter changes: marks on the ruler, per-meter grid stretches, and the dialog. */
+.timing-mark {
+  position: absolute;
+  top: 0;
+  margin-left: 3px;
+  padding: 0 5px;
+  border-radius: 0 0 6px 6px;
+  background: rgba(255, 211, 138, 0.14);
+  color: var(--ink-soft);
+  font-family: var(--mono);
+  font-size: 9px;
+  line-height: 11px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+.roll-grid-span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+.timing-button.is-on {
+  border-color: rgba(255, 211, 138, 0.42);
+  color: var(--ink);
+}
+.timing-table {
+  width: 100%;
+  margin: 10px 0 14px;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.timing-table th,
+.timing-table td {
+  padding: 5px 8px 5px 0;
+  text-align: left;
+  font-weight: 500;
+}
+.timing-table thead th {
+  color: var(--dim);
+  font-size: 11px;
+}
+.timing-table tbody tr {
+  border-top: 1px solid var(--line);
+}
+.timing-table td:last-child {
+  text-align: right;
+  padding-right: 0;
+}
+.timing-table input,
+.timing-table select,
+.timing-add input,
+.timing-add select {
+  height: 32px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(255, 236, 205, 0.06);
+  color: var(--ink);
+  font-size: 13px;
+}
+.timing-table select option,
+.timing-add select option {
+  background: var(--panel-strong);
+}
+.timing-bpm,
+.timing-bar {
+  width: 68px;
+}
+.timing-add {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.timing-add + .fine-print {
+  margin-top: 10px;
+}
+.timing-add label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--dim);
+  font-size: 11px;
+}

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
 import { barLabelStep, meterBeat } from '../music/grid';
-import { beatsPerMeasure, formatBarBeat, snapBeat } from '../music/time';
+import { snapBeat } from '../music/time';
+import type { Timing } from '../music/timing';
 import type { LoopRegion } from '../music/types';
 import { useClockStore } from '../state/clock';
 import { playback } from '../state/playback';
@@ -41,41 +42,51 @@ function RulerPlayhead({ px }: { px: number }) {
 export function Ruler({
   px,
   totalBeats,
-  meter,
+  timing,
   snap,
   windowStart,
   windowEnd,
 }: {
   px: number;
   totalBeats: number;
-  meter: [number, number];
+  timing: Timing;
   snap: number;
   windowStart: number;
   windowEnd: number;
 }) {
-  const barBeats = beatsPerMeasure(meter);
-  const beat = meterBeat(meter);
-  const step = barLabelStep(px, meter);
-  const showBeats = beat * px >= 44;
-  const firstBar = Math.max(0, Math.floor(windowStart / px / barBeats));
-  const lastBar = Math.min(Math.ceil(totalBeats / barBeats), Math.ceil(windowEnd / px / barBeats));
+  const step = barLabelStep(px, Math.min(...timing.meters.map((span) => span.barBeats)));
+  const firstBar = timing.barAt(Math.max(0, windowStart / px)).bar;
+  const lastBeat = Math.min(totalBeats, windowEnd / px);
   const marks = [];
-  for (let bar = firstBar - (firstBar % step); bar <= lastBar; bar += step) {
+  for (let bar = firstBar - (firstBar % step); ; bar += step) {
+    const start = timing.barStart(bar);
+    if (start > lastBeat) break;
+    const { meter, barBeats } = timing.meterSpanAt(start);
+    const beat = meterBeat(meter);
     marks.push(
-      <span key={bar} className="measure-label" style={{ left: bar * barBeats * px }}>
+      <span key={bar} className="measure-label" style={{ left: start * px }}>
         {bar + 1}
       </span>,
     );
-    if (showBeats) {
+    if (beat * px >= 44) {
       const count = Math.round(barBeats / beat);
       for (let index = 1; index < count; index++) {
         marks.push(
-          <span key={`${bar}.${index}`} className="beat-label" style={{ left: (bar * barBeats + index * beat) * px }}>
+          <span key={`${bar}.${index}`} className="beat-label" style={{ left: (start + index * beat) * px }}>
             {bar + 1}.{index + 1}
           </span>,
         );
       }
     }
+  }
+  for (const point of timing.points) {
+    if (point.beat * px < windowStart - 200 || point.beat > lastBeat) continue;
+    const text = [point.bpm && `♩=${point.bpm}`, point.timeSignature?.join('/')].filter(Boolean).join(' · ');
+    marks.push(
+      <span key={`change.${point.beat}`} className="timing-mark" style={{ left: point.beat * px }}>
+        {text}
+      </span>,
+    );
   }
 
   const beatAt = (clientX: number, element: HTMLElement) => {
@@ -116,14 +127,14 @@ export function LoopLane({
   totalBeats,
   px,
   loop,
-  meter,
+  timing,
   snap,
   onChange,
 }: {
   totalBeats: number;
   px: number;
   loop: LoopRegion;
-  meter: [number, number];
+  timing: Timing;
   snap: number;
   onChange: (loop: LoopRegion) => void;
 }) {
@@ -159,9 +170,8 @@ export function LoopLane({
       if (latest && latest.end - latest.start >= step) {
         onChange({ enabled: true, startBeat: latest.start, endBeat: latest.end });
       } else if (drag.mode === 'new') {
-        const bar = beatsPerMeasure(meter);
-        const start = Math.floor(origin / bar) * bar;
-        onChange({ enabled: true, startBeat: start, endBeat: start + bar });
+        const bar = timing.barAt(origin);
+        onChange({ enabled: true, startBeat: bar.start, endBeat: bar.start + bar.span.barBeats });
       }
     };
     followPointer(move, up);
@@ -188,7 +198,7 @@ export function LoopLane({
         >
           <button type="button" className="loop-handle start" aria-label="Drag loop start" onPointerDown={(event) => startDrag(event, 'start')} />
           <span className="loop-label">
-            {formatBarBeat(shown.start, meter)} – {formatBarBeat(shown.end, meter)}
+            {timing.format(shown.start)} – {timing.format(shown.end)}
           </span>
           <button type="button" className="loop-handle end" aria-label="Drag loop end" onPointerDown={(event) => startDrag(event, 'end')} />
         </div>

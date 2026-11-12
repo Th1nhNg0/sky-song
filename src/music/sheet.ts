@@ -1,4 +1,5 @@
 import { sortNotes } from './project';
+import type { Timing } from './timing';
 import type { InstrumentDefinition, Note } from './types';
 
 /**
@@ -72,7 +73,7 @@ export function sheetGeometry(instrument: InstrumentDefinition, width: number): 
   };
 }
 
-export function buildSheetFrames(notes: Note[], instrument: InstrumentDefinition, beatsPerBar: number): SheetFrame[] {
+export function buildSheetFrames(notes: Note[], instrument: InstrumentDefinition, timing: Timing): SheetFrame[] {
   const frames: SheetFrame[] = [];
   for (const note of sortNotes(notes)) {
     if (note.pad < 0 || note.pad >= instrument.pads.length) continue;
@@ -81,10 +82,8 @@ export function buildSheetFrames(notes: Note[], instrument: InstrumentDefinition
       if (!last.pads.includes(note.pad)) last.pads.push(note.pad);
       continue;
     }
-    // Triplet grids land a hair under the bar line; rounding keeps them in the right bar.
-    const start = Math.max(0, Math.round(note.startBeat * 1e6) / 1e6);
-    const bar = Math.floor(start / beatsPerBar);
-    frames.push({ index: frames.length, startBeat: note.startBeat, bar, beat: start - bar * beatsPerBar, pads: [note.pad] });
+    const { bar, beat } = timing.barAt(note.startBeat);
+    frames.push({ index: frames.length, startBeat: note.startBeat, bar, beat, pads: [note.pad] });
   }
   return frames;
 }

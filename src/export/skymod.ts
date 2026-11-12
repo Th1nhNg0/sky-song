@@ -1,6 +1,7 @@
 import { getInstrument } from '../music/instruments';
 import { sortNotes } from '../music/project';
 import { beatsPerMeasure, beatsToSeconds } from '../music/time';
+import { timingOf } from '../music/timing';
 import type { Project } from '../music/types';
 
 export const SKY_MOD_SONG_FORMAT = 'sky-mod-song';
@@ -43,6 +44,8 @@ export function countInBeats(timeSignature: [number, number]): number {
 
 export function projectToSkyModSong(project: Project): SkyModSong {
   const beats = countInBeats(project.timeSignature);
+  const timing = timingOf(project);
+  // The count-in keeps the tempo the song starts in.
   const beatMs = beatsToSeconds(1, project.bpm) * 1000;
   const countInMs = beats * beatMs;
   let durationMs = countInMs;
@@ -52,8 +55,8 @@ export function projectToSkyModSong(project: Project): SkyModSong {
     .map((track): SkyModTrack => {
       const instrument = getInstrument(track.instrumentId);
       const songNotes = sortNotes(track.notes).map((note) => {
-        const time = countInMs + beatsToSeconds(note.startBeat, project.bpm) * 1000;
-        const lengthMs = beatsToSeconds(note.durationBeats, project.bpm) * 1000;
+        const time = countInMs + timing.secondsAt(note.startBeat) * 1000;
+        const lengthMs = timing.secondsBetween(note.startBeat, note.startBeat + note.durationBeats) * 1000;
         durationMs = Math.max(durationMs, time + lengthMs);
         const songNote: SkyModNote = { time: Math.round(time), key: `Key${note.pad}` };
         if (instrument.supportsHold) songNote.duration = Math.round(lengthMs);

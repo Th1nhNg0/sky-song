@@ -9,9 +9,9 @@ describe('grid', () => {
   });
 
   it('thins ruler numbers as the view zooms out', () => {
-    expect(barLabelStep(56, [4, 4])).toBe(1);
-    expect(barLabelStep(4, [4, 4])).toBe(4);
-    expect(barLabelStep(0.25, [4, 4])).toBe(64);
+    expect(barLabelStep(56, 4)).toBe(1);
+    expect(barLabelStep(4, 4)).toBe(4);
+    expect(barLabelStep(0.25, 4)).toBe(64);
   });
 
   it('shows subdivisions only when they are far enough apart to read', () => {

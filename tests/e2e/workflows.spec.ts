@@ -588,3 +588,40 @@ test('the selection bar shows every action, and a blank new song waits for an ed
   await expect(page.locator('.project-title')).toHaveValue('Untitled Song 2');
   expect(errors).toEqual([]);
 });
+
+test('a tempo and meter change is added in the dialog, marked on the ruler and played', async ({ page }) => {
+  const errors = await boot(page);
+  await page.getByRole('button', { name: 'Changes…' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Tempo and meter changes' });
+  await dialog.getByLabel('Bar where the new change starts').fill('3');
+  await dialog.getByLabel('Tempo of the new change').fill('180');
+  await dialog.getByLabel('Meter of the new change').selectOption('3/4');
+  await dialog.getByRole('button', { name: 'Add change' }).click();
+  await expect(dialog.getByRole('row', { name: /Bar 3/ })).toBeVisible();
+  expect(await store(page, '[s.project.tempoChanges, s.project.meterChanges]')).toEqual([
+    [{ beat: 8, bpm: 180 }],
+    [{ beat: 8, timeSignature: [3, 4] }],
+  ]);
+
+  // Editing a row changes that change; the row's own Remove takes it away again.
+  await dialog.getByLabel('Tempo from Bar 3').fill('120');
+  await dialog.getByLabel('Tempo from Bar 3').press('Enter');
+  expect(await store(page, 's.project.tempoChanges')).toEqual([{ beat: 8, bpm: 120 }]);
+  await dialog.getByRole('button', { name: 'Close dialog' }).click();
+  await expect(page.getByRole('button', { name: '1 change' })).toBeVisible();
+  await expect(page.locator('.timing-mark')).toHaveText('♩=120 · 3/4');
+  // Bar 4 starts three beats after bar 3, not four.
+  const px = await store<number>(page, 's.preferences.zoom');
+  const lefts = await page.locator('.measure-label').evaluateAll((labels) => labels.slice(0, 4).map((label) => parseFloat((label as HTMLElement).style.left)));
+  expect(lefts.map((left) => left / px)).toEqual([0, 4, 8, 11]);
+
+  // 90 BPM for eight beats, then 120: the clock reads 0:05 at bar 3 and beat 12 comes two seconds later.
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.playback.seek(12));
+  await expect(page.locator('.time-readout .clock')).toHaveText('0:07');
+  await expect(page.locator('.time-readout .bar-beat')).toHaveText('4:2');
+
+  await page.getByRole('button', { name: '1 change' }).click();
+  await dialog.getByRole('button', { name: 'Remove the change at Bar 3' }).click();
+  expect(await store(page, '[s.project.tempoChanges, s.project.meterChanges]')).toEqual([undefined, undefined]);
+  expect(errors).toEqual([]);
+});

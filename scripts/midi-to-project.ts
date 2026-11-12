@@ -15,7 +15,8 @@ import { getInstrument } from '../src/music/instruments';
 import { keyShortLabel } from '../src/music/keys';
 import { resolvePad } from '../src/music/pitch';
 import { projectEndBeat, projectToJson } from '../src/music/project';
-import { beatsPerMeasure, MAX_BPM, MIN_BPM } from '../src/music/time';
+import { MAX_BPM, MIN_BPM } from '../src/music/time';
+import { describeTiming, timingOf } from '../src/music/timing';
 import { MAX_TITLE_LENGTH, parseProjectJson, ProjectImportError } from '../src/music/validation';
 import type { Project, Track, ValidationIssue } from '../src/music/types';
 
@@ -27,7 +28,7 @@ const USAGE = `sky-music-studio · MIDI → .skymusic.json
 Options
   -o, --out <path>     output file (default: next to the input, .skymusic.json)
   -t, --title <name>   project title (default: the MIDI file's name)
-  -b, --bpm <n>        tempo in ${MIN_BPM}–${MAX_BPM} (default: the MIDI tempo)
+  -b, --bpm <n>        tempo in ${MIN_BPM}–${MAX_BPM} (default: the MIDI tempo and its changes)
   -k, --key <key>      major key: 0–11 or C, D♭, D, E♭, E, F, G♭, G, A♭, A, B♭, B
                        (also accepts Db / C# / F# style spellings)
   -s, --stdout         print the project JSON instead of writing a file
@@ -158,22 +159,23 @@ function padRange(track: Track): string {
   return low === high ? `${low}` : `${low}–${high}`;
 }
 
-function formatDuration(beats: number, bpm: number): string {
-  const seconds = Math.round((beats * 60) / bpm);
+function formatDuration(seconds: number): string {
+  seconds = Math.round(seconds);
   const minutes = Math.floor(seconds / 60);
   return `${minutes}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 function report(project: Project, inputPath: string, outPath: string | null, warnings: ValidationIssue[]) {
   const lines: string[] = [];
-  const meter = project.timeSignature;
-  const bars = Math.ceil(projectEndBeat(project) / beatsPerMeasure(meter));
+  const timing = timingOf(project);
+  const end = projectEndBeat(project);
+  const bars = timing.barAt(Math.max(0, end - 1e-3)).bar + 1;
   const totalNotes = project.tracks.reduce((sum, track) => sum + track.notes.length, 0);
 
   lines.push(`✓ ${project.title}`);
   lines.push(
-    `  ${project.bpm} BPM · ${meter[0]}/${meter[1]} · key ${keyShortLabel(project.key)} · ` +
-      `${bars} bars · ${formatDuration(projectEndBeat(project), project.bpm)} · ${totalNotes} notes`,
+    `  ${describeTiming(project)} · key ${keyShortLabel(project.key)} · ` +
+      `${bars} bars · ${formatDuration(timing.secondsAt(end))} · ${totalNotes} notes`,
   );
   lines.push('');
 
@@ -234,7 +236,11 @@ function main() {
   }
 
   if (options.title) project.title = options.title.slice(0, MAX_TITLE_LENGTH);
-  if (options.bpm !== undefined) project.bpm = options.bpm;
+  if (options.bpm !== undefined) {
+    // A tempo given on the command line is the whole song's tempo.
+    project.bpm = options.bpm;
+    delete project.tempoChanges;
+  }
   // Pads are physical, so the key only changes the pitch the same pads produce.
   if (options.key !== undefined) project.key = options.key;
   project.updatedAt = new Date().toISOString();

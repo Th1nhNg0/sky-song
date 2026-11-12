@@ -76,7 +76,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             <Shortcut keys="Pinch" label="Zoom in and out" />
           </div>
           <p className="fine-print">
-            On a phone, the ⋯ button holds Songs, My songs, Import, Sheet and Export, with the tempo and meter. Undo and the
+            On a phone, the ⋯ button holds Songs, My songs, Import, Sheet and Export, with the tempo, the meter and their changes. Undo and the
             keys are in the row of tools, which scrolls sideways.
           </p>
         </section>
@@ -111,7 +111,7 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             file or a MIDI file, use Import in the top bar or drop the file anywhere on the window. Nothing is uploaded.
           </p>
           <p>
-            MIDI is a Type-1 file with tempo, key signature, named tracks, GM programs and channel-10 percussion. MIDI timbres
+            MIDI is a Type-1 file with every tempo and meter change, the key signature, named tracks, GM programs and channel-10 percussion. MIDI timbres
             differ by DAW/soundfont. Built-in synthesis is an approximation; personal sample packs supply recorded sounds.
           </p>
         </section>

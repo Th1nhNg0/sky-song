@@ -134,14 +134,32 @@ export interface LoopRegion {
   endBeat: number;
 }
 
+/** The tempo from `beat` onwards. */
+export interface TempoChange {
+  beat: number;
+  bpm: number;
+}
+
+/** The meter from `beat` onwards. The beat is always a bar line of the meter before it. */
+export interface MeterChange {
+  beat: number;
+  timeSignature: [number, number];
+}
+
 export interface Project {
   schemaVersion: number;
   app: 'sky-music-studio';
   catalogVersion: string;
   id: string;
   title: string;
+  /** Tempo at the start of the song. */
   bpm: number;
+  /** Meter at the start of the song. */
   timeSignature: [number, number];
+  /** Later tempo changes, in beat order. Absent or empty for a song with one tempo. */
+  tempoChanges?: TempoChange[];
+  /** Later meter changes, in beat order. Absent or empty for a song with one meter. */
+  meterChanges?: MeterChange[];
   /** 0..11, C..B major. */
   key: number;
   tracks: Track[];

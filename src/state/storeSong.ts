@@ -8,7 +8,8 @@ import {
   TRACK_COLORS,
 } from '../music/project';
 import { clampBpm } from '../music/time';
-import type { LoopRegion, Track } from '../music/types';
+import { normalizeMeterChanges, normalizeTempoChanges, timingOf } from '../music/timing';
+import type { LoopRegion, Project, Track } from '../music/types';
 import { MAX_TITLE_LENGTH, MAX_TRACK_NAME_LENGTH, MAX_TRACKS } from '../music/validation';
 import { clamp, plural } from '../util';
 import { findTrack, replaceTrack } from './storeHelpers';
@@ -19,9 +20,28 @@ function sanitizeName(value: string, fallback: string, max = MAX_TITLE_LENGTH): 
   return (trimmed || fallback).slice(0, max);
 }
 
+const sameList = (a: readonly unknown[] | undefined, b: readonly unknown[]) =>
+  JSON.stringify(a ?? []) === JSON.stringify(b);
+
+/**
+ * Applies a change to the song's tempo or meter and tidies the lists of later changes:
+ * sorted, on bar lines, and without entries that change nothing. A list that comes out
+ * the same keeps its identity, and an empty one is left off the project.
+ */
+function withTiming(project: Project, patch: Partial<Project>): Project {
+  const next = { ...project, ...patch };
+  const tempos = normalizeTempoChanges(next.bpm, next.tempoChanges);
+  const meters = normalizeMeterChanges(next.timeSignature, next.meterChanges);
+  next.tempoChanges = sameList(project.tempoChanges, tempos) ? project.tempoChanges : tempos;
+  next.meterChanges = sameList(project.meterChanges, meters) ? project.meterChanges : meters;
+  if (!next.tempoChanges?.length) delete next.tempoChanges;
+  if (!next.meterChanges?.length) delete next.meterChanges;
+  return next;
+}
+
 type SongActions = Pick<
   AppState,
-  'setTitle' | 'setBpm' | 'setMeter' | 'setLoop' | 'toggleLoop' | 'setActiveTrack' | 'addTrack'
+  'setTitle' | 'setBpm' | 'setMeter' | 'setTimingChange' | 'removeTimingChange' | 'setLoop' | 'toggleLoop' | 'setActiveTrack' | 'addTrack'
   | 'removeTrack' | 'duplicateTrack' | 'renameTrack' | 'moveTrack' | 'setTrackInstrument'
   | 'setTrackColor' | 'toggleTrackMute' | 'toggleTrackSolo' | 'setTrackVolume'
 >;
@@ -37,12 +57,44 @@ export function songActions({ set, get, commit }: StoreTools): SongActions {
     setBpm: (bpm) => {
       if (!Number.isFinite(bpm)) return;
       const value = clampBpm(bpm);
-      if (get().project.bpm !== value) commit({ ...get().project, bpm: value });
+      if (get().project.bpm !== value) commit(withTiming(get().project, { bpm: value }));
     },
     setMeter: (meter) => {
       const project = get().project;
       if (project.timeSignature[0] === meter[0] && project.timeSignature[1] === meter[1]) return;
-      commit({ ...project, timeSignature: [meter[0], meter[1]] });
+      commit(withTiming(project, { timeSignature: [meter[0], meter[1]] }));
+    },
+    setTimingChange: (beat, change) => {
+      const project = get().project;
+      if (!Number.isFinite(beat) || beat < 0) return;
+      if (beat < 1e-6) {
+        if (change.bpm !== undefined) get().setBpm(change.bpm);
+        if (change.timeSignature) get().setMeter(change.timeSignature);
+        return;
+      }
+      const patch: Partial<Project> = {};
+      if (change.bpm !== undefined && Number.isFinite(change.bpm)) {
+        patch.tempoChanges = [...(project.tempoChanges ?? []).filter((item) => Math.abs(item.beat - beat) > 1e-6), { beat, bpm: change.bpm }];
+      }
+      if (change.timeSignature) {
+        // A meter can only change on a bar line, so the change goes to the start of this bar.
+        const bar = timingOf(project).barAt(beat).start;
+        patch.meterChanges = [
+          ...(project.meterChanges ?? []).filter((item) => Math.abs(item.beat - bar) > 1e-6),
+          { beat: bar, timeSignature: change.timeSignature },
+        ];
+      }
+      const next = withTiming(project, patch);
+      if (next.tempoChanges !== project.tempoChanges || next.meterChanges !== project.meterChanges) commit(next);
+    },
+    removeTimingChange: (beat) => {
+      const project = get().project;
+      const keep = (item: { beat: number }) => Math.abs(item.beat - beat) > 1e-6;
+      const next = withTiming(project, {
+        tempoChanges: (project.tempoChanges ?? []).filter(keep),
+        meterChanges: (project.meterChanges ?? []).filter(keep),
+      });
+      if (next.tempoChanges !== project.tempoChanges || next.meterChanges !== project.meterChanges) commit(next);
     },
     setLoop: (loop) => {
       const project = get().project;

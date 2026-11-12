@@ -5,6 +5,7 @@ import { pitchClass } from './keys';
 import { resolvePad } from './pitch';
 import { createProject, createTrack, newId, sortNotes } from './project';
 import { clampBpm, TIME_SIGNATURES } from './time';
+import { MAX_TIMING_CHANGES, normalizeMeterChanges, normalizeTempoChanges } from './timing';
 import type { InstrumentDefinition, Note, Project } from './types';
 import { MAX_PROJECT_NOTES, MAX_TRACK_NAME_LENGTH } from './validation';
 import { clamp } from '../util';
@@ -355,6 +356,44 @@ function songBpm(midi: Midi): number {
   return best;
 }
 
+/**
+ * Gives a project the file's tempo and meter changes. `beat` turns the file's ticks into
+ * project beats and `tempoScale` goes with it: beats stretched to twice as many are played
+ * at twice the tempo. Changes before `fromTicks` are folded into the starting tempo, so a
+ * count-in at another speed does not become the song's tempo. A file that changes tempo
+ * more often than a project can hold (a recorded performance, usually) keeps the one tempo
+ * it spends the most time in.
+ */
+function readTimingChanges(
+  project: Project,
+  midi: Midi,
+  beat: (ticks: number) => number,
+  options: { tempoScale?: number; fromTicks?: number; meters?: boolean } = {},
+): void {
+  const { tempoScale = 1, fromTicks = 0, meters = true } = options;
+  const tempos = midi.header.tempos;
+  if (tempos.length > 1) {
+    const start = [...tempos].reverse().find((tempo) => tempo.ticks <= fromTicks) ?? tempos[0];
+    const base = clampBpm(start.bpm * tempoScale);
+    const later = tempos
+      .filter((tempo) => tempo.ticks > fromTicks)
+      .map((tempo) => ({ beat: beat(tempo.ticks), bpm: tempo.bpm * tempoScale }));
+    const changes = normalizeTempoChanges(base, later);
+    if (changes.length < MAX_TIMING_CHANGES) {
+      project.bpm = base;
+      if (changes.length > 0) project.tempoChanges = changes;
+    }
+  }
+  if (!meters) return;
+  const changes = normalizeMeterChanges(
+    project.timeSignature,
+    midi.header.timeSignatures
+      .filter((meter) => meter.ticks > 0)
+      .map((meter) => ({ beat: beat(meter.ticks), timeSignature: knownMeter(meter.timeSignature) })),
+  );
+  if (changes.length > 0) project.meterChanges = changes;
+}
+
 /** The app's own copy of a file's meter, or 4/4 for one the app does not offer. */
 function knownMeter(meter: number[] | undefined): [number, number] {
   return TIME_SIGNATURES.find((option) => option.value[0] === meter?.[0] && option.value[1] === meter?.[1])?.value ?? [4, 4];
@@ -441,6 +480,7 @@ function nativeProject(midi: Midi, title: string): Project | null {
   if (parts.length === 0 || parts.some((part) => !part)) return null;
   const project = createProject({ title, bpm: clampBpm(songBpm(midi)), key: 0 });
   project.timeSignature = knownMeter(midi.header.timeSignatures[0]?.timeSignature);
+  readTimingChanges(project, midi, (ticks) => ticks / midi.header.ppq);
   project.tracks = sources.map((source, index) => {
     const { name, instrument } = parts[index]!;
     const track = createTrack(instrument.id, { name: name.slice(0, MAX_TRACK_NAME_LENGTH) || instrument.displayName, colorIndex: index });
@@ -537,6 +577,8 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   const bpm = steady ? steady.bpm * (waltz ? 2 : 1) : songBpm(midi) * stretch;
   const project = createProject({ title, bpm: clampBpm(bpm), key: 0 });
   project.timeSignature = waltz ? [3, 4] : knownMeter(meter?.timeSignature);
+  const firstNote = Math.min(...midi.tracks.flatMap((track) => track.notes.map((note) => note.ticks)));
+  readTimingChanges(project, midi, beat, { tempoScale: stretch, fromTicks: firstNote, meters: !waltz });
   project.tracks = clearClashes(reachNotes(parts, shift), grid).map((part, index) => {
     const track = createTrack(part.instrumentId, { name: part.name, colorIndex: index });
     track.volume = part.volume;

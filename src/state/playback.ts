@@ -1,4 +1,5 @@
 import { AudioEngine } from '../audio/engine';
+import { timingOf } from '../music/timing';
 import { Transport, type TransportState } from '../audio/transport';
 import { useAppStore } from './store';
 import { useAudioStore, useClockStore } from './clock';
@@ -171,8 +172,9 @@ class PlaybackController {
     if (this.rafId !== null || typeof window === 'undefined') return;
     this.smoother.reset();
     const frame = () => {
-      const beatsPerSecond = useAppStore.getState().project.bpm / 60;
-      const shown = this.smoother.next(this.transport.positionBeats(), performance.now(), beatsPerSecond);
+      const position = this.transport.positionBeats();
+      const beatsPerSecond = timingOf(useAppStore.getState().project).bpmAt(position) / 60;
+      const shown = this.smoother.next(position, performance.now(), beatsPerSecond);
       useClockStore.getState().setPlayhead(shown);
       if (this.transport.currentState === 'playing') {
         this.rafId = window.requestAnimationFrame(frame);

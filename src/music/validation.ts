@@ -1,5 +1,6 @@
 import { getInstrument, hasInstrument } from './instruments';
 import { MAX_BPM, MIN_BPM, TIME_SIGNATURES } from './time';
+import { MAX_TIMING_CHANGES, normalizeMeterChanges, normalizeTempoChanges } from './timing';
 import { CATALOG_VERSION, PROJECT_SCHEMA_VERSION } from './types';
 import type { Note, Project, Track, ValidationIssue, ValidationResult } from './types';
 import {
@@ -211,6 +212,21 @@ function validateProject(input: unknown): ValidationResult {
   } else {
     timeSignature = [meterRaw[0], meterRaw[1]];
   }
+  const baseBpm = finiteNumber(bpm) ? Math.round(bpm) : 90;
+  const tempoChanges = readChanges(raw.tempoChanges, '$.tempoChanges', warnings, (item) =>
+    finiteNumber(item.bpm) && item.bpm >= MIN_BPM && item.bpm <= MAX_BPM ? { bpm: item.bpm } : null,
+  );
+  const meterChanges = readChanges(raw.meterChanges, '$.meterChanges', warnings, (item) => {
+    const meter = item.timeSignature;
+    return Array.isArray(meter) && meter.length === 2 && KNOWN_METERS.has(meter.join('/'))
+      ? { timeSignature: [meter[0], meter[1]] as [number, number] }
+      : null;
+  });
+  const tempos = normalizeTempoChanges(baseBpm, tempoChanges);
+  const meters = normalizeMeterChanges(timeSignature, meterChanges);
+  if (meters.length !== meterChanges.length || meters.some((change, index) => change.beat !== meterChanges[index].beat)) {
+    warnings.push(issue('$.meterChanges', 'Meter changes were moved to bar lines, or dropped where they changed nothing.', 'warning'));
+  }
   const key = raw.key;
   if (!finiteNumber(key) || !Number.isInteger(key) || key < 0 || key > 11) {
     errors.push(issue('$.key', 'Key must be an integer 0–11 (C..B major).', 'error'));
@@ -315,8 +331,10 @@ function validateProject(input: unknown): ValidationResult {
     catalogVersion: typeof raw.catalogVersion === 'string' ? raw.catalogVersion : CATALOG_VERSION,
     id: typeof raw.id === 'string' && raw.id ? raw.id : newId('proj'),
     title: title || DEFAULT_TITLE,
-    bpm: finiteNumber(bpm) ? Math.round(bpm) : 90,
+    bpm: baseBpm,
     timeSignature,
+    ...(tempos.length > 0 ? { tempoChanges: tempos } : {}),
+    ...(meters.length > 0 ? { meterChanges: meters } : {}),
     key: finiteNumber(key) && Number.isInteger(key) ? key : 0,
     tracks,
     loop,
@@ -325,6 +343,28 @@ function validateProject(input: unknown): ValidationResult {
   };
   const ok = errors.length === 0;
   return ok ? { ok, errors, warnings, project } : { ok, errors, warnings };
+}
+
+/** Reads a list of tempo or meter changes, leaving out entries that make no sense. */
+function readChanges<T>(
+  raw: unknown,
+  path: string,
+  warnings: ValidationIssue[],
+  read: (item: Record<string, unknown>) => T | null,
+): (T & { beat: number })[] {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw)) {
+    warnings.push(issue(path, 'Expected a list of changes; ignored.', 'warning'));
+    return [];
+  }
+  const changes: (T & { beat: number })[] = [];
+  for (const item of raw.slice(0, MAX_TIMING_CHANGES * 4)) {
+    const value = isRecord(item) && finiteNumber(item.beat) && item.beat >= 0 ? read(item) : null;
+    if (value && isRecord(item)) changes.push({ ...value, beat: item.beat as number });
+  }
+  const dropped = raw.length - changes.length;
+  if (dropped > 0) warnings.push(issue(path, `${dropped} invalid change${plural(dropped)} ignored.`, 'warning'));
+  return changes.sort((a, b) => a.beat - b.beat);
 }
 
 export class ProjectImportError extends Error {

@@ -1,7 +1,7 @@
 import { getInstrument } from '../music/instruments';
 import { padForKey } from '../music/padKeys';
 import { lastNoteEnd } from '../music/project';
-import { beatsPerMeasure } from '../music/time';
+import { timingOf } from '../music/timing';
 import { useViewStore } from './clock';
 import { pressPad } from './padInput';
 import { playback } from './playback';
@@ -41,7 +41,8 @@ function withModifier(event: KeyboardEvent, lower: string): boolean {
 
 function arrow(event: KeyboardEvent): void {
   const state = useAppStore.getState();
-  const step = event.shiftKey ? beatsPerMeasure(state.project.timeSignature) : state.preferences.snap || 0.25;
+  const bar = timingOf(state.project).meterSpanAt(playback.position()).barBeats;
+  const step = event.shiftKey ? bar : state.preferences.snap || 0.25;
   const horizontal = event.key === 'ArrowLeft' ? -step : event.key === 'ArrowRight' ? step : 0;
   const vertical = event.key === 'ArrowUp' ? -1 : event.key === 'ArrowDown' ? 1 : 0;
   if (state.selectedNoteIds.length > 0) state.nudgeSelection(horizontal, vertical);

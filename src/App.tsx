@@ -14,6 +14,7 @@ import { LibraryPanel } from './components/LibraryPanel';
 import { SongbookPanel } from './components/SongbookPanel';
 import { SheetPanel } from './components/SheetPanel';
 import { ExportPanel } from './components/ExportPanel';
+import { TimingPanel } from './components/TimingPanel';
 import { SettingsPanel } from './components/SettingsPanel';
 import { HelpPanel } from './components/HelpPanel';
 import { AboutPanel } from './components/AboutPanel';
@@ -131,6 +132,7 @@ export default function App() {
         {panel === 'songs' && <SongbookPanel onClose={closePanel} />}
         {panel === 'sheet' && <SheetPanel onClose={closePanel} />}
         {panel === 'export' && <ExportPanel onClose={closePanel} />}
+        {panel === 'timing' && <TimingPanel onClose={closePanel} />}
         {panel === 'settings' && <SettingsPanel onClose={closePanel} />}
         {panel === 'help' && <HelpPanel onClose={closePanel} />}
         {panel === 'about' && <AboutPanel onClose={closePanel} />}

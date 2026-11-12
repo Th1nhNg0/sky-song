@@ -1,8 +1,8 @@
 import { memo, useMemo, useRef, type RefObject } from 'react';
-import { firstNoteAt, gridBackground } from '../music/grid';
+import { firstNoteAt, gridBackground, gridSpans } from '../music/grid';
 import { isTonicDegree } from '../music/keys';
 import { resolvePad } from '../music/pitch';
-import { formatBarBeat } from '../music/time';
+import type { Timing } from '../music/timing';
 import type { InstrumentDefinition, Note, Track } from '../music/types';
 import { useTouch } from '../state/layout';
 import { playback } from '../state/playback';
@@ -54,7 +54,7 @@ export function PianoRoll({
   track,
   instrument,
   projectKey,
-  meter,
+  timing,
   px,
   snap,
   rowHeight,
@@ -67,7 +67,7 @@ export function PianoRoll({
   track: Track;
   instrument: InstrumentDefinition;
   projectKey: number;
-  meter: [number, number];
+  timing: Timing;
   px: number;
   snap: number;
   rowHeight: number;
@@ -136,7 +136,9 @@ export function PianoRoll({
     padNames,
   });
 
-  const grid = gridBackground(px, meter, snap);
+  // One meter is one repeating background; a song that changes meter gets one per stretch.
+  const spans = timing.meters.length > 1 ? gridSpans(px, timing, snap, totalBeats) : null;
+  const grid = spans ? {} : gridBackground(px, timing.meters[0].meter, snap);
 
   return (
     <div className="piano-roll">
@@ -163,6 +165,7 @@ export function PianoRoll({
         style={{ width: totalBeats * px, height: rollHeight, ...grid }}
         {...gridHandlers}
       >
+        {spans?.map((span) => <div key={span.key} className="roll-grid-span" style={span.style} aria-hidden="true" />)}
         {padNames.map((name, pad) => (
           <div
             key={pad}
@@ -183,7 +186,7 @@ export function PianoRoll({
             hold={hold}
             label={compact ? '' : padNames[note.pad]?.short ?? ''}
             fullName={padNames[note.pad]?.full ?? ''}
-            position={formatBarBeat(note.startBeat, meter)}
+            position={timing.format(note.startBeat)}
           />
         ))}
         <div ref={ghostRef} className="roll-ghost" style={{ width: noteSize, height: noteSize, lineHeight: `${noteSize}px` }} aria-hidden="true" />

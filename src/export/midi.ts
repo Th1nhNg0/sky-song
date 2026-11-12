@@ -1,6 +1,7 @@
 import { getInstrument } from '../music/instruments';
 import { midiSafeText } from '../music/midiText';
 import { resolvePad } from '../music/pitch';
+import { timingOf } from '../music/timing';
 import type { Project, SoundProfileId } from '../music/types';
 import { clamp } from '../util';
 
@@ -118,12 +119,22 @@ function u32(value: number): number[] {
 
 /**
  * Writes a Standard MIDI File (format 1) directly, giving exact control over:
- *  - one conductor track with tempo, time signature and a correctly signed key signature
+ *  - one conductor track with every tempo and time signature and a correctly signed key signature
  *  - one named track per virtual performer with instrument/part metadata
  *  - General MIDI programs for pitched tracks and channel 10 for unpitched percussion
  * The public @tonejs/midi parser is used in tests to verify the bytes round-trip.
  */
+function tempoMeta(bpm: number): number[] {
+  const microseconds = Math.floor(60000000 / bpm);
+  return meta(0x51, [(microseconds >>> 16) & 0xff, (microseconds >>> 8) & 0xff, microseconds & 0xff]);
+}
+
+function meterMeta(meter: [number, number]): number[] {
+  return meta(0x58, [meter[0], Math.round(Math.log2(meter[1])), 24, 8]);
+}
+
 export function exportProjectToMidi(project: Project): MidiExportResult {
+  const timing = timingOf(project);
   const conductor: MidiEvent[] = [
     { tick: 0, priority: 0, bytes: textMeta(0x03, midiSafeText(project.title) || 'Sky Music Studio project') },
     {
@@ -134,25 +145,8 @@ export function exportProjectToMidi(project: Project): MidiExportResult {
         'Sky Music Studio — unofficial fan software; see docs/audio-sources.md.',
       ),
     },
-    {
-      tick: 0,
-      priority: 2,
-      bytes: meta(0x51, [
-        Math.floor(60000000 / project.bpm) >>> 16 & 0xff,
-        Math.floor(60000000 / project.bpm) >>> 8 & 0xff,
-        Math.floor(60000000 / project.bpm) & 0xff,
-      ]),
-    },
-    {
-      tick: 0,
-      priority: 3,
-      bytes: meta(0x58, [
-        project.timeSignature[0],
-        Math.round(Math.log2(project.timeSignature[1])),
-        24,
-        8,
-      ]),
-    },
+    ...timing.tempos.map((span) => ({ tick: Math.round(span.beat * TICKS_PER_BEAT), priority: 2, bytes: tempoMeta(span.bpm) })),
+    ...timing.meters.map((span) => ({ tick: Math.round(span.beat * TICKS_PER_BEAT), priority: 3, bytes: meterMeta(span.meter) })),
     {
       tick: 0,
       priority: 4,

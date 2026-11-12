@@ -3,7 +3,8 @@ import { useAppStore } from '../state/store';
 import { playback } from '../state/playback';
 import { useAudioStore, useClockStore } from '../state/clock';
 import { REVERB_SPACES, getReverbSpace, type ReverbSpaceId } from '../audio/reverb';
-import { clampBpm, formatBarBeat, MAX_BPM, MIN_BPM, TIME_SIGNATURES } from '../music/time';
+import { clampBpm, MAX_BPM, MIN_BPM, TIME_SIGNATURES } from '../music/time';
+import { timingOf } from '../music/timing';
 import {
   CursorIcon,
   PauseIcon,
@@ -16,14 +17,13 @@ import {
 import { useCancellableEdit } from './useCancellableEdit';
 
 function TimeReadout() {
-  const meter = useAppStore((state) => state.project.timeSignature);
-  const bpm = useAppStore((state) => state.project.bpm);
+  const timing = useAppStore((state) => timingOf(state.project));
   // Selecting the text means this only re-renders when a digit changes, not every frame.
   const clock = useClockStore((state) => {
-    const seconds = (state.playhead * 60) / bpm;
+    const seconds = timing.secondsAt(state.playhead);
     return `${Math.floor(seconds / 60)}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
   });
-  const barBeat = useClockStore((state) => formatBarBeat(Math.floor(state.playhead * 4) / 4, meter));
+  const barBeat = useClockStore((state) => timing.format(Math.floor(state.playhead * 4) / 4));
   return (
     <div className="time-readout" aria-label="Playback position">
       <span className="clock">
@@ -104,6 +104,8 @@ export function SongFields() {
   const project = useAppStore((state) => state.project);
   const setBpm = useAppStore((state) => state.setBpm);
   const setMeter = useAppStore((state) => state.setMeter);
+  const setPanel = useAppStore((state) => state.setPanel);
+  const changes = timingOf(project).points.length;
   const [bpmDraft, setBpmDraft] = useState(String(project.bpm));
 
   useEffect(() => {
@@ -134,6 +136,7 @@ export function SongFields() {
           onChange={(event) => setBpmDraft(event.target.value)}
           {...bpmEdit}
           aria-label="Tempo in beats per minute"
+          title={changes > 0 ? 'Tempo at the start of the song' : undefined}
         />
       </label>
       <label className="inline-field">
@@ -146,6 +149,7 @@ export function SongFields() {
             event.currentTarget.blur();
           }}
           aria-label="Time signature"
+          title={changes > 0 ? 'Meter at the start of the song' : undefined}
         >
           {TIME_SIGNATURES.map((option) => (
             <option key={option.label} value={option.label}>
@@ -154,6 +158,14 @@ export function SongFields() {
           ))}
         </select>
       </label>
+      <button
+        type="button"
+        className={`btn small timing-button ${changes > 0 ? 'is-on' : ''}`}
+        onClick={() => setPanel('timing')}
+        title="Change the tempo or meter part-way through the song"
+      >
+        {changes > 0 ? `${changes} change${changes === 1 ? '' : 's'}` : 'Changes…'}
+      </button>
     </div>
   );
 }

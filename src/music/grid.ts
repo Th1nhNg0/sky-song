@@ -1,4 +1,5 @@
 import { beatsPerMeasure } from './time';
+import type { Timing } from './timing';
 
 const MIN_LINE_GAP = 7;
 const MIN_LABEL_GAP = 46;
@@ -15,8 +16,12 @@ function lines(color: string, step: number): { image: string; size: string } {
   };
 }
 
-/** CSS background for the note grid: bars, beats, and the snap subdivision when it fits. */
-export function gridBackground(px: number, meter: [number, number], snap: number) {
+/**
+ * CSS background for the note grid: bars, beats, and the snap subdivision when it fits.
+ * `oddStart` is for a stretch that begins on an even-numbered bar, so the shading of
+ * every other bar carries on from the stretch before it.
+ */
+export function gridBackground(px: number, meter: [number, number], snap: number, oddStart = false) {
   const barPx = beatsPerMeasure(meter) * px;
   const beatPx = meterBeat(meter) * px;
   const snapPx = snap * px;
@@ -32,12 +37,27 @@ export function gridBackground(px: number, meter: [number, number], snap: number
   return {
     backgroundImage: layers.map((layer) => layer.image).join(', '),
     backgroundSize: layers.map((layer) => layer.size).join(', '),
+    backgroundPosition: layers.map((_, index) => (oddStart && index === layers.length - 1 ? `${-barPx}px 0` : '0 0')).join(', '),
   };
 }
 
+/** The grid of a song whose meter changes: one background per stretch of the same meter. */
+export function gridSpans(px: number, timing: Timing, snap: number, totalBeats: number) {
+  return timing.meters
+    .filter((span) => span.beat < totalBeats)
+    .map((span) => ({
+      key: span.beat,
+      style: {
+        left: span.beat * px,
+        width: (Math.min(span.end, totalBeats) - span.beat) * px,
+        ...gridBackground(px, span.meter, snap, span.bar % 2 === 1),
+      },
+    }));
+}
+
 /** How many bars apart the ruler's numbers sit at this zoom: 1, 2, 4, 8… */
-export function barLabelStep(px: number, meter: [number, number]): number {
-  const barPx = beatsPerMeasure(meter) * px;
+export function barLabelStep(px: number, barBeats: number): number {
+  const barPx = barBeats * px;
   let step = 1;
   while (step * barPx < MIN_LABEL_GAP) step *= 2;
   return step;

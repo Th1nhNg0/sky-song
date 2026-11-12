@@ -28,6 +28,20 @@ const round = (value, places) => Number(value.toFixed(places));
 mkdirSync(out, { recursive: true });
 for (const name of readdirSync(out)) rmSync(join(out, name));
 
+/** Seconds from the start of the song to a beat, through any tempo changes. */
+function secondsAt(project, beat) {
+  let seconds = 0;
+  let from = 0;
+  let bpm = project.bpm;
+  for (const change of project.tempoChanges ?? []) {
+    if (change.beat >= beat) break;
+    seconds += ((change.beat - from) * 60) / bpm;
+    from = change.beat;
+    bpm = change.bpm;
+  }
+  return seconds + ((beat - from) * 60) / bpm;
+}
+
 const catalog = [];
 for (const name of readdirSync(source).sort()) {
   if (!name.endsWith('.skymusic.json')) continue;
@@ -66,7 +80,7 @@ for (const name of readdirSync(source).sort()) {
     ...(details.year ? { year: details.year } : {}),
     file,
     bpm: project.bpm,
-    seconds: Math.round((endBeat * 60) / project.bpm),
+    seconds: Math.round(secondsAt(project, endBeat)),
     notes: notes.length,
     instruments: tracks.map((track) => track.instrumentId),
     shape: shape.map((count) => round(count / peak, 2)),

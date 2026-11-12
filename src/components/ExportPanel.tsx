@@ -1,3 +1,4 @@
+import { describeTiming } from '../music/timing';
 import { useState } from 'react';
 import { useAppStore } from '../state/store';
 import { Modal } from './Modal';
@@ -33,7 +34,7 @@ export function ExportPanel({ onClose }: { onClose: () => void }) {
         title: 'Multitrack MIDI downloaded',
         lines: [
           `File: ${info.filename} · ${formatBytes(info.bytes)}`,
-          `${info.trackCount} tracks · ${info.noteCount} notes · tempo ${project.bpm} BPM · key signature included`,
+          `${info.trackCount} tracks · ${info.noteCount} notes · ${describeTiming(project)} · key signature included`,
           'Percussion uses General MIDI channel 10. Pitched tracks use GM programs, so a DAW will render different timbres.',
         ],
       });
