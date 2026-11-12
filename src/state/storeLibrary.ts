@@ -2,6 +2,7 @@ import { midiToProject, trimToNoteLimit } from '../music/midiImport';
 import { createProject, DEFAULT_TITLE } from '../music/project';
 import { parseProjectJson, ProjectImportError } from '../music/validation';
 import {
+  clearLibrary,
   deleteProjectFromLibrary,
   duplicateProjectInLibrary,
   listLibrary,
@@ -23,7 +24,7 @@ function freeUntitledName(taken: string[]): string {
 type LibraryActions = Pick<
   AppState,
   'initialize' | 'refreshLibrary' | 'saveNow' | 'setProject' | 'newProject' | 'openLibraryProject'
-  | 'deleteLibraryProject' | 'duplicateLibraryProject' | 'importMidi' | 'importProjectJson'
+  | 'deleteLibraryProject' | 'clearLibraryProjects' | 'duplicateLibraryProject' | 'importMidi' | 'importProjectJson'
 >;
 
 /** Opening, saving and importing whole songs, and the list of songs kept in this browser. */
@@ -115,6 +116,21 @@ export function libraryActions({ set, get }: StoreTools): LibraryActions {
         get().notify('Project deleted from this browser.', 'success');
       } catch {
         get().notify('Could not delete that project.', 'error');
+      }
+    },
+
+    clearLibraryProjects: async () => {
+      const count = get().library.length;
+      try {
+        // A save still on its way must not report over the fresh song below.
+        saveGeneration++;
+        await clearLibrary();
+        // The open song goes too; left open, its next autosave would put it straight back.
+        get().setProject(createProject({ title: DEFAULT_TITLE, key: 0 }));
+        await get().refreshLibrary();
+        get().notify(`Deleted ${count} song${count === 1 ? '' : 's'} from this browser.`, 'success');
+      } catch {
+        get().notify('Could not clear My songs.', 'error');
       }
     },
 

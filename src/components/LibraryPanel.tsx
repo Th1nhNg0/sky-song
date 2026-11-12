@@ -35,11 +35,13 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
   const refresh = useAppStore((state) => state.refreshLibrary);
   const openProject = useAppStore((state) => state.openLibraryProject);
   const deleteProject = useAppStore((state) => state.deleteLibraryProject);
+  const clearProjects = useAppStore((state) => state.clearLibraryProjects);
   const duplicateProject = useAppStore((state) => state.duplicateLibraryProject);
   const newProject = useAppStore((state) => state.newProject);
   const setPanel = useAppStore((state) => state.setPanel);
   const [confirming, setConfirming] = useState<string | null>(null);
   const [importing, setImporting] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -177,6 +179,33 @@ export function LibraryPanel({ onClose }: { onClose: () => void }) {
         <span>
           Clearing this browser's site data deletes My songs. Use Save song to a file for a backup you keep.
         </span>
+        {library.length > 0 &&
+          (clearing ? (
+            <span className="confirm-row">
+              <button
+                type="button"
+                className="mini-btn danger-solid"
+                onClick={async () => {
+                  await clearProjects();
+                  setClearing(false);
+                }}
+              >
+                Delete all {library.length} song{plural(library.length)}
+              </button>
+              <button type="button" className="mini-btn" onClick={() => setClearing(false)}>
+                Keep
+              </button>
+            </span>
+          ) : (
+            <button
+              type="button"
+              className="mini-btn danger"
+              onClick={() => setClearing(true)}
+              title="Delete every song saved in this browser, including the open one"
+            >
+              Clear all songs
+            </button>
+          ))}
       </div>
     </Modal>
   );

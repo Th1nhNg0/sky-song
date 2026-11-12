@@ -625,3 +625,32 @@ test('a tempo and meter change is added in the dialog, marked on the ruler and p
   expect(await store(page, '[s.project.tempoChanges, s.project.meterChanges]')).toEqual([undefined, undefined]);
   expect(errors).toEqual([]);
 });
+
+test('My songs can be cleared in one go, after a confirmation', async ({ page }) => {
+  const errors = await boot(page);
+  await loadDemo(page);
+  const titles = async () => {
+    await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().refreshLibrary());
+    return store<string[]>(page, 's.library.map((entry) => entry.title)');
+  };
+  await expect.poll(titles).toEqual(['Lanterns Over the Valley']);
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().duplicateLibraryProject(
+    window.__SKY_MUSIC_STUDIO__!.store.getState().project.id,
+  ));
+  expect((await titles()).length).toBe(2);
+
+  await page.evaluate(() => window.__SKY_MUSIC_STUDIO__!.store.getState().setPanel('library'));
+  const panel = page.getByRole('dialog');
+  await panel.getByRole('button', { name: 'Clear all songs' }).click();
+  await panel.getByRole('button', { name: 'Keep' }).click();
+  expect((await titles()).length).toBe(2);
+
+  await panel.getByRole('button', { name: 'Clear all songs' }).click();
+  await panel.getByRole('button', { name: 'Delete all 2 songs' }).click();
+  await expect(panel.getByText('No local songs yet')).toBeVisible();
+  await expect(page.locator('.project-title')).toHaveValue('Untitled Song');
+  // Nothing creeps back with a late autosave.
+  await page.waitForTimeout(1200);
+  expect(await titles()).toEqual([]);
+  expect(errors).toEqual([]);
+});

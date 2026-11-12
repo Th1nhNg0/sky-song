@@ -206,6 +206,36 @@ export async function deleteProjectFromLibrary(id: string): Promise<void> {
   }
 }
 
+/** Removes every saved song from this browser. */
+export async function clearLibrary(): Promise<void> {
+  const db = await openDatabase();
+  if (db) {
+    await new Promise<void>((resolve) => {
+      try {
+        const tx = db.transaction(STORE, 'readwrite');
+        tx.objectStore(STORE).clear();
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => resolve();
+        tx.onabort = () => resolve();
+      } catch {
+        resolve();
+      }
+    });
+  }
+  try {
+    const keys: string[] = [];
+    for (let index = 0; index < localStorage.length; index++) {
+      const key = localStorage.key(index);
+      if (key?.startsWith(LS_PREFIX)) keys.push(key);
+    }
+    for (const key of keys) localStorage.removeItem(key);
+    localStorage.removeItem(LS_INDEX);
+    localStorage.removeItem(LS_LAST);
+  } catch {
+    // Non-fatal.
+  }
+}
+
 export async function duplicateProjectInLibrary(id: string): Promise<Project | null> {
   const project = await loadProjectFromLibrary(id);
   if (!project) return null;

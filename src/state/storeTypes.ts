@@ -53,6 +53,8 @@ export interface AppState {
   newProject(): void;
   openLibraryProject(id: string): Promise<boolean>;
   deleteLibraryProject(id: string): Promise<void>;
+  /** Deletes every saved song and leaves a blank one open. */
+  clearLibraryProjects(): Promise<void>;
   duplicateLibraryProject(id: string): Promise<void>;
   importProjectJson(text: string): boolean;
   importMidi(bytes: ArrayBuffer, title: string): Promise<boolean>;

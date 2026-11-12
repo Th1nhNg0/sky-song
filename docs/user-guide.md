@@ -145,6 +145,7 @@ ringer switch off.
 - Edits autosave locally after a short debounce. The small dot by the title shows
   saved / saving / unsaved / storage error on hover or focus.
 - **More → My songs** lists every local project; open, duplicate, delete (two-step confirm),
+  **Clear all songs** (also two-step; removes every saved song, the open one included),
   start a new song, open the song library, import a project file, or export the
   current project.
 - **Drag and drop:** drop a MIDI file (`.mid`) or a `.skymusic.json` project anywhere
