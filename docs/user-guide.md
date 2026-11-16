@@ -150,12 +150,21 @@ ringer switch off.
   current project.
 - **Drag and drop:** drop a MIDI file (`.mid`) or a `.skymusic.json` project anywhere
   on the window to open it. Your current song is already autosaved in My songs.
-- **MIDI import** arranges the file onto real game keys. A solo piano file stays one
-  Piano track, as one player plays it: the right-hand melody plus one left-hand bass note
-  a bar, folded onto the lower keys. Any other lone track is split into a melody, chords
-  on Harp and bass on Contrabass. To hear the piano on another piano, change the track's
-  instrument: Grand Piano and Fledgling Upright Piano play the same pitches with a
-  different sound, and Winter Piano plays everything one octave higher.
+- **MIDI import** arranges the file onto real game keys.
+  - **Solo piano** files stay one Piano track that one player can play on 15 keys. The
+    right-hand melody is on top, a left-hand bass note sits on the strong beats on the lower
+    keys, and a soft note of the song's own chord goes between them where there is room, so
+    no more than three keys are pressed at once. The melody moves a whole octave only where
+    it has to, so it fits in two octaves and keeps its shape.
+  - **Any other lone track** is split into a melody, chords on Harp and bass on Contrabass.
+  - **Key changes:** the keys only play one major key, so a song that changes key gets a
+    separate shift for each section. Every note lands on a key, but the lift of the key
+    change is lost.
+  - **Recordings:** a file transcribed from a recording, whose notes drift against any
+    steady beat, has its real tempo and bar lines found from the notes themselves.
+  - To hear the piano on another piano, change the track's instrument: Grand Piano and
+    Fledgling Upright Piano play the same pitches with a different sound, and Winter Piano
+    plays everything one octave higher.
 - Supported import is the app's native `.skymusic.json` (schema v1). Malformed,
   oversized, out-of-grid or unknown-instrument projects are rejected with an error
   toast; the current project is not modified.

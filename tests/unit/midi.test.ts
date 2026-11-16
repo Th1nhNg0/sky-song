@@ -91,7 +91,7 @@ describe('MIDI import/export', () => {
     expect(notes.some((note) => note.startBeat === 8)).toBe(true);
   });
 
-  it('keeps a solo piano cover on one piano, bass folded onto the lower keys', () => {
+  it('keeps a solo piano cover on one piano: melody, bass on the lower keys, harmony between', () => {
     const midi = new Midi();
     const track = midi.addTrack();
     const ppq = midi.header.ppq;
@@ -108,6 +108,64 @@ describe('MIDI import/export', () => {
     expect(project.tracks.map((part) => part.instrumentId)).toEqual(['piano']);
     const bass = project.tracks[0].notes.filter((note) => note.pad === 0);
     expect(bass.map((note) => note.startBeat)).toEqual([0, 4, 8, 12, 16, 20, 24, 28]);
+    // One player's hands on 15 keys: never more than three at once, and the melody stays on top.
+    const at = new Map<number, number[]>();
+    for (const note of project.tracks[0].notes) at.set(note.startBeat, [...(at.get(note.startBeat) ?? []), note.pad]);
+    expect(Math.max(...[...at.values()].map((pads) => pads.length))).toBe(3);
+    expect(at.get(0)).toEqual([0, 4, 7]);
+  });
+
+  it('gives each key section of a piano cover its own shift, so every note lands on a key', () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    const ppq = midi.header.ppq;
+    // The same tune and bass in G major for 16 bars, then a half step up in A-flat major.
+    const tune = [0, 2, 4, 5, 7, 5, 4, 2];
+    const major = [0, 2, 4, 5, 7, 9, 11, 12];
+    for (const [section, tonic] of [[0, 67], [1, 68]]) {
+      for (let bar = 0; bar < 16; bar++) {
+        for (let beat = 0; beat < 4; beat++) {
+          const ticks = ((section * 16 + bar) * 4 + beat) * ppq;
+          track.addNote({ midi: tonic - 24, ticks, durationTicks: ppq });
+          track.addNote({ midi: tonic + major[tune[(bar * 4 + beat) % 8]], ticks, durationTicks: ppq });
+        }
+      }
+    }
+    const project = midiToProject(midi.toArray(), 'Key change');
+    expect(project.tracks.map((part) => part.instrumentId)).toEqual(['piano']);
+    const top = (from: number, to: number) => {
+      const highest = new Map<number, number>();
+      for (const note of project.tracks[0].notes) {
+        if (note.startBeat >= from && note.startBeat < to) highest.set(note.startBeat, Math.max(note.pad, highest.get(note.startBeat) ?? -1));
+      }
+      return [...highest.entries()].sort((a, b) => a[0] - b[0]).map(([, pad]) => pad);
+    };
+    expect(top(64, 128)).toEqual(top(0, 64));
+  });
+
+  it('follows the drifting pulse of a file transcribed from a recording', () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    // Eighth notes at about 94 BPM that slow to 90 and back, under a file that says 120.
+    let seconds = 0.31;
+    for (let i = 0; i < 256; i++) {
+      const bpm = 94 - 4 * Math.sin((i / 256) * Math.PI);
+      const jitter = ((i * 7919) % 11) / 1000 - 0.005;
+      const time = seconds + jitter;
+      const ticks = Math.round(time * 2 * midi.header.ppq);
+      track.addNote({ midi: [72, 74, 76, 77][i % 4], ticks, durationTicks: midi.header.ppq / 2 });
+      // A three-note pickup, then a low note at the start of every bar.
+      if (i % 8 === 3) track.addNote({ midi: 48, ticks, durationTicks: midi.header.ppq * 2 });
+      seconds += 30 / bpm;
+    }
+    const project = midiToProject(midi.toArray(), 'Recorded');
+    expect(project.bpm).toBeGreaterThanOrEqual(90);
+    expect(project.bpm).toBeLessThanOrEqual(95);
+    const starts = [...new Set(project.tracks.flatMap((part) => part.notes.map((note) => note.startBeat)))].sort((a, b) => a - b);
+    const steps = new Set(starts.slice(1).map((start, i) => start - starts[i]));
+    expect([...steps]).toEqual([0.5]);
+    // The pickup leads into the first bar line.
+    expect(starts[0]).toBe(2.5);
   });
 
   it('splits a lone non-piano track into melody, chords and bass', () => {

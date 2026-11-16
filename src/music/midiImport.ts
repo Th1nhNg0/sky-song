@@ -1,7 +1,10 @@
 import { Midi } from '@tonejs/midi';
+import { trackBeats, type TrackedBeats } from './beatTracking';
+import { C_MAJOR, planKeys, type KeyPlan } from './keySections';
 import { midiSafeText } from './midiText';
 import { getInstrument, INSTRUMENTS } from './instruments';
 import { pitchClass } from './keys';
+import { arrangeSoloPiano } from './soloPiano';
 import { resolvePad } from './pitch';
 import { createProject, createTrack, newId, sortNotes } from './project';
 import { clampBpm, TIME_SIGNATURES } from './time';
@@ -41,7 +44,6 @@ const MIN_REACH_SHARE = 0.1;
 const MAX_BAND_NOTES = 6;
 const MAX_PARTS = 6;
 const MAX_CHORD = 4;
-const C_MAJOR = new Set([0, 2, 4, 5, 7, 9, 11]);
 
 /** General MIDI percussion note → pad on the 8-pad drum. */
 const DRUM_PADS: Record<number, number> = {
@@ -105,23 +107,6 @@ function velocityBoost(velocities: number[]): number {
   return Math.max(1, LOUD_TARGET / Math.max(loud, 0.01));
 }
 
-/** Whole-song shift that lands the most sound on the game's white-note pads. */
-function bestTranspose(notes: SourceNote[]): number {
-  let best = 0;
-  let bestScore = -1;
-  for (const shift of [0, 1, -1, 2, -2, 3, -3, 4, -4, 5, -5, 6]) {
-    let score = 0;
-    for (const note of notes) {
-      if (C_MAJOR.has(pitchClass(note.midi + shift))) score += note.durationBeats;
-    }
-    if (score > bestScore) {
-      best = shift;
-      bestScore = score;
-    }
-  }
-  return best;
-}
-
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)] ?? 60;
@@ -183,10 +168,9 @@ function placeNotes(notes: SourceNote[], instrument: InstrumentDefinition, grid:
  * A lone track holds the whole song. The hands split at middle C: the right hand stays as
  * the melody, and the left is thinned to one bass note a bar with light chords on the other
  * beats, because replaying every hit on sampled instruments turns to mud. A piano cover
- * stays one piano, as one player would play it: the melody and the bass notes only, since
- * the chords would crowd the melody off its 15 keys.
+ * doesn't come here: it stays one piano (see `arrangeSoloPiano`).
  */
-function splitSoloTrack(notes: SourceNote[], beatsPerBar: number, piano: boolean): Part[] {
+function splitSoloTrack(notes: SourceNote[], beatsPerBar: number): Part[] {
   const groups = new Map<number, SourceNote[]>();
   const bars = new Map<number, SourceNote[]>();
   for (const note of notes) {
@@ -220,7 +204,6 @@ function splitSoloTrack(notes: SourceNote[], beatsPerBar: number, piano: boolean
       }
     }
   }
-  if (piano) return [{ instrumentId: 'piano', name: 'Piano', volume: 1, notes: [...lead, ...bass] }];
   return [
     { instrumentId: 'piano', name: 'Piano · Melody', volume: 1, notes: lead },
     { instrumentId: 'harp', name: 'Harp · Chords', volume: 0.45, notes: chords },
@@ -246,10 +229,9 @@ function foldExtraParts(parts: Part[]): Part[] {
 /**
  * Settles each line's octave, then hands notes its instrument can't reach to one that can,
  * so they keep their real pitch instead of folding back and breaking the line. A note with
- * nowhere to go stays put and folds; too few notes never justify a whole extra instrument,
- * and a song kept to one instrument never gets one.
+ * nowhere to go stays put and folds; too few notes never justify a whole extra instrument.
  */
-function reachNotes(parts: Part[], shift: number, alone = false): Part[] {
+function reachNotes(parts: Part[], keys: KeyPlan): Part[] {
   const ranges = (id: string) => {
     const pads = padPitches(getInstrument(id));
     return [pads[0], pads[pads.length - 1]];
@@ -258,10 +240,10 @@ function reachNotes(parts: Part[], shift: number, alone = false): Part[] {
   const settled = parts.map((part, home) => {
     const [low, high] = ranges(part.instrumentId);
     // One octave for the whole part: moving lines apart scrambles a section's chords.
-    const octave = bestOctave(part.notes.map((note) => note.midi + shift), low, high);
+    const octave = bestOctave(part.notes.map((note) => note.midi + keys.at(note.startBeat)), low, high);
     const inside: SourceNote[] = [];
     for (const note of part.notes) {
-      const pitch = note.midi + shift + octave;
+      const pitch = note.midi + keys.at(note.startBeat) + octave;
       if (pitch >= low && pitch <= high) inside.push({ ...note, pitch });
       else stranded.push({ note: { ...note, pitch }, home });
     }
@@ -288,7 +270,7 @@ function reachNotes(parts: Part[], shift: number, alone = false): Part[] {
   const added: Part[] = [];
   const total = parts.reduce((sum, part) => sum + part.notes.length, 0);
   for (const [instrumentId, notes] of extra) {
-    if (!alone && notes.length >= total * MIN_REACH_SHARE) {
+    if (notes.length >= total * MIN_REACH_SHARE) {
       const moved = notes.map(({ note }) => note);
       added.push({ instrumentId, name: getInstrument(instrumentId).displayName, volume: 0.8, notes: moved });
     } else {
@@ -424,11 +406,11 @@ function onGridShare(beats: number[], slack: number, scale: number, offset: numb
 }
 
 /**
- * Many files are recorded straight from a keyboard: the music keeps a steady tempo, but the
- * file just says 120 BPM, so no note sits on a bar or a beat. This finds the tempo the notes
- * really keep, the factor to stretch the file's beats by, and the beat where the grid starts.
+ * The file's note starts, a sample of them for speed, and how near a grid line counts as on
+ * it, for a file with one tempo whose notes mostly miss the grid that tempo draws. Null for
+ * any other file.
  */
-function steadyTempo(midi: Midi): { bpm: number; scale: number; offset: number } | null {
+function offGridSample(midi: Midi): { all: number[]; beats: number[]; slack: number; stated: number } | null {
   if (midi.header.tempos.length > 1) return null;
   const stated = midi.header.tempos[0]?.bpm ?? 120;
   const all = midi.tracks
@@ -439,6 +421,18 @@ function steadyTempo(midi: Midi): { bpm: number; scale: number; offset: number }
   const beats = all.filter((_, index) => index % every === 0);
   const slack = (ON_GRID_SECONDS * stated) / 60;
   if (onGridShare(beats, slack, 1, 0) >= OFF_GRID_SHARE) return null;
+  return { all, beats, slack, stated };
+}
+
+/**
+ * Many files are recorded straight from a keyboard: the music keeps a steady tempo, but the
+ * file just says 120 BPM, so no note sits on a bar or a beat. This finds the tempo the notes
+ * really keep, the factor to stretch the file's beats by, and the beat where the grid starts.
+ */
+function steadyTempo(midi: Midi): { bpm: number; scale: number; offset: number } | null {
+  const sample = offGridSample(midi);
+  if (!sample) return null;
+  const { all, beats, slack, stated } = sample;
 
   const offsets = [all[0], all[1], all[2], all[5]];
   // A file that is only shifted off the grid keeps its tempo and just needs the grid moved.
@@ -530,7 +524,14 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   const [meter] = midi.header.timeSignatures;
   // Fast waltzes are often notated in 6/8; as 3/4 at double tempo the notes sit on the beats.
   const waltz = meter?.timeSignature[0] === 6 && meter?.timeSignature[1] === 8;
+  const [top, bottom] = waltz ? [3, 4] : meter?.timeSignature ?? [4, 4];
+  const beatsPerBar = (top * 4) / bottom;
   const steady = steadyTempo(midi);
+  // A file transcribed from a recording keeps a pulse that drifts against every steady grid.
+  const tracked: TrackedBeats | null =
+    !steady && !waltz && offGridSample(midi)
+      ? trackBeats(midi.tracks.flatMap((track) => track.notes), beatsPerBar)
+      : null;
   const stretch = (waltz ? 2 : 1) * (steady?.scale ?? 1);
   const span = (ticks: number) => (ticks / midi.header.ppq) * stretch;
   // Whole bars of lead-in keep any notes before the first on-grid one from falling before zero.
@@ -540,8 +541,8 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   const source = (track: Midi['tracks'][number]): SourceNote[] =>
     track.notes.map((note) => ({
       midi: note.midi,
-      startBeat: beat(note.ticks),
-      durationBeats: span(note.durationTicks),
+      startBeat: tracked ? tracked.beatOf(note.time) : beat(note.ticks),
+      durationBeats: tracked ? tracked.beats(note.duration) : span(note.durationTicks),
       velocity: Math.min(1, note.velocity * boost),
     }));
 
@@ -549,48 +550,64 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   const drums = midi.tracks.filter((track) => track.notes.length > 0 && track.instrument.percussion);
   if (pitched.length === 0 && drums.length === 0) throw new Error('That MIDI file has no notes.');
 
-  let parts: Part[];
-  let alone = false;
-  const lone = pitched.length === 1 ? source(pitched[0]) : [];
-  if (lone.length > 0 && new Set(lone.map((note) => snap(note.startBeat))).size * 1.2 < lone.length) {
-    const [top, bottom] = waltz ? [3, 4] : meter?.timeSignature ?? [4, 4];
-    alone = instrumentForTrack(pitched[0].name, pitched[0].instrument.number) === 'piano';
-    parts = splitSoloTrack(lone, (top * 4) / bottom, alone);
-  } else {
-    const merged = new Map<string, Part>();
-    const seenParts = new Set<string>();
-    for (const track of pitched) {
-      // Arrangers often double a part on two channels; one copy is enough here.
-      const fingerprint = track.notes.map((note) => `${note.ticks}:${note.midi}`).join();
-      if (seenParts.has(fingerprint)) continue;
-      seenParts.add(fingerprint);
-      const instrumentId = instrumentForTrack(track.name, track.instrument.number);
-      const part = merged.get(instrumentId) ?? {
-        instrumentId,
-        name: getInstrument(instrumentId).displayName,
-        volume: 0.8,
-        notes: [],
-      };
-      part.notes.push(...source(track));
-      merged.set(instrumentId, part);
-    }
-    parts = [...merged.values()].sort((a, b) => b.notes.length - a.notes.length);
-  }
-  parts = foldExtraParts(parts);
-  const grid = timingGrid(parts.flatMap((part) => part.notes));
-
-  const shift = bestTranspose(parts.flatMap((part) => part.notes));
-  const bpm = steady ? steady.bpm * (waltz ? 2 : 1) : songBpm(midi) * stretch;
+  const bpm = tracked ? tracked.bpm : steady ? steady.bpm * (waltz ? 2 : 1) : songBpm(midi) * stretch;
   const project = createProject({ title, bpm: clampBpm(bpm), key: 0 });
   project.timeSignature = waltz ? [3, 4] : knownMeter(meter?.timeSignature);
-  const firstNote = Math.min(...midi.tracks.flatMap((track) => track.notes.map((note) => note.ticks)));
-  readTimingChanges(project, midi, beat, { tempoScale: stretch, fromTicks: firstNote, meters: !waltz });
-  project.tracks = clearClashes(reachNotes(parts, shift, alone), grid).map((part, index) => {
-    const track = createTrack(part.instrumentId, { name: part.name, colorIndex: index });
-    track.volume = part.volume;
-    track.notes = placeNotes(part.notes, getInstrument(part.instrumentId), grid);
-    return track;
-  });
+  if (!tracked) {
+    const firstNote = Math.min(...midi.tracks.flatMap((track) => track.notes.map((note) => note.ticks)));
+    readTimingChanges(project, midi, beat, { tempoScale: stretch, fromTicks: firstNote, meters: !waltz });
+  }
+
+  const lone = pitched.length === 1 ? source(pitched[0]) : [];
+  const handsTogether = lone.length > 0 && new Set(lone.map((note) => snap(note.startBeat))).size * 1.2 < lone.length;
+  // Tracked beats already sit on sixteenths or triplets, and the finer grid keeps both.
+  const gridFor = (notes: SourceNote[]) => (tracked ? SWING_GRID : timingGrid(notes));
+  let grid: number;
+  if (handsTogether && instrumentForTrack(pitched[0].name, pitched[0].instrument.number) === 'piano') {
+    grid = gridFor(lone);
+    const piano = getInstrument('piano');
+    const pads = padPitches(piano);
+    const keys = planKeys(lone, beatsPerBar);
+    const track = createTrack('piano', { name: 'Piano', colorIndex: 0 });
+    track.volume = 1;
+    const arranged = arrangeSoloPiano(lone, keys, beatsPerBar, [pads[0], pads[pads.length - 1]], (at) => snap(at, grid));
+    track.notes = placeNotes(arranged, piano, grid);
+    project.tracks = [track];
+  } else {
+    let parts: Part[];
+    if (handsTogether) {
+      parts = splitSoloTrack(lone, beatsPerBar);
+    } else {
+      const merged = new Map<string, Part>();
+      const seenParts = new Set<string>();
+      for (const track of pitched) {
+        // Arrangers often double a part on two channels; one copy is enough here.
+        const fingerprint = track.notes.map((note) => `${note.ticks}:${note.midi}`).join();
+        if (seenParts.has(fingerprint)) continue;
+        seenParts.add(fingerprint);
+        const instrumentId = instrumentForTrack(track.name, track.instrument.number);
+        const part = merged.get(instrumentId) ?? {
+          instrumentId,
+          name: getInstrument(instrumentId).displayName,
+          volume: 0.8,
+          notes: [],
+        };
+        part.notes.push(...source(track));
+        merged.set(instrumentId, part);
+      }
+      parts = [...merged.values()].sort((a, b) => b.notes.length - a.notes.length);
+    }
+    parts = foldExtraParts(parts);
+    const all = parts.flatMap((part) => part.notes);
+    grid = gridFor(all);
+    const keys = planKeys(all, beatsPerBar);
+    project.tracks = clearClashes(reachNotes(parts, keys), grid).map((part, index) => {
+      const track = createTrack(part.instrumentId, { name: part.name, colorIndex: index });
+      track.volume = part.volume;
+      track.notes = placeNotes(part.notes, getInstrument(part.instrumentId), grid);
+      return track;
+    });
+  }
 
   if (drums.length > 0) {
     const track = createTrack('drum', { name: 'Drum', colorIndex: project.tracks.length });
