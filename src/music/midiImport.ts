@@ -105,7 +105,11 @@ function velocityBoost(velocities: number[]): number {
   return Math.max(1, LOUD_TARGET / Math.max(loud, 0.01));
 }
 
-/** Whole-song shift that lands the most sound on the game's white-note pads. */
+/**
+ * Whole-song shift that lands the most sound on the game's white-note pads. The import
+ * arranges in C with it; the project's key then undoes it (`keyUndoing`), so the pads are
+ * the same either way and the song keeps its own pitch.
+ */
 function bestTranspose(notes: SourceNote[]): number {
   let best = 0;
   let bestScore = -1;
@@ -121,6 +125,19 @@ function bestTranspose(notes: SourceNote[]): number {
   }
   return best;
 }
+
+/**
+ * The key that plays C-arranged pads at the song's own pitch. In Sky the key comes from the
+ * music, so this is the key sky-mod holds while the song plays ("Play in the song's key").
+ */
+function keyUndoing(shift: number): number {
+  return (((-shift) % 12) + 12) % 12;
+}
+
+// Key signature names (@tonejs/midi) to the major key's tonic, 0 = C.
+const KEY_NAMES: Record<string, number> = {
+  Cb: 11, Gb: 6, Db: 1, Ab: 8, Eb: 3, Bb: 10, F: 5, C: 0, G: 7, D: 2, A: 9, E: 4, B: 11, 'F#': 6, 'C#': 1,
+};
 
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
@@ -473,19 +490,48 @@ function nativeTrackParts(name: string): { name: string; instrument: InstrumentD
   return match && instrument?.selectable ? { name: match[1], instrument } : null;
 }
 
+/**
+ * The key a file from this app was exported in: its pitches carry the key, so the key whose
+ * pads hold the most of them exactly. Keys a fifth apart can tie on a short tune; the file's
+ * key signature settles that.
+ */
+function nativeKey(midi: Midi, instruments: InstrumentDefinition[], sources: Midi['tracks']): number {
+  const signature = midi.header.keySignatures[0];
+  const hinted = signature && signature.scale === 'major' ? KEY_NAMES[signature.key] : undefined;
+  let best = hinted ?? 0;
+  let bestScore = -1;
+  const scoreOf = (key: number) =>
+    sources.reduce((sum, source, index) => {
+      const pitches = new Set(
+        instruments[index].pads.map((_, pad) => resolvePad(instruments[index], key, pad)).filter((p) => p.pitched).map((p) => p.midi),
+      );
+      return sum + source.notes.filter((note) => pitches.has(note.midi)).length;
+    }, 0);
+  if (hinted !== undefined) bestScore = scoreOf(hinted);
+  for (let key = 0; key < 12; key++) {
+    const score = scoreOf(key);
+    if (score > bestScore) {
+      best = key;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 /** Restores a file exported by this app note for note, so nothing is arranged twice. */
 function nativeProject(midi: Midi, title: string): Project | null {
   const sources = midi.tracks.filter((track) => track.notes.length > 0 || nativeTrackParts(track.name));
   const parts = sources.map((track) => nativeTrackParts(track.name));
   if (parts.length === 0 || parts.some((part) => !part)) return null;
-  const project = createProject({ title, bpm: clampBpm(songBpm(midi)), key: 0 });
+  const key = nativeKey(midi, parts.map((part) => part!.instrument), sources);
+  const project = createProject({ title, bpm: clampBpm(songBpm(midi)), key });
   project.timeSignature = knownMeter(midi.header.timeSignatures[0]?.timeSignature);
   readTimingChanges(project, midi, (ticks) => ticks / midi.header.ppq);
   project.tracks = sources.map((source, index) => {
     const { name, instrument } = parts[index]!;
     const track = createTrack(instrument.id, { name: name.slice(0, MAX_TRACK_NAME_LENGTH) || instrument.displayName, colorIndex: index });
     const pitches = instrument.pads.map((_, pad) => {
-      const resolved = resolvePad(instrument, 0, pad);
+      const resolved = resolvePad(instrument, key, pad);
       return resolved.pitched ? resolved.midi : resolved.drumNote;
     });
     track.notes = sortNotes(
@@ -575,7 +621,7 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
 
   const shift = bestTranspose(parts.flatMap((part) => part.notes));
   const bpm = steady ? steady.bpm * (waltz ? 2 : 1) : songBpm(midi) * stretch;
-  const project = createProject({ title, bpm: clampBpm(bpm), key: 0 });
+  const project = createProject({ title, bpm: clampBpm(bpm), key: keyUndoing(shift) });
   project.timeSignature = waltz ? [3, 4] : knownMeter(meter?.timeSignature);
   const firstNote = Math.min(...midi.tracks.flatMap((track) => track.notes.map((note) => note.ticks)));
   readTimingChanges(project, midi, beat, { tempoScale: stretch, fromTicks: firstNote, meters: !waltz });

@@ -100,6 +100,11 @@ export function HelpPanel({ onClose }: { onClose: () => void }) {
             unpitched; the Tuned Krill Horn is a documented 8-pad pitched exception.
           </p>
           <p>
+            In the game the key is not yours to pick: it follows the music that is playing, so the same pads can
+            sound in another key from one moment to the next. The project key is the key the song is written in;
+            a MIDI import keeps the file&apos;s own key.
+          </p>
+          <p>
             Sustain instruments (violin, cello, guitar variants, saxophone, harmonica, AURORA voice, Vessel Flute and reported
             extras) allow longer held notes. Others are one-shot. No undocumented duration cap is claimed.
           </p>
