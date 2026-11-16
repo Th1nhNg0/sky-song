@@ -150,6 +150,12 @@ ringer switch off.
   current project.
 - **Drag and drop:** drop a MIDI file (`.mid`) or a `.skymusic.json` project anywhere
   on the window to open it. Your current song is already autosaved in My songs.
+- **MIDI import** arranges the file onto real game keys. A solo piano file stays one
+  Piano track, as one player plays it: the right-hand melody plus one left-hand bass note
+  a bar, folded onto the lower keys. Any other lone track is split into a melody, chords
+  on Harp and bass on Contrabass. To hear the piano on another piano, change the track's
+  instrument: Grand Piano and Fledgling Upright Piano play the same pitches with a
+  different sound, and Winter Piano plays everything one octave higher.
 - Supported import is the app's native `.skymusic.json` (schema v1). Malformed,
   oversized, out-of-grid or unknown-instrument projects are rejected with an error
   toast; the current project is not modified.

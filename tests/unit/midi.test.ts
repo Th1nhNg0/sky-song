@@ -91,6 +91,37 @@ describe('MIDI import/export', () => {
     expect(notes.some((note) => note.startBeat === 8)).toBe(true);
   });
 
+  it('keeps a solo piano cover on one piano, bass folded onto the lower keys', () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    const ppq = midi.header.ppq;
+    for (let bar = 0; bar < 8; bar++) {
+      // Left hand: a low root and its fifth on each beat; right hand: a melody above middle C.
+      for (let beat = 0; beat < 4; beat++) {
+        const ticks = (bar * 4 + beat) * ppq;
+        track.addNote({ midi: 36, ticks, durationTicks: ppq });
+        track.addNote({ midi: 43, ticks, durationTicks: ppq });
+        track.addNote({ midi: [72, 74, 76, 79][beat], ticks, durationTicks: ppq });
+      }
+    }
+    const project = midiToProject(midi.toArray(), 'Solo piano');
+    expect(project.tracks.map((part) => part.instrumentId)).toEqual(['piano']);
+    const bass = project.tracks[0].notes.filter((note) => note.pad === 0);
+    expect(bass.map((note) => note.startBeat)).toEqual([0, 4, 8, 12, 16, 20, 24, 28]);
+  });
+
+  it('splits a lone non-piano track into melody, chords and bass', () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    track.instrument.number = 24;
+    const ppq = midi.header.ppq;
+    for (let beat = 0; beat < 16; beat++) {
+      [36, 43, 76].forEach((pitch) => track.addNote({ midi: pitch, ticks: beat * ppq, durationTicks: ppq }));
+    }
+    const project = midiToProject(midi.toArray(), 'Solo guitar');
+    expect(project.tracks.map((part) => part.instrumentId)).toEqual(['piano', 'harp', 'contrabass']);
+  });
+
   it('hands notes out of reach to an instrument that plays their real pitch', () => {
     const midi = new Midi();
     const flute = midi.addTrack();

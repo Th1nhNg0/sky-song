@@ -180,11 +180,13 @@ function placeNotes(notes: SourceNote[], instrument: InstrumentDefinition, grid:
 }
 
 /**
- * A lone piano track holds the whole song. The hands split at middle C: the right hand
- * stays as the melody, and the left is thinned to one bass note a bar with light chords
- * on the other beats, because replaying every hit on sampled instruments turns to mud.
+ * A lone track holds the whole song. The hands split at middle C: the right hand stays as
+ * the melody, and the left is thinned to one bass note a bar with light chords on the other
+ * beats, because replaying every hit on sampled instruments turns to mud. A piano cover
+ * stays one piano, as one player would play it: the melody and the bass notes only, since
+ * the chords would crowd the melody off its 15 keys.
  */
-function splitSoloTrack(notes: SourceNote[], beatsPerBar: number): Part[] {
+function splitSoloTrack(notes: SourceNote[], beatsPerBar: number, piano: boolean): Part[] {
   const groups = new Map<number, SourceNote[]>();
   const bars = new Map<number, SourceNote[]>();
   for (const note of notes) {
@@ -218,6 +220,7 @@ function splitSoloTrack(notes: SourceNote[], beatsPerBar: number): Part[] {
       }
     }
   }
+  if (piano) return [{ instrumentId: 'piano', name: 'Piano', volume: 1, notes: [...lead, ...bass] }];
   return [
     { instrumentId: 'piano', name: 'Piano · Melody', volume: 1, notes: lead },
     { instrumentId: 'harp', name: 'Harp · Chords', volume: 0.45, notes: chords },
@@ -243,9 +246,10 @@ function foldExtraParts(parts: Part[]): Part[] {
 /**
  * Settles each line's octave, then hands notes its instrument can't reach to one that can,
  * so they keep their real pitch instead of folding back and breaking the line. A note with
- * nowhere to go stays put and folds; too few notes never justify a whole extra instrument.
+ * nowhere to go stays put and folds; too few notes never justify a whole extra instrument,
+ * and a song kept to one instrument never gets one.
  */
-function reachNotes(parts: Part[], shift: number): Part[] {
+function reachNotes(parts: Part[], shift: number, alone = false): Part[] {
   const ranges = (id: string) => {
     const pads = padPitches(getInstrument(id));
     return [pads[0], pads[pads.length - 1]];
@@ -284,7 +288,7 @@ function reachNotes(parts: Part[], shift: number): Part[] {
   const added: Part[] = [];
   const total = parts.reduce((sum, part) => sum + part.notes.length, 0);
   for (const [instrumentId, notes] of extra) {
-    if (notes.length >= total * MIN_REACH_SHARE) {
+    if (!alone && notes.length >= total * MIN_REACH_SHARE) {
       const moved = notes.map(({ note }) => note);
       added.push({ instrumentId, name: getInstrument(instrumentId).displayName, volume: 0.8, notes: moved });
     } else {
@@ -546,10 +550,12 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   if (pitched.length === 0 && drums.length === 0) throw new Error('That MIDI file has no notes.');
 
   let parts: Part[];
+  let alone = false;
   const lone = pitched.length === 1 ? source(pitched[0]) : [];
   if (lone.length > 0 && new Set(lone.map((note) => snap(note.startBeat))).size * 1.2 < lone.length) {
     const [top, bottom] = waltz ? [3, 4] : meter?.timeSignature ?? [4, 4];
-    parts = splitSoloTrack(lone, (top * 4) / bottom);
+    alone = instrumentForTrack(pitched[0].name, pitched[0].instrument.number) === 'piano';
+    parts = splitSoloTrack(lone, (top * 4) / bottom, alone);
   } else {
     const merged = new Map<string, Part>();
     const seenParts = new Set<string>();
@@ -579,7 +585,7 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
   project.timeSignature = waltz ? [3, 4] : knownMeter(meter?.timeSignature);
   const firstNote = Math.min(...midi.tracks.flatMap((track) => track.notes.map((note) => note.ticks)));
   readTimingChanges(project, midi, beat, { tempoScale: stretch, fromTicks: firstNote, meters: !waltz });
-  project.tracks = clearClashes(reachNotes(parts, shift), grid).map((part, index) => {
+  project.tracks = clearClashes(reachNotes(parts, shift, alone), grid).map((part, index) => {
     const track = createTrack(part.instrumentId, { name: part.name, colorIndex: index });
     track.volume = part.volume;
     track.notes = placeNotes(part.notes, getInstrument(part.instrumentId), grid);
