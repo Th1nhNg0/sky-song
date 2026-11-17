@@ -75,7 +75,7 @@ This is the unvarnished list, current as of the delivery build. Items marked
     differ. Sample-pack file decoding also depends on the browser (WAV is safest;
     some browsers cannot decode OGG/MP3 recordings).
 17. **The game recordings are a large download kept apart from the app.** The app
-    itself starts on the synth; each instrument's pack (45 packs, about 58 MB built)
+    itself starts on the synth; each instrument's pack (45 packs, about 82 MB built)
     is fetched only when a song, the picker or Settings needs it, then cached in
     IndexedDB. On a slow connection a song can start on the synth and switch to the
     recordings as they arrive (see `docs/audio-sources.md`). Packs a user records
