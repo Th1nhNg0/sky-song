@@ -48,10 +48,12 @@ This is the unvarnished list, current as of the delivery build. Items marked
     “DunDun”, “Sine Synth”, “Bass Synth”, “TR-909”, and call effects; these are not
     corroborated as ordinary playable Sky instruments and are excluded rather than
     invented.
-11. **Automatic regional key changes are not simulated.** Sky changes key by area and
-    by sheet; a browser composer cannot know the player's world state. The project
-    has one explicit global key that the user chooses. This is documented and is not
-    presented as a world simulator.
+11. **The game's own key is not simulated.** Sky plays an instrument in the key the
+    music last set (markers in the music itself, so it changes as the music does), not
+    by area. A project has one song key that the user chooses, and a track may have a
+    key of its own: a layer for the sharps and flats the song's key lacks (D023).
+    sky-mod's "Play in the song's key" holds these keys in the game; the app does not
+    model what the game's music would set.
 
 ## Audio
 
@@ -89,8 +91,12 @@ This is the unvarnished list, current as of the delivery build. Items marked
 
 21. **MIDI import is exact only for this app's own files.** A file exported here comes
     back note for note, with its tracks, instruments, pads and every tempo and meter
-    change. Other MIDI files are arranged onto real game keys: they are transposed to
-    the white notes and capped at six parts and four-note chords. Their tempo changes
+    change. Other MIDI files are arranged onto real game keys: they keep their own key;
+    a part's notes outside it go to a layer in a nearby key (D023) when there are two or
+    more of them, else to a neighbouring note; notes beyond an instrument's two octaves
+    go to one that reaches them (Cello, Contrabass, Xylophone, Winter Piano above a
+    piano) when enough of them do, else an octave in; and the file is capped at six parts
+    and four-note chords. Their tempo changes
     are kept from the first note on (a count-in at another speed is not), up to 256;
     a file with more, usually a recorded performance, keeps only the tempo it spends
     the most time in. Tempos outside 40–240 BPM are clamped, meters the app does not

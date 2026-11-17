@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { getInstrument } from '../music/instruments';
 import { resolvePad } from '../music/pitch';
+import { trackKey } from '../music/project';
 import { timingOf } from '../music/timing';
 import { useClockStore, useViewStore } from '../state/clock';
 import { useAppStore } from '../state/store';
@@ -104,7 +105,7 @@ function Overview() {
 function PointerReadout() {
   const hover = useViewStore((state) => state.hover);
   const timing = useAppStore((state) => timingOf(state.project));
-  const key = useAppStore((state) => state.project.key);
+  const key = useAppStore((state) => trackKey(state.project, state.activeTrack()));
   const instrumentId = useAppStore((state) => state.activeTrack().instrumentId);
   if (!hover) return <span className="pointer-readout is-idle">Point at the grid for position</span>;
   const instrument = getInstrument(instrumentId);

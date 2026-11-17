@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { getInstrument } from '../music/instruments';
 import { keyShortLabel } from '../music/keys';
+import { trackKey } from '../music/project';
 import {
   buildSheetFrames,
   frameAtBeat,
@@ -54,9 +55,11 @@ interface Section {
 }
 
 function trackLabel(track: Track, instrument: InstrumentDefinition): string {
-  return track.name.toLowerCase().includes(instrument.displayName.toLowerCase())
+  const name = track.name.toLowerCase().includes(instrument.displayName.toLowerCase())
     ? track.name
     : `${track.name} (${instrument.displayName})`;
+  // A layer in a key of its own is played in that key: the player needs to know.
+  return track.key === undefined ? name : `${name}, in ${keyShortLabel(track.key)}`;
 }
 
 /** Scrolls the sheet so the frame being played stays in view. */
@@ -145,7 +148,8 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
       if (!frame) return;
       playback.seek(frame.startBeat);
       if (useAppStore.getState().isPlaying) return;
-      for (const pad of frame.pads) void playback.previewPad(section.instrument.id, pad, 0.85, true);
+      const key = trackKey(useAppStore.getState().project, section.track);
+      for (const pad of frame.pads) void playback.previewPad(section.instrument.id, pad, 0.85, true, key);
     };
     return new Map(sections.map((section) => [section.track.id, (index: number) => goTo(section, index)]));
   }, [sections]);
@@ -264,7 +268,7 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
                 }}
                 lines={section.lines}
                 instrument={section.instrument}
-                projectKey={project.key}
+                projectKey={trackKey(project, section.track)}
                 geometry={section.geometry}
                 contentWidth={contentWidth}
                 theme={SHEET_THEMES.screen}
@@ -295,7 +299,7 @@ export function SheetPanel({ onClose }: { onClose: () => void }) {
                       <SheetSvg
                         lines={lines}
                         instrument={section.instrument}
-                        projectKey={project.key}
+                        projectKey={trackKey(project, section.track)}
                         geometry={geometry}
                         theme={SHEET_THEMES.paper}
                         labels={labels}

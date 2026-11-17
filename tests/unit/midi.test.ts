@@ -4,7 +4,8 @@ import { exportProjectToMidi } from '../../src/export/midi';
 import { midiToProject } from '../../src/music/midiImport';
 import { getInstrument } from '../../src/music/instruments';
 import { resolvePad } from '../../src/music/pitch';
-import { createNote, createProject, createTrack } from '../../src/music/project';
+import { createNote, createProject, createTrack, trackKey } from '../../src/music/project';
+import type { Track } from '../../src/music/types';
 import { parseProjectJson } from '../../src/music/validation';
 
 describe('MIDI import/export', () => {
@@ -61,9 +62,21 @@ describe('MIDI import/export', () => {
     expect(inA.key).toBe(9);
     const pads = (project: typeof inA) => project.tracks[0].notes.map((note) => note.pad);
     expect(pads(inA)).toEqual(pads(inC));
-    const first = inA.tracks[0].notes[0];
-    const sounding = resolvePad(getInstrument(inA.tracks[0].instrumentId), inA.key, first.pad).midi!;
-    expect(((sounding % 12) + 12) % 12).toBe(9);
+    const sounding = (project: typeof inA) => resolvePad(getInstrument(project.tracks[0].instrumentId), project.key, project.tracks[0].notes[0].pad).midi!;
+    // Program 46 lands on the cello, which has to take both an octave down; A stays 9 above C.
+    expect(sounding(inA) - sounding(inC)).toBe(9);
+    expect(sounding(inA)).toBe(57);
+  });
+
+  it('keeps a tune at its own pitch when the pads reach it there', () => {
+    const midi = new Midi();
+    const track = midi.addTrack(); // a piano: its pads in G run from G4 to G6
+    const tune = [67, 69, 71, 72, 74, 76, 78, 79, 74, 71, 67];
+    tune.forEach((pitch, i) => track.addNote({ midi: pitch, ticks: i * 480, durationTicks: 400 }));
+    const project = midiToProject(midi.toArray(), 'In G');
+    expect(project.key).toBe(7);
+    const [piano] = project.tracks;
+    expect(piano.notes.map((note) => resolvePad(getInstrument(piano.instrumentId), project.key, note.pad).midi)).toEqual(tune);
   });
 
   it('produces a project that survives save and reload for slow and huge files', () => {
@@ -112,15 +125,33 @@ describe('MIDI import/export', () => {
     expect(project.tracks.flatMap((track) => track.notes).length).toBeGreaterThan(100);
   });
 
-  it('drops chord tones the pads cannot play but keeps a lone one', () => {
+  it('plays sharps and flats on a layer in a key that has them', () => {
     const midi = new Midi();
     const track = midi.addTrack();
     [60, 64, 67, 70].forEach((pitch) => track.addNote({ midi: pitch, ticks: 0, durationTicks: 100 }));
     const scale = [60, 62, 64, 65, 67, 69, 71];
     for (let i = 1; i <= 21; i++) track.addNote({ midi: i === 8 ? 61 : scale[i % 7], ticks: i * 480, durationTicks: 400 });
-    const notes = midiToProject(midi.toArray(), 'Chromatic').tracks.flatMap((part) => part.notes);
-    expect(notes.filter((note) => note.startBeat === 0)).toHaveLength(3);
-    expect(notes.some((note) => note.startBeat === 8)).toBe(true);
+    const project = midiToProject(midi.toArray(), 'Chromatic');
+    expect(project.key).toBe(0);
+    const [main, layer] = project.tracks;
+    expect(main.key).toBeUndefined();
+    // D flat major holds both the B flat of the chord and the C sharp of the run, at their own octave.
+    expect(layer.instrumentId).toBe(main.instrumentId);
+    expect(layer.key).toBe(1);
+    expect(layer.name).toBe(`${main.name} · in D♭`);
+    const sounding = (from: Track) => from.notes.map((note) => [note.startBeat, resolvePad(getInstrument(from.instrumentId), trackKey(project, from), note.pad).midi]);
+    expect(sounding(layer)).toEqual([[0, 70], [8, 61]]);
+    expect(sounding(main).filter(([beat]) => beat === 0).map(([, pitch]) => pitch)).toEqual([60, 64, 67]);
+  });
+
+  it('leaves a lone sharp on the part rather than give it a layer', () => {
+    const midi = new Midi();
+    const track = midi.addTrack();
+    const scale = [60, 62, 64, 65, 67, 69, 71];
+    for (let i = 0; i < 21; i++) track.addNote({ midi: i === 8 ? 61 : scale[i % 7], ticks: i * 480, durationTicks: 400 });
+    const project = midiToProject(midi.toArray(), 'One sharp');
+    expect(project.tracks).toHaveLength(1);
+    expect(project.tracks[0].notes.some((note) => note.startBeat === 8)).toBe(true);
   });
 
   it('hands notes out of reach to an instrument that plays their real pitch', () => {
@@ -132,8 +163,10 @@ describe('MIDI import/export', () => {
     for (let i = 0; i < 42; i++) flute.addNote({ midi: 60 + scale[i % 7] + 12 * (i % 2), ticks: i * 240, durationTicks: 200 });
     for (let i = 0; i < 14; i++) flute.addNote({ midi: 84 + 2 + scale[i % 7], ticks: 10080 + i * 240, durationTicks: 200 });
     const project = midiToProject(midi.toArray(), 'Wide');
-    const high = project.tracks.find((track) => track.instrumentId === 'xylophone');
-    expect(high?.notes.length).toBeGreaterThanOrEqual(12);
+    // The top is in D major: its F sharps go to the xylophone's layer, the rest to the xylophone.
+    const high = project.tracks.filter((track) => track.instrumentId === 'xylophone');
+    expect(high.flatMap((track) => track.notes).length).toBeGreaterThanOrEqual(12);
+    expect(high.find((track) => track.key !== undefined)?.notes.length).toBe(2);
     expect(project.tracks[0].notes.length).toBeGreaterThan(30);
   });
 
@@ -169,7 +202,7 @@ describe('MIDI import/export', () => {
     // Eighth notes at 90 BPM, written into a file that claims 120, starting off the beat.
     const eighth = (0.5 * 120) / 90;
     for (let i = 0; i < 120; i++) {
-      track.addNote({ midi: 60 + (i % 5) * 2, ticks: Math.round((0.37 + i * eighth) * ppq), durationTicks: Math.round(eighth * 0.8 * ppq) });
+      track.addNote({ midi: 60 + [0, 2, 4, 5, 7][i % 5], ticks: Math.round((0.37 + i * eighth) * ppq), durationTicks: Math.round(eighth * 0.8 * ppq) });
     }
     const project = midiToProject(midi.toArray(), 'Free running');
     expect(project.bpm).toBe(90);

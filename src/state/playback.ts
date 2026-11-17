@@ -7,6 +7,7 @@ import { PlayheadSmoother } from './smoothing';
 import { ensureSoundsFor, type SampleSelection } from '../audio/sampleBank';
 import { createSampleVoice } from '../audio/sampleVoice';
 import { getInstrument } from '../music/instruments';
+import { trackKey } from '../music/project';
 import type { InstrumentDefinition, Project } from '../music/types';
 
 /** Only these fields reach the mixer, so note edits leave the audio graph alone. */
@@ -257,7 +258,7 @@ class PlaybackController {
   }
 
   /** Sounds one pad while editing. Quiet during playback, when the song itself is the feedback. */
-  async previewPad(instrumentId: string, pad: number, velocity = 0.8, force = false): Promise<void> {
+  async previewPad(instrumentId: string, pad: number, velocity = 0.8, force = false, keyIndex?: number): Promise<void> {
     const app = useAppStore.getState();
     if (!force && (!app.preferences.notePreview || app.isPlaying)) return;
     const key = `${instrumentId}:${pad}`;
@@ -267,7 +268,9 @@ class PlaybackController {
     if (!(await this.ensureAudio([instrumentId]))) return;
     if (performance.now() - at > PREVIEW_PATIENCE_MS) return;
     const instrument = getInstrument(instrumentId);
-    this.engine.playPad({ instrument, keyIndex: app.project.key, pad, velocity, durationSeconds: 0.45 });
+    // The pad sounds in the key of the track it belongs to: the open track unless the caller says.
+    const songKey = keyIndex ?? trackKey(app.project, app.activeTrack());
+    this.engine.playPad({ instrument, keyIndex: songKey, pad, velocity, durationSeconds: 0.45 });
   }
 
   /** Plays one chosen recording through the preview bus, whichever pack the bank would pick. */

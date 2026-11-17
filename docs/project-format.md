@@ -28,6 +28,8 @@ interface Track {
   id: string;
   name: string;
   instrumentId: string;         // key in the versioned catalog
+  key?: number;                 // 0..11: a key of its own (a layer for the song's sharps and flats);
+                                // absent: the song's. Only on pitched instruments, never equal to it
   color: string;                // #rrggbb
   volume: number;               // 0..1.5 (clamped on import)
   muted: boolean;

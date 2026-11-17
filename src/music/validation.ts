@@ -288,6 +288,17 @@ function validateProject(input: unknown): ValidationResult {
         seenIds.add(note.id);
         notes.push(note);
       });
+      // A track of its own key (a layer for the song's sharps and flats); the song's key needs no copy.
+      let ownKey: number | undefined;
+      const keyRaw = trackRaw.key;
+      if (keyRaw !== undefined && keyRaw !== null) {
+        const pitched = instrument.pads.some((pad) => pad.pitched);
+        if (pitched && finiteNumber(keyRaw) && Number.isInteger(keyRaw) && keyRaw >= 0 && keyRaw <= 11) {
+          if (keyRaw !== key) ownKey = keyRaw;
+        } else {
+          warnings.push(issue(`${trackPath}.key`, 'A track key must be an integer 0–11 on a pitched instrument; the song key is used.', 'warning'));
+        }
+      }
       tracks.push({
         id: typeof trackRaw.id === 'string' && trackRaw.id ? trackRaw.id : newId('track'),
         name,
@@ -297,6 +308,7 @@ function validateProject(input: unknown): ValidationResult {
         muted: Boolean(trackRaw.muted),
         solo: Boolean(trackRaw.solo),
         notes: sortNotes(notes),
+        ...(ownKey !== undefined ? { key: ownKey } : {}),
       });
     });
   }

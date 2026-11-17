@@ -4,6 +4,7 @@ import { getInstrument } from '../music/instruments';
 import { isTonicDegree } from '../music/keys';
 import { padKey } from '../music/padKeys';
 import { resolvePad } from '../music/pitch';
+import { trackKey } from '../music/project';
 import { useClockStore } from '../state/clock';
 import { useTouch } from '../state/layout';
 import { pressPad } from '../state/padInput';
@@ -46,7 +47,7 @@ export function NoteFlash() {
 
 export function KeyPanel() {
   const track = useAppStore((state) => state.activeTrack());
-  const projectKey = useAppStore((state) => state.project.key);
+  const projectKey = useAppStore((state) => trackKey(state.project, state.activeTrack()));
   const stepInput = useAppStore((state) => state.preferences.stepInput);
   const setPreferences = useAppStore((state) => state.setPreferences);
   const instrument = getInstrument(track.instrumentId);

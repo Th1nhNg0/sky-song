@@ -67,9 +67,7 @@ export function libraryActions({ set, get }: StoreTools): LibraryActions {
       }
     },
 
-    setProject: (loaded, options = {}) => {
-      // The game's instruments have fixed notes, so every song stays on the C pad layout.
-      const project = { ...loaded, key: 0 };
+    setProject: (project, options = {}) => {
       const activeTrackId = project.tracks[0]?.id ?? '';
       set({
         project,

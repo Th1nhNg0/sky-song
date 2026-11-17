@@ -286,3 +286,27 @@ file that had them was flattened to one tempo and one meter on import.
   restores them. For other MIDI files see known gap 21.
 - At most 256 changes of each kind are kept.
 
+## D023 — A song keeps its own key, and a track can have one of its own (2026-11-17)
+
+**Decision:** A project's `key` is the song's own key: opening, importing or creating a
+song no longer moves it to C. A pitched track may carry a `key` of its own: a layer of
+the same instrument, named `<part> · in <Key>`, for the notes the song's key lacks.
+MIDI import keeps the file's key, and a part with two or more notes outside the scale
+gets a layer in the key a semitone up, a semitone down or a tritone away that plays
+most of them at their own octave.
+
+**Why:** Sky plays twelve keys, but a pad grid holds only the seven notes of one. A song
+in A was moved to C, so it played in the wrong key in the game (sky-mod holds the
+song's key), and every sharp or flat was moved to a white note or lost: 7.7% of the notes of
+a 357-file MIDI corpus.
+
+**Consequence:**
+- D003 holds: every track plays only its instrument's real pads, and a layer is one more
+  track in a key the game really plays. sky-mod holds a track's key while it plays it,
+  and plays a layer's notes in its part's take, each pad in its own key.
+- Changing the song key moves the layers with it; a layer that would wrap past the top
+  of the keys moves an octave down on its pads when its notes fit.
+- Drums, cymbals and other unpitched instruments have no key.
+- MIDI export names a layer's track `…, key N`, and importing the file restores it.
+- On the corpus: notes missing 11.7% → 4.9%, wrong 2.7% → 1.2%, sharps and flats
+  missing 100% → 7.8%.

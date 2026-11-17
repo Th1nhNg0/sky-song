@@ -6,6 +6,7 @@ import {
   newId,
   renameForInstrument,
   TRACK_COLORS,
+  transposeProject,
 } from '../music/project';
 import { clampBpm } from '../music/time';
 import { normalizeMeterChanges, normalizeTempoChanges, timingOf } from '../music/timing';
@@ -41,8 +42,8 @@ function withTiming(project: Project, patch: Partial<Project>): Project {
 
 type SongActions = Pick<
   AppState,
-  'setTitle' | 'setBpm' | 'setMeter' | 'setTimingChange' | 'removeTimingChange' | 'setLoop' | 'toggleLoop' | 'setActiveTrack' | 'addTrack'
-  | 'removeTrack' | 'duplicateTrack' | 'renameTrack' | 'moveTrack' | 'setTrackInstrument'
+  'setTitle' | 'setBpm' | 'setMeter' | 'setKey' | 'setTimingChange' | 'removeTimingChange' | 'setLoop' | 'toggleLoop' | 'setActiveTrack' | 'addTrack'
+  | 'removeTrack' | 'duplicateTrack' | 'renameTrack' | 'moveTrack' | 'setTrackInstrument' | 'setTrackKey'
   | 'setTrackColor' | 'toggleTrackMute' | 'toggleTrackSolo' | 'setTrackVolume'
 >;
 
@@ -63,6 +64,11 @@ export function songActions({ set, get, commit }: StoreTools): SongActions {
       const project = get().project;
       if (project.timeSignature[0] === meter[0] && project.timeSignature[1] === meter[1]) return;
       commit(withTiming(project, { timeSignature: [meter[0], meter[1]] }));
+    },
+    setKey: (key) => {
+      const project = get().project;
+      const next = transposeProject(project, key);
+      if (next !== project) commit(next);
     },
     setTimingChange: (beat, change) => {
       const project = get().project;
@@ -190,7 +196,12 @@ export function songActions({ set, get, commit }: StoreTools): SongActions {
       const removed = track.notes.length - notes.length;
       const kept = new Set(notes.map((note) => note.id));
       const name = renameForInstrument(track.name, track.instrumentId, instrumentId);
-      commit(replaceTrack(project, id, (item) => ({ ...item, instrumentId, name, notes })), {
+      // A drum has no key: a track of its own key goes back to the song's.
+      const pitched = instrument.pads.some((pad) => pad.pitched);
+      commit(replaceTrack(project, id, (item) => {
+        const { key: own, ...rest } = item;
+        return { ...rest, instrumentId, name, notes, ...(pitched && own !== undefined ? { key: own } : {}) };
+      }), {
         selectedNoteIds: get().selectedNoteIds.filter((noteId) => kept.has(noteId)),
       });
       if (removed > 0) {
@@ -199,6 +210,20 @@ export function songActions({ set, get, commit }: StoreTools): SongActions {
           'warning',
         );
       }
+    },
+    setTrackKey: (id, key) => {
+      const project = get().project;
+      const track = findTrack(project, id);
+      if (!track) return;
+      const own = key === null || key === project.key ? undefined : key;
+      if (own !== undefined && (!Number.isInteger(own) || own < 0 || own > 11)) return;
+      if (own !== undefined && !getInstrument(track.instrumentId).pads.some((pad) => pad.pitched)) return;
+      if (own === track.key) return;
+      commit(replaceTrack(project, id, (item) => {
+        const { key: _old, ...rest } = item;
+        void _old;
+        return own === undefined ? rest : { ...rest, key: own };
+      }));
     },
     setTrackColor: (id, color) => {
       const track = findTrack(get().project, id);

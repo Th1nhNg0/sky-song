@@ -1,5 +1,5 @@
 import { getInstrument } from '../music/instruments';
-import { lastNoteEnd } from '../music/project';
+import { lastNoteEnd, trackKey } from '../music/project';
 import { timingOf, type Timing } from '../music/timing';
 import type { Project } from '../music/types';
 import type { PlaybackEngine } from './engine';
@@ -101,10 +101,10 @@ export class Transport {
   private rebuildEvents(): void {
     this.stale = false;
     const project = this.project;
-    const keyIndex = project.key;
     const events: ScheduledEvent[] = [];
     for (const track of project.tracks) {
       const instrument = getInstrument(track.instrumentId);
+      const keyIndex = trackKey(project, track);
       for (const note of track.notes) {
         events.push({
           trackId: track.id,
