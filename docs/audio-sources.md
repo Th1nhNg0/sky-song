@@ -15,10 +15,14 @@ Two sound paths exist, and the UI always says which one an instrument is using:
    uploaded. A recorded note that is played at its recorded pitch is exact; other
    notes are pitch-shifted approximations.
 
-**The project includes 45 versioned sound packs containing 916 samples** in
+**The project includes 45 versioned sound packs containing 1,162 samples** in
 `public/sound-packs/`. Each pack is rendered through the
 installed game's own FMOD banks and `fmodstudio.dll`, one recording per key or pad, so
 it keeps the game's layered attacks, variant choice, envelopes and relative loudness.
+A 15-key instrument also has the six white keys above its top key: a key sounds up to
+11 semitones above its note in C, so in any song key a note is a recording or a
+semitone from one (before, the top keys of a song in A were the top recording pitched
+up as far as 9 semitones).
 
 At dev-server startup and build time, Vite generates `manifest.json` from the
 `.skypack.json` files in that directory, naming the instrument each pack plays. Both
@@ -27,12 +31,12 @@ them in IndexedDB. Existing disabled packs stay disabled; newer browser edits ar
 preserved. A checkout with no personal packs uses the synth. No external audio
 service is contacted and nothing is uploaded.
 
-In the repository the packs are JSON with the audio as text, about 285 MB in all. A
+In the repository the packs are JSON with the audio as text, about 430 MB in all. A
 build does not ship them that way. It rewrites each one as a `.skyaudio` file
 (`scripts/compactSoundPacks.ts`), which holds the same 16-bit audio packed without
 loss, and names the file after its contents so instruments that play the same
-recordings share it. The built packs come to about 58 MB in 34 files, the largest
-under 8 MB, and every sample unpacks to exactly the values in its JSON. The dev
+recordings share it. The built packs come to about 82 MB in 34 files, the largest
+about 13 MB, and every sample unpacks to exactly the values in its JSON. The dev
 server serves the JSON files as they are.
 
 Even so, a pack is fetched only when its instrument is needed: when a song that uses it is opened, when it is auditioned in the picker, or
@@ -77,8 +81,14 @@ the catalog entry with the 修繕者笛 alias is the Mender's Flute. Tuned Krill
 game equivalent: its pack is the one `AP15DarkHorn` blast, strongest at F3, and the
 other pads pitch-shift it.
 
-The render sets `menuPitch` to each key's semitone above the instrument's low key, or
-to the pad number for drums, bells and handpans. All packs share one gain, so the
+The render sets `menuPitch` to each key's semitone above the instrument's low key (26
+to 35 for the keys above the top one, as the game does in a higher key), or to the pad
+number for drums, bells and handpans. `scripts/game-render/` holds the renderer:
+`render.ps1` drives the game's `fmodstudio.dll` from WSL (non-real-time WAV output,
+streams driven by each update), and `extend_packs.py` writes the jobs, runs it, cuts
+each note as the packs are cut (from its first sound, x4, to where it stays under
+0.002 of its peak, with a 10 ms fade), checks its pitch and the top key against the
+pack, and adds the notes. Redo it after a game update. All packs share one gain, so the
 game's balance between instruments is preserved. Every melodic recording was checked
 against its catalog note; Xylophone bars and bells are inharmonic, so their pitch
 labels are nominal. Bells, handpans, drums and cymbals vary from hit to hit in the game, so their packs keep

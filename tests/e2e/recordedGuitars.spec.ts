@@ -18,7 +18,7 @@ for (const instrumentId of ['light-guitar', 'electric-guitar']) {
       if (soundSourceInfo(id).kind !== 'sample') throw new Error('Expected the recorded guitar');
       const instrument = instruments.find((item) => item.id === id)!;
       const results = [];
-      for (const keyIndex of [0, 11]) {
+      for (const keyIndex of [0, 9, 11]) {
         for (let pad = 0; pad < instrument.keyCount; pad++) {
           const rate = 44100;
           const ctx = new OfflineAudioContext(1, rate / 2, rate);
@@ -41,7 +41,10 @@ for (const instrumentId of ['light-guitar', 'electric-guitar']) {
       return results;
     }, instrumentId);
     for (const result of measurements) {
-      expect(result.rms, `key ${result.keyIndex}, pad ${result.pad}`).toBeGreaterThan(0.015);
+      // In a higher key the top pads play the game's own recordings of the notes above the top
+      // pad, which start a little softer than the top pad played up to 11 semitones faster did.
+      const floor = result.keyIndex === 0 ? 0.015 : 0.012;
+      expect(result.rms, `key ${result.keyIndex}, pad ${result.pad}`).toBeGreaterThan(floor);
       expect(result.peak).toBeLessThan(0.3);
     }
   });

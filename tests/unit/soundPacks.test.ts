@@ -41,9 +41,21 @@ describe('game sound pack mapping', () => {
     expect(notes('large-bell')).toEqual([60, 62, 67, 69, 72, 74, 79, 81]);
   });
 
-  it('records every key of a melodic instrument', () => {
-    expect(pack('harp').samples).toHaveLength(15);
+  it('records every key of a melodic instrument, and the white keys above it that a higher key reaches', () => {
+    // the 15 pads in C, then D to B of the next octave: in any song key, a note is a recording
+    // or a semitone from one (a pad sounds up to 11 semitones above its note in C)
+    expect(notes('harp')).toEqual([48, 50, 52, 53, 55, 57, 59, 60, 62, 64, 65, 67, 69, 71, 72, 74, 76, 77, 79, 81, 83]);
+    expect(notes('piano').slice(15)).toEqual([86, 88, 89, 91, 93, 95]);
     expect(new Set(pack('cymbals').samples.map((sample) => sample.padIndex)).size).toBe(4);
+  });
+
+  it('plays a high key from the recording of the very note, not a far one pitched up', () => {
+    const piano = pack('piano') as unknown as SoundPack;
+    const sample = (midi: number) => nearestSample({ ...piano, samples: piano.samples.map((s) => ({ ...s, channels: [new Float32Array(1)] })) } as SoundPack, midi);
+    // pad 14 (C6) in B: B6
+    expect(sample(84 + 11)?.midi).toBe(95);
+    // its black keys are a semitone from a recording
+    for (let midi = 84; midi <= 95; midi++) expect(Math.abs(sample(midi)!.midi! - midi)).toBeLessThanOrEqual(1);
   });
 
   it('keeps the Krill Horn blast at the first pad', () => {
