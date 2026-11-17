@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { Midi } from '@tonejs/midi';
 import { exportProjectToMidi } from '../../src/export/midi';
 import { midiToProject } from '../../src/music/midiImport';
+import { getInstrument } from '../../src/music/instruments';
+import { resolvePad } from '../../src/music/pitch';
 import { createNote, createProject, createTrack } from '../../src/music/project';
 import { parseProjectJson } from '../../src/music/validation';
 
@@ -32,6 +34,36 @@ describe('MIDI import/export', () => {
         notes.map((note) => [note.pad, note.startBeat, note.durationBeats]).sort();
       expect(shape(back.tracks[index].notes)).toEqual(shape(track.notes));
     });
+  });
+
+  it('round-trips a song written in another key', () => {
+    const project = createProject({ title: 'In G', bpm: 100, key: 7 });
+    // Short and inside the range keys C and G share, so only the key signature tells them apart.
+    project.tracks[0].notes = [createNote(4, 0, 1), createNote(5, 1, 1), createNote(7, 2, 1), createNote(9, 3, 1)];
+    const back = midiToProject(exportProjectToMidi(project).bytes, 'In G');
+    expect(back.key).toBe(7);
+    expect(back.tracks[0].notes.map((note) => note.pad)).toEqual([4, 5, 7, 9]);
+  });
+
+  it("keeps the song's own key, on the pads its C version uses", () => {
+    const tune = (tonic: number) => {
+      const midi = new Midi();
+      const track = midi.addTrack();
+      track.instrument.number = 46; // harp
+      [0, 2, 4, 5, 7, 9, 11, 12, 7, 4, 0].forEach((step, i) =>
+        track.addNote({ midi: tonic + step, ticks: i * 480, durationTicks: 400 }),
+      );
+      return midiToProject(midi.toArray(), 'Scale');
+    };
+    const inA = tune(69);
+    const inC = tune(60);
+    expect(inC.key).toBe(0);
+    expect(inA.key).toBe(9);
+    const pads = (project: typeof inA) => project.tracks[0].notes.map((note) => note.pad);
+    expect(pads(inA)).toEqual(pads(inC));
+    const first = inA.tracks[0].notes[0];
+    const sounding = resolvePad(getInstrument(inA.tracks[0].instrumentId), inA.key, first.pad).midi!;
+    expect(((sounding % 12) + 12) % 12).toBe(9);
   });
 
   it('produces a project that survives save and reload for slow and huge files', () => {

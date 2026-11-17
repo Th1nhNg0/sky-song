@@ -107,6 +107,40 @@ function velocityBoost(velocities: number[]): number {
   return Math.max(1, LOUD_TARGET / Math.max(loud, 0.01));
 }
 
+/**
+ * The key that plays C-arranged pads at the song's own pitch. In Sky the key comes from the
+ * music, so this is the key sky-mod holds while the song plays ("Play in the song's key").
+ */
+function keyUndoing(shift: number): number {
+  return (((-shift) % 12) + 12) % 12;
+}
+
+/**
+ * The song's own key: the one that undoes the shift of its longest section (`planKeys`), so
+ * that section sounds as written. A song in one key is one section.
+ */
+function songKeyOf(notes: SourceNote[], keys: KeyPlan): number {
+  const bounds = [-Infinity, ...keys.changes, Infinity];
+  let longest = 0;
+  let most = -1;
+  for (let index = 0; index < bounds.length - 1; index++) {
+    let length = 0;
+    for (const note of notes) {
+      if (note.startBeat >= bounds[index] && note.startBeat < bounds[index + 1]) length += note.durationBeats;
+    }
+    if (length > most) {
+      most = length;
+      longest = index;
+    }
+  }
+  return keyUndoing(keys.at(bounds[longest]));
+}
+
+// Key signature names (@tonejs/midi) to the major key's tonic, 0 = C.
+const KEY_NAMES: Record<string, number> = {
+  Cb: 11, Gb: 6, Db: 1, Ab: 8, Eb: 3, Bb: 10, F: 5, C: 0, G: 7, D: 2, A: 9, E: 4, B: 11, 'F#': 6, 'C#': 1,
+};
+
 function median(values: number[]): number {
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length / 2)] ?? 60;
@@ -471,19 +505,48 @@ function nativeTrackParts(name: string): { name: string; instrument: InstrumentD
   return match && instrument?.selectable ? { name: match[1], instrument } : null;
 }
 
+/**
+ * The key a file from this app was exported in: its pitches carry the key, so the key whose
+ * pads hold the most of them exactly. Keys a fifth apart can tie on a short tune; the file's
+ * key signature settles that.
+ */
+function nativeKey(midi: Midi, instruments: InstrumentDefinition[], sources: Midi['tracks']): number {
+  const signature = midi.header.keySignatures[0];
+  const hinted = signature && signature.scale === 'major' ? KEY_NAMES[signature.key] : undefined;
+  let best = hinted ?? 0;
+  let bestScore = -1;
+  const scoreOf = (key: number) =>
+    sources.reduce((sum, source, index) => {
+      const pitches = new Set(
+        instruments[index].pads.map((_, pad) => resolvePad(instruments[index], key, pad)).filter((p) => p.pitched).map((p) => p.midi),
+      );
+      return sum + source.notes.filter((note) => pitches.has(note.midi)).length;
+    }, 0);
+  if (hinted !== undefined) bestScore = scoreOf(hinted);
+  for (let key = 0; key < 12; key++) {
+    const score = scoreOf(key);
+    if (score > bestScore) {
+      best = key;
+      bestScore = score;
+    }
+  }
+  return best;
+}
+
 /** Restores a file exported by this app note for note, so nothing is arranged twice. */
 function nativeProject(midi: Midi, title: string): Project | null {
   const sources = midi.tracks.filter((track) => track.notes.length > 0 || nativeTrackParts(track.name));
   const parts = sources.map((track) => nativeTrackParts(track.name));
   if (parts.length === 0 || parts.some((part) => !part)) return null;
-  const project = createProject({ title, bpm: clampBpm(songBpm(midi)), key: 0 });
+  const key = nativeKey(midi, parts.map((part) => part!.instrument), sources);
+  const project = createProject({ title, bpm: clampBpm(songBpm(midi)), key });
   project.timeSignature = knownMeter(midi.header.timeSignatures[0]?.timeSignature);
   readTimingChanges(project, midi, (ticks) => ticks / midi.header.ppq);
   project.tracks = sources.map((source, index) => {
     const { name, instrument } = parts[index]!;
     const track = createTrack(instrument.id, { name: name.slice(0, MAX_TRACK_NAME_LENGTH) || instrument.displayName, colorIndex: index });
     const pitches = instrument.pads.map((_, pad) => {
-      const resolved = resolvePad(instrument, 0, pad);
+      const resolved = resolvePad(instrument, key, pad);
       return resolved.pitched ? resolved.midi : resolved.drumNote;
     });
     track.notes = sortNotes(
@@ -568,6 +631,7 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
     const piano = getInstrument('piano');
     const pads = padPitches(piano);
     const keys = planKeys(lone, beatsPerBar);
+    project.key = songKeyOf(lone, keys);
     const track = createTrack('piano', { name: 'Piano', colorIndex: 0 });
     track.volume = 1;
     const arranged = arrangeSoloPiano(lone, keys, beatsPerBar, [pads[0], pads[pads.length - 1]], (at) => snap(at, grid));
@@ -601,6 +665,7 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
     const all = parts.flatMap((part) => part.notes);
     grid = gridFor(all);
     const keys = planKeys(all, beatsPerBar);
+    project.key = songKeyOf(all, keys);
     project.tracks = clearClashes(reachNotes(parts, keys), grid).map((part, index) => {
       const track = createTrack(part.instrumentId, { name: part.name, colorIndex: index });
       track.volume = part.volume;
