@@ -73,6 +73,8 @@ export interface AppState {
   setTitle(title: string): void;
   setBpm(bpm: number): void;
   setMeter(meter: [number, number]): void;
+  /** Moves the whole song to another key (0–11); tracks of their own key move with it. */
+  setKey(key: number): void;
   /** Sets the tempo and/or meter from `beat` on; beat 0 is the start of the song. */
   setTimingChange(beat: number, change: { bpm?: number; timeSignature?: [number, number] }): void;
   /** Removes the tempo and meter change at `beat`, so the earlier ones carry on. */
@@ -87,6 +89,8 @@ export interface AppState {
   renameTrack(id: string, name: string): void;
   moveTrack(id: string, direction: -1 | 1): void;
   setTrackInstrument(id: string, instrumentId: string): void;
+  /** Plays a track in its own key (0–11), or in the song's key again with null. */
+  setTrackKey(id: string, key: number | null): void;
   setTrackColor(id: string, color: string): void;
   toggleTrackMute(id: string): void;
   toggleTrackSolo(id: string): void;

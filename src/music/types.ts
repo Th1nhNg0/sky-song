@@ -126,6 +126,12 @@ export interface Track {
   muted: boolean;
   solo: boolean;
   notes: Note[];
+  /**
+   * 0..11: the key this track plays in when it is not the song's key. A layer like this holds
+   * the notes the song's key has no pads for (its sharps and flats), played as another take.
+   * Absent: the song's key.
+   */
+  key?: number;
 }
 
 export interface LoopRegion {

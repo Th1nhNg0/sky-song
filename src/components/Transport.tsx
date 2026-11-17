@@ -5,6 +5,7 @@ import { useAudioStore, useClockStore } from '../state/clock';
 import { REVERB_SPACES, getReverbSpace, type ReverbSpaceId } from '../audio/reverb';
 import { clampBpm, MAX_BPM, MIN_BPM, TIME_SIGNATURES } from '../music/time';
 import { timingOf } from '../music/timing';
+import { keyShortLabel } from '../music/keys';
 import {
   CursorIcon,
   PauseIcon,
@@ -104,6 +105,7 @@ export function SongFields() {
   const project = useAppStore((state) => state.project);
   const setBpm = useAppStore((state) => state.setBpm);
   const setMeter = useAppStore((state) => state.setMeter);
+  const setKey = useAppStore((state) => state.setKey);
   const setPanel = useAppStore((state) => state.setPanel);
   const changes = timingOf(project).points.length;
   const [bpmDraft, setBpmDraft] = useState(String(project.bpm));
@@ -154,6 +156,24 @@ export function SongFields() {
           {TIME_SIGNATURES.map((option) => (
             <option key={option.label} value={option.label}>
               {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="inline-field">
+        <span>Key</span>
+        <select
+          value={project.key}
+          onChange={(event) => {
+            setKey(Number(event.target.value));
+            event.currentTarget.blur();
+          }}
+          aria-label="Song key"
+          title="The key the song sounds in. The pads stay the same; sky-mod plays the song in this key in the game."
+        >
+          {Array.from({ length: 12 }, (_, key) => (
+            <option key={key} value={key}>
+              {keyShortLabel(key)}
             </option>
           ))}
         </select>

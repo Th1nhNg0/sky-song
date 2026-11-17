@@ -139,6 +139,60 @@ export function isTrackAudible(project: Project, track: Track): boolean {
   return true;
 }
 
+/** The key a track sounds in: its own when it has one, otherwise the song's. */
+export function trackKey(project: Pick<Project, 'key'>, track: Pick<Track, 'key'>): number {
+  return track.key ?? project.key;
+}
+
+/** Pads one octave apart on this instrument (7 on the 15-pad keyboard), or null if its layout has none. */
+function octavePads(instrumentId: string): number | null {
+  const pads = getInstrument(instrumentId).pads;
+  for (let step = 1; step < pads.length; step++) {
+    let matches = 0;
+    let fits = true;
+    for (let pad = 0; pad + step < pads.length; pad++) {
+      const low = pads[pad].semitone;
+      const high = pads[pad + step].semitone;
+      if (low === null || high === null || high - low !== 12) fits = false;
+      else matches++;
+    }
+    if (fits && matches > 0) return step;
+  }
+  return null;
+}
+
+/**
+ * The song in another key. The song's tracks move with the key; a track in a key of its own
+ * moves by as much, so it stays where it was against the others. Keys run C..B, so where one
+ * of them wraps past B (or C) and the other does not, that track would land an octave away:
+ * its notes then move an octave along its pads instead, when they all fit.
+ */
+export function transposeProject(project: Project, key: number): Project {
+  if (!Number.isInteger(key) || key < 0 || key > 11 || key === project.key) return project;
+  const move = key - project.key;
+  const tracks = project.tracks.map((track) => {
+    if (track.key === undefined) return track;
+    const next = (((track.key + move) % 12) + 12) % 12;
+    const octaves = (next - track.key - move) / 12;
+    const step = octavePads(track.instrumentId);
+    let notes = track.notes;
+    if (octaves !== 0 && step !== null) {
+      const shift = -octaves * step;
+      const last = getInstrument(track.instrumentId).pads.length - 1;
+      if (notes.every((note) => note.pad + shift >= 0 && note.pad + shift <= last)) {
+        notes = notes.map((note) => ({ ...note, pad: note.pad + shift }));
+      }
+    }
+    if (next === key) {
+      const { key: _own, ...rest } = track;
+      void _own;
+      return { ...rest, notes };
+    }
+    return { ...track, key: next, notes };
+  });
+  return { ...project, key, tracks };
+}
+
 export function sortNotes(notes: Note[]): Note[] {
   return [...notes].sort((a, b) => a.startBeat - b.startBeat || a.pad - b.pad);
 }

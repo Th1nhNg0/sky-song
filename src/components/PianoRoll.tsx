@@ -151,7 +151,7 @@ export function PianoRoll({
             className={`roll-label ${Math.floor(pad / cols) % 2 === 1 ? 'group-alt' : ''} ${isTonicDegree(name.degree) ? 'is-tonic' : ''}`}
             style={{ height: rowHeight }}
             tabIndex={-1}
-            onPointerDown={() => void playback.previewPad(instrument.id, pad, 0.8, true)}
+            onPointerDown={() => void playback.previewPad(instrument.id, pad, 0.8, true, projectKey)}
             title={`Hear pad ${pad + 1}`}
           >
             <span className="roll-pad-number">{pad + 1}</span>

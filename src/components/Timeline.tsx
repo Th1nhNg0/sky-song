@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getInstrument } from '../music/instruments';
-import { isTrackAudible, projectEndBeat } from '../music/project';
+import { isTrackAudible, projectEndBeat, trackKey } from '../music/project';
 import { timingOf } from '../music/timing';
 import { soundSourceInfo } from '../audio/sampleBank';
 import { useViewStore } from '../state/clock';
@@ -180,7 +180,7 @@ export function Timeline({ onOpenCatalog }: { onOpenCatalog: (intent: CatalogInt
                   <PianoRoll
                     track={track}
                     instrument={instrument}
-                    projectKey={project.key}
+                    projectKey={trackKey(project, track)}
                     timing={timing}
                     px={px}
                     snap={snap}

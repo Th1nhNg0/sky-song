@@ -1,6 +1,7 @@
 import { getInstrument } from '../music/instruments';
 import { midiSafeText } from '../music/midiText';
 import { resolvePad } from '../music/pitch';
+import { trackKey } from '../music/project';
 import { timingOf } from '../music/timing';
 import type { Project, SoundProfileId } from '../music/types';
 import { clamp } from '../util';
@@ -176,7 +177,10 @@ export function exportProjectToMidi(project: Project): MidiExportResult {
       priority: 0,
       bytes: textMeta(
         0x03,
-        midiSafeText(`${track.name} | ${instrument.displayName} (${instrument.nativePartCode}, ${instrument.nativeSheetPart})`),
+        midiSafeText(
+          `${track.name} | ${instrument.displayName} (${instrument.nativePartCode}, ${instrument.nativeSheetPart}` +
+            `${track.key !== undefined ? `, key ${track.key}` : ''})`,
+        ),
       ),
     });
     if (!isUnpitched) {
@@ -185,7 +189,7 @@ export function exportProjectToMidi(project: Project): MidiExportResult {
       events.push({ tick: 0, priority: 2, bytes: [0xb0 | channel, 7, 100] });
     }
     for (const note of track.notes) {
-      const resolved = resolvePad(instrument, project.key, note.pad);
+      const resolved = resolvePad(instrument, trackKey(project, track), note.pad);
       const midiNote = isUnpitched ? resolved.drumNote ?? 38 : resolved.midi;
       if (midiNote === null) continue;
       const startTick = Math.round(note.startBeat * TICKS_PER_BEAT);

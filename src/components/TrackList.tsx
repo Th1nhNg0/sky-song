@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAppStore } from '../state/store';
 import { getInstrument } from '../music/instruments';
+import { keyShortLabel } from '../music/keys';
 import { TRACK_COLORS } from '../music/project';
 import type { Track } from '../music/types';
 import { MAX_TRACK_NAME_LENGTH } from '../music/validation';
@@ -60,9 +61,12 @@ function TrackRow({
   const duplicateTrack = useAppStore((state) => state.duplicateTrack);
   const removeTrack = useAppStore((state) => state.removeTrack);
   const moveTrack = useAppStore((state) => state.moveTrack);
+  const setTrackKey = useAppStore((state) => state.setTrackKey);
   const trackCount = useAppStore((state) => state.project.tracks.length);
+  const songKey = useAppStore((state) => state.project.key);
   const instrument = getInstrument(track.instrumentId);
   const isActive = track.id === activeTrackId;
+  const pitched = instrument.pads.some((pad) => pad.pitched);
 
   return (
     <article
@@ -90,7 +94,7 @@ function TrackRow({
       >
         <MusicIcon size={14} />
         <span>{instrument.displayName}</span>
-        <small>{instrument.keyCount} pads</small>
+        <small>{instrument.keyCount} pads{track.key !== undefined ? ` · in ${keyShortLabel(track.key)}` : ''}</small>
       </button>
 
       <div className="track-mix">
@@ -160,6 +164,25 @@ function TrackRow({
         <summary>
           Track options <ChevronDownIcon size={13} />
         </summary>
+        {pitched && (
+          <label className="track-key-field" title="A track in a key of its own plays the notes the song's key has no pads for, as another take in the game.">
+            <span>Key</span>
+            <select
+              value={track.key ?? ''}
+              onChange={(event) => setTrackKey(track.id, event.target.value === '' ? null : Number(event.target.value))}
+              aria-label={`Key of ${track.name}`}
+            >
+              <option value="">The song’s ({keyShortLabel(songKey)})</option>
+              {Array.from({ length: 12 }, (_, key) => key)
+                .filter((key) => key !== songKey)
+                .map((key) => (
+                  <option key={key} value={key}>
+                    {keyShortLabel(key)}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
         <div className="track-option-actions">
           <button
             type="button"
