@@ -313,3 +313,24 @@ a 357-file MIDI corpus.
   keeps one key for the whole song, so a key change keeps its pitch, on a layer.
 - On the corpus: notes missing 11.7% → 5.3%, wrong 2.7% → 2.0%, sharps and flats
   missing 100% → 11.8% (most of what is still missing is in solo piano covers).
+- Import layers were dropped by D024; the track key stays.
+
+## D024 — MIDI import keeps each part on one track, and drums on the Prophecy Drum (2026-11-18)
+
+**Decision:** MIDI import no longer makes a second track of the same instrument: no
+`· in <Key>` layers for sharps and flats, and no Winter Piano for a piano's top. A part's
+sharps and flats go to the nearest pad, and a key change moves its section onto the song
+key's pads (`planKeys`), as a solo piano cover already did. Notes beyond an instrument's
+reach still go to Contrabass, Cello or Xylophone, which are other instruments. A file's
+percussion goes to the Prophecy Drum instead of the plain Drum, and the song library's
+drum tracks moved with it.
+
+**Why:** A part split across two tracks of one instrument in different keys or ranges
+is hard to read, edit and play: one line ends up on two lanes.
+
+**Consequence:**
+- More sharps and flats land on a neighbouring note or are left out, as before D023.
+- A track can still have a key of its own (Track options → Key); MIDI export and import
+  keep it.
+- Fireflies and Lemon Tree in the library had a second Contrabass track; each was merged
+  into the first.

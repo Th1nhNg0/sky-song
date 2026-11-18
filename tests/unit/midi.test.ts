@@ -5,7 +5,6 @@ import { midiToProject } from '../../src/music/midiImport';
 import { getInstrument } from '../../src/music/instruments';
 import { resolvePad } from '../../src/music/pitch';
 import { createNote, createProject, createTrack, trackKey } from '../../src/music/project';
-import type { Track } from '../../src/music/types';
 import { parseProjectJson } from '../../src/music/validation';
 
 describe('MIDI import/export', () => {
@@ -121,11 +120,11 @@ describe('MIDI import/export', () => {
     drums.addNote({ midi: 36, ticks: 0, durationTicks: 100 });
     const project = midiToProject(midi.toArray(), 'Crowded');
     expect(project.tracks).toHaveLength(7);
-    expect(project.tracks.at(-1)?.instrumentId).toBe('drum');
+    expect(project.tracks.at(-1)?.instrumentId).toBe('prophecy-drum');
     expect(project.tracks.flatMap((track) => track.notes).length).toBeGreaterThan(100);
   });
 
-  it('plays sharps and flats on a layer in a key that has them', () => {
+  it('keeps sharps and flats on the part, never on a second track of the same instrument', () => {
     const midi = new Midi();
     const track = midi.addTrack();
     [60, 64, 67, 70].forEach((pitch) => track.addNote({ midi: pitch, ticks: 0, durationTicks: 100 }));
@@ -133,18 +132,14 @@ describe('MIDI import/export', () => {
     for (let i = 1; i <= 21; i++) track.addNote({ midi: i === 8 ? 61 : scale[i % 7], ticks: i * 480, durationTicks: 400 });
     const project = midiToProject(midi.toArray(), 'Chromatic');
     expect(project.key).toBe(0);
-    const [main, layer] = project.tracks;
-    expect(main.key).toBeUndefined();
-    // D flat major holds both the B flat of the chord and the C sharp of the run, at their own octave.
-    expect(layer.instrumentId).toBe(main.instrumentId);
-    expect(layer.key).toBe(1);
-    expect(layer.name).toBe(`${main.name} · in D♭`);
-    const sounding = (from: Track) => from.notes.map((note) => [note.startBeat, resolvePad(getInstrument(from.instrumentId), trackKey(project, from), note.pad).midi]);
-    expect(sounding(layer)).toEqual([[0, 70], [8, 61]]);
-    expect(sounding(main).filter(([beat]) => beat === 0).map(([, pitch]) => pitch)).toEqual([60, 64, 67]);
+    expect(project.tracks).toHaveLength(1);
+    expect(project.tracks[0].key).toBeUndefined();
+    const sounding = project.tracks[0].notes.map((note) => [note.startBeat, resolvePad(getInstrument('piano'), trackKey(project, project.tracks[0]), note.pad).midi]);
+    expect(sounding.filter(([beat]) => beat === 0).map(([, pitch]) => pitch)).toContain(60);
+    expect(sounding.some(([beat]) => beat === 8)).toBe(true);
   });
 
-  it('leaves a lone sharp on the part rather than give it a layer', () => {
+  it('leaves a lone sharp on the part', () => {
     const midi = new Midi();
     const track = midi.addTrack();
     const scale = [60, 62, 64, 65, 67, 69, 71];
@@ -252,11 +247,27 @@ describe('MIDI import/export', () => {
     for (let i = 0; i < 42; i++) flute.addNote({ midi: 60 + scale[i % 7] + 12 * (i % 2), ticks: i * 240, durationTicks: 200 });
     for (let i = 0; i < 14; i++) flute.addNote({ midi: 84 + 2 + scale[i % 7], ticks: 10080 + i * 240, durationTicks: 200 });
     const project = midiToProject(midi.toArray(), 'Wide');
-    // The top is in D major: its F sharps go to the xylophone's layer, the rest to the xylophone.
+    // The top goes to one xylophone track, its F sharps on the nearest pads.
     const high = project.tracks.filter((track) => track.instrumentId === 'xylophone');
-    expect(high.flatMap((track) => track.notes).length).toBeGreaterThanOrEqual(12);
-    expect(high.find((track) => track.key !== undefined)?.notes.length).toBe(2);
+    expect(high).toHaveLength(1);
+    expect(high[0].key).toBeUndefined();
+    expect(high[0].notes.length).toBeGreaterThanOrEqual(12);
     expect(project.tracks[0].notes.length).toBeGreaterThan(30);
+  });
+
+  it('keeps a piano part on one piano, its top never split off to the piano an octave up', () => {
+    const midi = new Midi();
+    const left = midi.addTrack();
+    const right = midi.addTrack();
+    left.instrument.number = 32;
+    const scale = [0, 2, 4, 5, 7, 9, 11];
+    for (let i = 0; i < 42; i++) left.addNote({ midi: 36 + scale[i % 7], ticks: i * 240, durationTicks: 200 });
+    for (let i = 0; i < 42; i++) right.addNote({ midi: 60 + scale[i % 7] + 12 * (i % 3), ticks: i * 240, durationTicks: 200 });
+    const project = midiToProject(midi.toArray(), 'High piano');
+    const ids = project.tracks.map((track) => track.instrumentId);
+    expect(ids).not.toContain('winter-piano');
+    expect(ids.filter((id) => id === 'piano')).toHaveLength(1);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 
   it('caps what the band starts together but keeps the top and bottom notes', () => {

@@ -27,10 +27,9 @@ MIDI.
 - The app is always strict: there is no chromatic mode and no extra octave. The grid
   shows only pads the selected instrument can actually play.
 - A song has a key (**Key** in the song fields; a MIDI file keeps its own). A track can
-  play in a key of its own (**Track options → Key**): a layer of the same instrument for
-  the sharps and flats the song's key lacks, marked `· in D♭` on its instrument button.
-  Changing the song key moves the layers with it. sky-mod plays a layer in its part's
-  take. Drums and cymbals have no key.
+  play in a key of its own (**Track options → Key**), marked `· in D♭` on its instrument
+  button. Changing the song key moves every track with it. MIDI import never makes these:
+  each part stays one track. Drums and cymbals have no key.
 - Changing a track's instrument renames it when it still has the instrument's name
   (“Harp · Performer” becomes “Cello · Performer”); a name you typed is kept.
 - Changing an instrument to one with fewer pads removes notes outside the new grid.
@@ -162,10 +161,12 @@ ringer switch off.
     no more than three keys are pressed at once. The melody moves a whole octave only where
     it has to, so it fits in two octaves and keeps its shape.
   - **Any other lone track** is split into a melody, chords on Harp and bass on Contrabass.
-  - **Key changes:** a song keeps its own key, and the notes of a new key go to a layer in
-    that key, so the lift of the key change is kept (sky-mod plays a layer in its part's
-    take). A solo piano, one track for one player, has no layers: it gets a separate shift
-    for each section instead, so every note lands on a key but the lift is lost.
+  - **One track per part:** a part is never split into a second track of the same
+    instrument. Its sharps and flats go to the nearest key, and notes past its two octaves
+    go to Contrabass, Cello or Xylophone when enough of them do, else an octave in.
+  - **Key changes:** each section gets its own shift onto the song key's pads, so every
+    note lands on a key but the lift of the key change is lost.
+  - **Drums** go to the Prophecy Drum; change the track's instrument for another drum.
   - **Recordings:** a file transcribed from a recording, whose notes drift against any
     steady beat, has its real tempo and bar lines found from the notes themselves.
   - To hear the piano on another piano, change the track's instrument: Grand Piano and

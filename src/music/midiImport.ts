@@ -1,9 +1,9 @@
 import { Midi } from '@tonejs/midi';
 import { trackBeats, type TrackedBeats } from './beatTracking';
-import { C_MAJOR, planKeys, planOneKey, type KeyPlan } from './keySections';
+import { C_MAJOR, planKeys, type KeyPlan } from './keySections';
 import { midiSafeText } from './midiText';
 import { getInstrument, INSTRUMENTS } from './instruments';
-import { getKey, pitchClass } from './keys';
+import { pitchClass } from './keys';
 import { arrangeSoloPiano } from './soloPiano';
 import { resolvePad } from './pitch';
 import { createProject, createTrack, newId, sortNotes } from './project';
@@ -27,10 +27,6 @@ interface Part {
   name: string;
   volume: number;
   notes: SourceNote[];
-  /** A layer's own key (0-11), for the notes the song's key has no pads for. */
-  key?: number;
-  /** How far a layer's pads sit above the song's (its key minus the song's), in semitones. */
-  lift?: number;
 }
 
 const GRID = 0.25;
@@ -41,26 +37,15 @@ const LOUD_PERCENTILE = 0.95;
 const LOUD_TARGET = 0.9;
 /** Instruments that reach past the song's own, lowest first: a note goes to the first that plays it. */
 const REACH = ['contrabass', 'cello', 'xylophone'];
-/** A piano's notes above its reach go to the piano an octave up, which has the same sound. */
-const PIANOS = new Set(['piano', 'grand-piano', 'grand-piano-white', 'upright-piano']);
-const PIANO_REACH = 'winter-piano';
 /** A new instrument has to carry a real share of the song, not plink a few stray notes. */
 const MIN_REACH_SHARE = 0.1;
-/** The piano an octave up is the same sound, so it may take over a piano's top for fewer notes. */
-const MIN_PIANO_REACH_SHARE = 0.02;
 /** How many notes the band may start together before the game's samples turn to mud. */
 const MAX_BAND_NOTES = 6;
 const MAX_PARTS = 6;
 const MAX_CHORD = 4;
-/**
- * The song's pads hold its scale and nothing else. The major keys a semitone above it, a
- * semitone below it and a tritone away hold all five notes it lacks, so one layer in one of
- * them gives a part every sharp and flat it plays.
- */
-const LAYER_STEPS = [1, 11, 6];
-/** Fewer sharps and flats than this stay on the part's own pads; a layer is a take of its own. */
-const MIN_LAYER_NOTES = 2;
 
+/** A file's percussion goes to this 8-pad drum. */
+const DRUM = 'prophecy-drum';
 /** General MIDI percussion note → pad on the 8-pad drum. */
 const DRUM_PADS: Record<number, number> = {
   35: 0, 36: 0, 41: 1, 43: 1, 38: 2, 40: 2, 45: 3, 47: 3, 37: 4, 39: 4, 48: 5, 50: 5,
@@ -193,8 +178,8 @@ function padPitches(instrument: InstrumentDefinition): number[] {
   return instrument.pads.map((_, pad) => resolvePad(instrument, 0, pad).midi ?? 0);
 }
 
-function placeNotes(notes: SourceNote[], instrument: InstrumentDefinition, grid: number, lift = 0): Note[] {
-  const pads = padPitches(instrument).map((pitch) => pitch + lift);
+function placeNotes(notes: SourceNote[], instrument: InstrumentDefinition, grid: number): Note[] {
+  const pads = padPitches(instrument);
   const low = pads[0];
   const high = pads[pads.length - 1];
   const chords = new Map<number, Map<number, Note>>();
@@ -323,9 +308,8 @@ function reachNotes(parts: Part[], keys: KeyPlan): Part[] {
         return Math.abs(center(part.instrumentId) - pitch) < Math.abs(center(best.instrumentId) - pitch) ? part : best;
       }).notes.push(note);
     } else {
-      const reaches = (id: string) => pitch >= ranges(id)[0] && pitch <= ranges(id)[1];
-      const homeId = settled[home].instrumentId;
-      const id = PIANOS.has(homeId) && reaches(PIANO_REACH) ? PIANO_REACH : REACH.find(reaches);
+      // Never the same instrument again: two tracks of one instrument in different ranges read as one split part.
+      const id = REACH.find((candidate) => pitch >= ranges(candidate)[0] && pitch <= ranges(candidate)[1]);
       if (id) extra.set(id, [...(extra.get(id) ?? []), { note, home }]);
       else settled[home].notes.push(note);
     }
@@ -333,7 +317,7 @@ function reachNotes(parts: Part[], keys: KeyPlan): Part[] {
   const added: Part[] = [];
   const total = parts.reduce((sum, part) => sum + part.notes.length, 0);
   for (const [instrumentId, notes] of extra) {
-    if (notes.length >= total * (instrumentId === PIANO_REACH ? MIN_PIANO_REACH_SHARE : MIN_REACH_SHARE)) {
+    if (notes.length >= total * MIN_REACH_SHARE) {
       const moved = notes.map(({ note }) => note);
       added.push({ instrumentId, name: getInstrument(instrumentId).displayName, volume: 0.8, notes: moved });
     } else {
@@ -344,52 +328,11 @@ function reachNotes(parts: Part[], keys: KeyPlan): Part[] {
 }
 
 /**
- * Gives each part a layer for its sharps and flats: the same instrument in a key whose pads
- * hold them, so they keep their pitch instead of landing on a wrong neighbour or being left
- * out. Of the keys that hold every one of them, the layer takes the one whose pads reach most
- * of the part's at their own octave. Only 15-pad instruments are layered; their pads are a
- * major scale in any key.
- */
-function addKeyLayers(parts: Part[], songKey: number): Part[] {
-  const out: Part[] = [];
-  for (const part of parts) {
-    out.push(part);
-    const instrument = getInstrument(part.instrumentId);
-    if (part.lift !== undefined || instrument.keyCount !== 15 || !instrument.pads.every((pad) => pad.pitched)) continue;
-    const pitchOf = (note: SourceNote) => note.pitch ?? note.midi;
-    const sharps = part.notes.filter((note) => !C_MAJOR.has(pitchClass(pitchOf(note))));
-    if (sharps.length < MIN_LAYER_NOTES) continue;
-    const pads = padPitches(instrument);
-    const [low, high] = [pads[0], pads[pads.length - 1]];
-    let best = { key: songKey, lift: 0, reach: -1 };
-    for (const step of LAYER_STEPS) {
-      const key = (songKey + step) % 12;
-      const lift = key - songKey;
-      const reach = sharps.filter((note) => pitchOf(note) >= low + lift && pitchOf(note) <= high + lift).length;
-      if (reach > best.reach || (reach === best.reach && Math.abs(lift) < Math.abs(best.lift))) best = { key, lift, reach };
-    }
-    const moved = new Set(sharps);
-    part.notes = part.notes.filter((note) => !moved.has(note));
-    out.push({
-      instrumentId: part.instrumentId,
-      name: `${part.name} · in ${getKey(best.key).name}`.slice(0, MAX_TRACK_NAME_LENGTH),
-      volume: part.volume,
-      notes: sharps,
-      key: best.key,
-      lift: best.lift,
-    });
-  }
-  return out.filter((part) => part.notes.length > 0);
-}
-
-/**
  * Clears what the whole band plays at once, not just one part: a note the pads can't play
  * only lands on a wrong neighbour beside others that already say enough, and a pitch two
  * parts share just thickens the sound, so the loudest copy stays.
  */
 function clearClashes(parts: Part[], grid: number): Part[] {
-  const lifts = new Map<SourceNote, number>();
-  for (const part of parts) for (const note of part.notes) lifts.set(note, part.lift ?? 0);
   const sizes = new Map<number, number>();
   const loudest = new Map<string, SourceNote>();
   const at = (note: SourceNote) => snap(note.startBeat, grid);
@@ -400,7 +343,7 @@ function clearClashes(parts: Part[], grid: number): Part[] {
     if (!held || note.velocity > held.velocity) loudest.set(key, note);
   }
   const clear = parts.flatMap((part) => part.notes).filter((note) => {
-    const offScale = !C_MAJOR.has(pitchClass((note.pitch ?? note.midi) - (lifts.get(note) ?? 0)));
+    const offScale = !C_MAJOR.has(pitchClass(note.pitch ?? note.midi));
     if (offScale && (sizes.get(at(note)) ?? 0) >= 3) return false;
     return loudest.get(`${at(note)}:${note.pitch}`) === note;
   });
@@ -745,22 +688,20 @@ export function midiToProject(bytes: ArrayBuffer | Uint8Array, title: string): P
     parts = foldExtraParts(parts);
     const all = parts.flatMap((part) => part.notes);
     grid = gridFor(all);
-    // One shift for the whole song: a key change keeps its pitch, its new key's notes going to a
-    // layer in that key (sky-mod plays a layer in its part's take), where a solo piano, one
-    // track for one player, moves each section onto the pads instead.
-    const plan = songKeyOf(all, planOneKey(all));
+    // Each part stays one track on the song key's pads: a key change moves its section onto
+    // them, as for a solo piano, rather than splitting a part into a layer in another key.
+    const plan = songKeyOf(all, planKeys(all, beatsPerBar));
     project.key = plan.key;
-    project.tracks = clearClashes(addKeyLayers(reachNotes(parts, plan.keys), project.key), grid).map((part, index) => {
+    project.tracks = clearClashes(reachNotes(parts, plan.keys), grid).map((part, index) => {
       const track = createTrack(part.instrumentId, { name: part.name, colorIndex: index });
       track.volume = part.volume;
-      if (part.key !== undefined) track.key = part.key;
-      track.notes = placeNotes(part.notes, getInstrument(part.instrumentId), grid, part.lift);
+      track.notes = placeNotes(part.notes, getInstrument(part.instrumentId), grid);
       return track;
     });
   }
 
   if (drums.length > 0) {
-    const track = createTrack('drum', { name: 'Drum', colorIndex: project.tracks.length });
+    const track = createTrack(DRUM, { name: getInstrument(DRUM).displayName, colorIndex: project.tracks.length });
     const seen = new Set<string>();
     for (const note of drums.flatMap(source)) {
       const pad = DRUM_PADS[note.midi];

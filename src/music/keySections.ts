@@ -42,15 +42,6 @@ function bestShift(notes: KeyedNote[]): number {
 }
 
 /**
- * The whole song on one shift. An arrangement with layers (`addKeyLayers` in midiImport) keeps
- * a key change at its own pitch: the new key's notes go to a layer in that key.
- */
-export function planOneKey(notes: KeyedNote[]): KeyPlan {
-  const whole = bestShift(notes);
-  return { at: () => whole, changes: [] };
-}
-
-/**
  * Splits the song where its key changes, bar by bar, and gives each section its own shift.
  * The key change itself is lost, since the pads only play one key, but every note in both
  * sections lands on a pad instead of between two.

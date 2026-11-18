@@ -14,7 +14,7 @@
    "contrabass",
    "saxophone",
    "xylophone",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0,
@@ -75,7 +75,7 @@
    "piano",
    "harp",
    "harmonica",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.17,
@@ -136,7 +136,7 @@
    "harp",
    "contrabass",
    "aurora-voice",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.24,
@@ -196,7 +196,7 @@
    "contrabass",
    "light-guitar",
    "aurora-voice",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.13,
@@ -257,7 +257,7 @@
    "guitar",
    "saxophone",
    "cello",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.04,
@@ -315,7 +315,7 @@
    "contrabass",
    "cello",
    "trumpet",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.02,
@@ -376,7 +376,7 @@
    "contrabass",
    "cello",
    "aurora-voice",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.22,
@@ -435,7 +435,7 @@
    "contrabass",
    "piano",
    "harp",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.76,
@@ -496,7 +496,7 @@
    "cello",
    "aurora-voice",
    "contrabass",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.06,
@@ -556,7 +556,7 @@
    "light-guitar",
    "harp",
    "cello",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.27,
@@ -617,7 +617,7 @@
    "saxophone",
    "contrabass",
    "xylophone",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.07,
@@ -677,7 +677,7 @@
    "piano",
    "contrabass",
    "cello",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0,
@@ -738,8 +738,7 @@
    "cello",
    "harp",
    "xylophone",
-   "contrabass",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.34,
@@ -798,7 +797,7 @@
    "light-guitar",
    "violin",
    "saxophone",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.34,
@@ -857,7 +856,7 @@
    "contrabass",
    "aurora-voice",
    "flute",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.08,
@@ -916,7 +915,7 @@
    "harmonica",
    "cello",
    "contrabass",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.12,
@@ -976,7 +975,7 @@
    "flute",
    "harmonica",
    "light-guitar",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.38,
@@ -1029,7 +1028,7 @@
   "file": "lemon-tree.skymusic.json",
   "bpm": 71,
   "seconds": 192,
-  "notes": 3348,
+  "notes": 3201,
   "instruments": [
    "cello",
    "flute",
@@ -1037,8 +1036,7 @@
    "contrabass",
    "aurora-voice",
    "xylophone",
-   "contrabass",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.07,
@@ -1099,7 +1097,7 @@
    "contrabass",
    "guitar",
    "xylophone",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.26,
@@ -1160,7 +1158,7 @@
    "contrabass",
    "harmonica",
    "cello",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.16,
@@ -1221,7 +1219,7 @@
    "light-guitar",
    "harp",
    "contrabass",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.07,
@@ -1282,7 +1280,7 @@
    "aurora-voice",
    "cello",
    "light-guitar",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.04,
@@ -1341,7 +1339,7 @@
    "light-guitar",
    "harp",
    "contrabass",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.16,
@@ -1402,7 +1400,7 @@
    "light-guitar",
    "cello",
    "harp",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.1,
@@ -1462,7 +1460,7 @@
    "harmonica",
    "contrabass",
    "piano",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.5,
@@ -1523,7 +1521,7 @@
    "aurora-voice",
    "saxophone",
    "cello",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0,
@@ -1583,7 +1581,7 @@
    "harp",
    "piano",
    "contrabass",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.01,
@@ -1644,7 +1642,7 @@
    "piano",
    "aurora-voice",
    "harmonica",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.3,
@@ -1705,7 +1703,7 @@
    "cello",
    "saxophone",
    "harmonica",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.06,
@@ -1765,7 +1763,7 @@
    "contrabass",
    "saxophone",
    "aurora-voice",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.04,
@@ -1826,7 +1824,7 @@
    "contrabass",
    "xylophone",
    "flute",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.3,
@@ -1887,7 +1885,7 @@
    "piano",
    "harp",
    "trumpet",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.4,
@@ -1947,7 +1945,7 @@
    "violin",
    "harmonica",
    "light-guitar",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.24,
@@ -2008,7 +2006,7 @@
    "harp",
    "piano",
    "aurora-voice",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.3,
@@ -2067,7 +2065,7 @@
    "piano",
    "contrabass",
    "harp",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.26,
@@ -2128,7 +2126,7 @@
    "light-guitar",
    "violin",
    "piano",
-   "drum"
+   "prophecy-drum"
   ],
   "shape": [
    0.05,

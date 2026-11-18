@@ -51,7 +51,7 @@ This is the unvarnished list, current as of the delivery build. Items marked
 11. **The game's own key is not simulated.** Sky plays an instrument in the key the
     music last set (markers in the music itself, so it changes as the music does), not
     by area. A project has one song key that the user chooses, and a track may have a
-    key of its own: a layer for the sharps and flats the song's key lacks (D023).
+    key of its own (D023).
     sky-mod's "Play in the song's key" holds these keys in the game; the app does not
     model what the game's music would set.
 
@@ -91,12 +91,12 @@ This is the unvarnished list, current as of the delivery build. Items marked
 
 21. **MIDI import is exact only for this app's own files.** A file exported here comes
     back note for note, with its tracks, instruments, pads and every tempo and meter
-    change. Other MIDI files are arranged onto real game keys: they keep their own key;
-    a part's notes outside it go to a layer in a nearby key (D023) when there are two or
-    more of them, else to a neighbouring note; notes beyond an instrument's two octaves
-    go to one that reaches them (Cello, Contrabass, Xylophone, Winter Piano above a
-    piano) when enough of them do, else an octave in; and the file is capped at six parts
-    and four-note chords. Their tempo changes
+    change. Other MIDI files are arranged onto real game keys: they keep their own key,
+    and each part stays one track (D024); a part's notes outside the key go to a
+    neighbouring note; a key change moves its section onto the pads, losing its lift;
+    notes beyond an instrument's two octaves go to one that reaches them (Contrabass,
+    Cello, Xylophone) when enough of them do, else an octave in; and the file is capped
+    at six parts and four-note chords. Their tempo changes
     are kept from the first note on (a count-in at another speed is not), up to 256;
     a file with more, usually a recorded performance, keeps only the tempo it spends
     the most time in. Tempos outside 40–240 BPM are clamped, meters the app does not
